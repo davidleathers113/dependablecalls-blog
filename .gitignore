@@ -34,3 +34,12 @@ supabase/.temp
 
 # Claude AI settings
 .claude/
+
+# Test outputs
+coverage/
+playwright-report/
+test-results/
+.nyc_output/
+
+# Monitoring files
+monitor.log
