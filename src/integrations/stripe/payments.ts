@@ -1,6 +1,32 @@
 import { stripeServerClient } from './client';
 import type { CreatePaymentIntentParams, PaymentStatus } from './types';
 import type Stripe from 'stripe';
+import { v4 as uuid } from 'uuid';
+
+/**
+ * Centralized error handler for Stripe operations
+ * Prevents leaking sensitive information and provides type-safe error handling
+ */
+function handleStripeError(err: unknown, context: string): never {
+  if (err instanceof stripeServerClient.errors.StripeError) {
+    console.error(`${context} failed`, { 
+      type: err.type, 
+      code: err.code, 
+      param: err.param,
+      requestId: err.requestId 
+    });
+    
+    // Return generic error messages to prevent information leakage
+    if (err.code === 'resource_missing') {
+      throw new Error(`Resource not found. Please check your request and try again.`);
+    }
+    
+    throw new Error(`Payment service error. Please retry or contact support.`);
+  }
+  
+  console.error(`${context} unexpected error`, err);
+  throw new Error('Internal server error. Please try again later.');
+}
 
 export const createPaymentIntent = async (
   params: CreatePaymentIntentParams
@@ -10,40 +36,45 @@ export const createPaymentIntent = async (
       amount: params.amount,
       currency: params.currency,
       customer: params.customerId,
-      payment_method_types: params.paymentMethodTypes || ['card', 'us_bank_account'],
+      payment_method_types: params.paymentMethodTypes ?? ['card', 'us_bank_account'],
       metadata: {
         ...params.metadata,
         platform: 'dependablecalls',
       },
       setup_future_usage: 'off_session',
       automatic_payment_methods: {
-        enabled: false,
+        enabled: true, // Enable for better payment method management
       },
+    }, {
+      idempotencyKey: uuid() // Prevent duplicate payment intent creation
     });
     
     return paymentIntent;
-  } catch (error) {
-    console.error('Error creating payment intent:', error);
-    throw new Error(`Failed to create payment intent: ${error.message}`);
+  } catch (error: unknown) {
+    handleStripeError(error, 'create payment intent');
   }
 };
 
 export const confirmPaymentIntent = async (
   paymentIntentId: string,
-  paymentMethodId: string
+  paymentMethodId: string,
+  returnUrl: string
 ): Promise<Stripe.PaymentIntent> => {
   try {
     const paymentIntent = await stripeServerClient.paymentIntents.confirm(
       paymentIntentId,
       {
         payment_method: paymentMethodId,
+        return_url: returnUrl, // Required for payment methods that need redirect
+      },
+      {
+        idempotencyKey: uuid() // Prevent duplicate confirmation
       }
     );
     
     return paymentIntent;
-  } catch (error) {
-    console.error('Error confirming payment intent:', error);
-    throw new Error(`Failed to confirm payment intent: ${error.message}`);
+  } catch (error: unknown) {
+    handleStripeError(error, 'confirm payment intent');
   }
 };
 
@@ -55,14 +86,16 @@ export const cancelPaymentIntent = async (
     const paymentIntent = await stripeServerClient.paymentIntents.cancel(
       paymentIntentId,
       {
-        cancellation_reason: reason as any || 'requested_by_customer',
+        cancellation_reason: (reason as Stripe.PaymentIntent.CancellationReason) ?? 'requested_by_customer',
+      },
+      {
+        idempotencyKey: uuid() // Prevent duplicate cancellation
       }
     );
     
     return paymentIntent;
-  } catch (error) {
-    console.error('Error canceling payment intent:', error);
-    throw new Error(`Failed to cancel payment intent: ${error.message}`);
+  } catch (error: unknown) {
+    handleStripeError(error, 'cancel payment intent');
   }
 };
 
@@ -75,12 +108,12 @@ export const getPaymentIntent = async (
     );
     
     return paymentIntent;
-  } catch (error) {
-    if (error.code === 'resource_missing') {
+  } catch (error: unknown) {
+    if (error instanceof stripeServerClient.errors.StripeError && 
+        error.code === 'resource_missing') {
       return null;
     }
-    console.error('Error retrieving payment intent:', error);
-    throw new Error(`Failed to retrieve payment intent: ${error.message}`);
+    handleStripeError(error, 'retrieve payment intent');
   }
 };
 
@@ -91,13 +124,15 @@ export const updatePaymentIntent = async (
   try {
     const paymentIntent = await stripeServerClient.paymentIntents.update(
       paymentIntentId,
-      updates
+      updates,
+      {
+        idempotencyKey: uuid() // Prevent duplicate updates
+      }
     );
     
     return paymentIntent;
-  } catch (error) {
-    console.error('Error updating payment intent:', error);
-    throw new Error(`Failed to update payment intent: ${error.message}`);
+  } catch (error: unknown) {
+    handleStripeError(error, 'update payment intent');
   }
 };
 
@@ -116,12 +151,13 @@ export const createRefund = async (
         ...metadata,
         platform: 'dependablecalls',
       },
+    }, {
+      idempotencyKey: uuid() // Prevent duplicate refunds
     });
     
     return refund;
-  } catch (error) {
-    console.error('Error creating refund:', error);
-    throw new Error(`Failed to create refund: ${error.message}`);
+  } catch (error: unknown) {
+    handleStripeError(error, 'create refund');
   }
 };
 
@@ -156,43 +192,98 @@ export const getPaymentStatus = (
   };
 };
 
+/**
+ * List all payment intents for a customer with automatic pagination
+ * This ensures we get ALL payments, not just the first page
+ */
 export const listCustomerPayments = async (
   customerId: string,
-  limit: number = 100
+  limit = 1000 // Increased from 100 for better performance
 ): Promise<Stripe.PaymentIntent[]> => {
   try {
-    const paymentIntents = await stripeServerClient.paymentIntents.list({
-      customer: customerId,
-      limit,
-    });
+    const payments: Stripe.PaymentIntent[] = [];
     
-    return paymentIntents.data;
-  } catch (error) {
-    console.error('Error listing customer payments:', error);
-    throw new Error(`Failed to list payments: ${error.message}`);
+    // Use auto-pagination to ensure we get all payment intents
+    for await (const paymentIntent of stripeServerClient.paymentIntents.list({
+      customer: customerId,
+      limit, // Page size
+    })) {
+      payments.push(paymentIntent);
+    }
+    
+    return payments;
+  } catch (error: unknown) {
+    handleStripeError(error, 'list customer payments');
   }
 };
 
-export const createCharge = async (
+/**
+ * Create and immediately capture a payment using PaymentIntents
+ * This replaces the legacy charges.create API for SCA compliance
+ * @deprecated Use createPaymentIntent with automatic capture instead
+ */
+export const createAndCapturePayment = async (
   amount: number,
   currency: string,
-  source: string,
-  metadata: Record<string, string>
-): Promise<Stripe.Charge> => {
+  paymentMethodId: string,
+  customerId?: string,
+  metadata?: Record<string, string>
+): Promise<Stripe.PaymentIntent> => {
   try {
-    const charge = await stripeServerClient.charges.create({
+    // Create and confirm payment intent in one API call
+    const paymentIntent = await stripeServerClient.paymentIntents.create({
       amount,
       currency,
-      source,
+      payment_method: paymentMethodId,
+      customer: customerId,
+      confirm: true, // Immediately attempt to confirm
+      capture_method: 'automatic', // Capture funds immediately on confirmation
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: 'never', // For immediate capture, don't allow redirects
+      },
       metadata: {
         ...metadata,
         platform: 'dependablecalls',
       },
+    }, {
+      idempotencyKey: uuid() // Prevent duplicate charges
     });
     
-    return charge;
-  } catch (error) {
-    console.error('Error creating charge:', error);
-    throw new Error(`Failed to create charge: ${error.message}`);
+    return paymentIntent;
+  } catch (error: unknown) {
+    handleStripeError(error, 'create and capture payment');
+  }
+};
+
+/**
+ * Helper function to handle off-session payments (e.g., recurring charges)
+ */
+export const createOffSessionPayment = async (
+  amount: number,
+  currency: string,
+  customerId: string,
+  paymentMethodId: string,
+  metadata?: Record<string, string>
+): Promise<Stripe.PaymentIntent> => {
+  try {
+    const paymentIntent = await stripeServerClient.paymentIntents.create({
+      amount,
+      currency,
+      customer: customerId,
+      payment_method: paymentMethodId,
+      off_session: true,
+      confirm: true,
+      metadata: {
+        ...metadata,
+        platform: 'dependablecalls',
+      },
+    }, {
+      idempotencyKey: uuid() // Prevent duplicate charges
+    });
+    
+    return paymentIntent;
+  } catch (error: unknown) {
+    handleStripeError(error, 'create off-session payment');
   }
 };

@@ -34,8 +34,10 @@ export interface CreatePaymentIntentParams {
   paymentMethodTypes?: string[];
 }
 
+import type { Cents } from './payouts';
+
 export interface CreateTransferParams {
-  amount: number;
+  amount: Cents;
   currency: string;
   destination: string;
   metadata: {
@@ -50,7 +52,7 @@ export interface StripeWebhookEvent {
   id: string;
   type: string;
   data: {
-    object: any;
+    object: Stripe.Event.Data.Object;
   };
   created: number;
 }

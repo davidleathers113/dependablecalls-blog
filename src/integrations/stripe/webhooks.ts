@@ -15,7 +15,8 @@ export const verifyWebhookSignature = (
       stripeConfig.webhookSecret
     );
   } catch (err) {
-    throw new Error(`Webhook signature verification failed: ${err.message}`);
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    throw new Error(`Webhook signature verification failed: ${errorMessage}`);
   }
 };
 
@@ -136,7 +137,8 @@ export const handleStripeWebhook = async (
     event = verifyWebhookSignature(req.body, signature);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
-    res.status(400).send(`Webhook Error: ${err.message}`);
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    res.status(400).send(`Webhook Error: ${errorMessage}`);
     return;
   }
   
@@ -148,7 +150,8 @@ export const handleStripeWebhook = async (
       res.json({ received: true });
     } catch (err) {
       console.error(`Error handling webhook ${event.type}:`, err);
-      res.status(500).send(`Webhook handler error: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).send(`Webhook handler error: ${errorMessage}`);
     }
   } else {
     console.log(`Unhandled webhook event type: ${event.type}`);

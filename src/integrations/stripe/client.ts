@@ -11,7 +11,7 @@ export const stripeServerClient = new Stripe(
   }
 );
 
-let stripePromise: Promise<any> | null = null;
+let stripePromise: Promise<Stripe | null> | null = null;
 
 export const getStripeClient = () => {
   if (!stripePromise) {
