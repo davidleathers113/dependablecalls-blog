@@ -15,7 +15,7 @@ export const StatusPage: React.FC = () => {
   const [healthData, setHealthData] = useState<HealthCheckResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [services, setServices] = useState<ServiceStatus[]>([])
-  const [incidents, setIncidents] = useState<any[]>([])
+  const [incidents] = useState<Record<string, unknown>[]>([])
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {

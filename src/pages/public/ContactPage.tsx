@@ -42,7 +42,7 @@ export default function ContactPage() {
       setTimeout(() => {
         setSubmitStatus('idle')
       }, 5000)
-    } catch (error) {
+    } catch {
       setSubmitStatus('error')
     }
   }

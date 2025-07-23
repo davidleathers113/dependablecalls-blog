@@ -78,6 +78,12 @@ function App() {
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
             <Route path="forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="blog" element={<BlogPage />} />
+            <Route path="contact" element={<ContactPage />} />
+            <Route path="careers" element={<CareersPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
+            <Route path="terms" element={<TermsPage />} />
+            <Route path="compliance" element={<CompliancePage />} />
           </Route>
           
           {/* Protected app routes */}
