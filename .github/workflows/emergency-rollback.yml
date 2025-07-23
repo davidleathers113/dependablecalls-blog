@@ -1,0 +1,151 @@
+name: Emergency Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      deployment_id:
+        description: 'Deployment ID to rollback to (leave empty to select interactively)'
+        required: false
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        default: 'Performance degradation'
+
+jobs:
+  rollback:
+    name: Rollback ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup environment
+        run: |
+          if [[ "${{ github.event.inputs.environment }}" == "production" ]]; then
+            echo "NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}" >> $GITHUB_ENV
+          else
+            echo "NETLIFY_SITE_ID=${{ secrets.NETLIFY_STAGING_SITE_ID }}" >> $GITHUB_ENV
+          fi
+          
+      - name: Get deployment history
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          echo "Recent deployments for ${{ github.event.inputs.environment }}:"
+          curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/deploys?per_page=10" | \
+            jq -r '.[] | select(.state == "ready") | "\(.id) - \(.created_at) - \(.branch) - \(.context)"' | \
+            head -5
+            
+      - name: Perform rollback
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ env.NETLIFY_SITE_ID }}
+          ENVIRONMENT: ${{ github.event.inputs.environment }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [[ -n "${{ github.event.inputs.deployment_id }}" ]]; then
+            echo "${{ github.event.inputs.deployment_id }}" | ./scripts/rollback.sh
+          else
+            # Interactive mode not supported in GitHub Actions
+            echo "ERROR: Deployment ID is required for automated rollback"
+            exit 1
+          fi
+          
+      - name: Create rollback issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔄 Emergency Rollback: ${context.payload.inputs.environment}`,
+              body: `## Emergency Rollback Performed
+              
+              **Environment:** ${context.payload.inputs.environment}
+              **Initiated by:** @${context.actor}
+              **Timestamp:** ${new Date().toISOString()}
+              **Reason:** ${context.payload.inputs.reason}
+              **Deployment ID:** ${context.payload.inputs.deployment_id || 'Interactive selection'}
+              
+              ### Action Items
+              - [ ] Investigate root cause
+              - [ ] Fix identified issues
+              - [ ] Test fixes in staging
+              - [ ] Plan forward deployment
+              
+              ### Related Information
+              - Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+              `,
+              labels: ['emergency', 'rollback', context.payload.inputs.environment],
+              assignees: [context.actor]
+            });
+            
+            console.log(`Created issue #${issue.data.number}`);
+            
+      - name: Notify team
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Emergency Rollback ${{ job.status }}
+            Environment: ${{ github.event.inputs.environment }}
+            Reason: ${{ github.event.inputs.reason }}
+            Initiated by: ${{ github.actor }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  post-rollback-validation:
+    name: Validate Rollback
+    needs: rollback
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Wait for deployment
+        run: sleep 30
+        
+      - name: Health check
+        run: |
+          SITE_URL="${{ github.event.inputs.environment == 'production' && 'https://dependablecalls.com' || 'https://staging.dependablecalls.com' }}"
+          
+          for i in {1..5}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/health" || echo "000")
+            echo "Health check attempt $i: HTTP $HTTP_CODE"
+            
+            if [[ "$HTTP_CODE" == "200" ]]; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            
+            sleep 10
+          done
+          
+          echo "❌ Health check failed after rollback"
+          exit 1
+          
+      - name: Run smoke tests
+        run: |
+          # Basic smoke tests
+          SITE_URL="${{ github.event.inputs.environment == 'production' && 'https://dependablecalls.com' || 'https://staging.dependablecalls.com' }}"
+          
+          # Check critical pages
+          for page in "/" "/login" "/api/health"; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL$page" || echo "000")
+            echo "Page $page: HTTP $HTTP_CODE"
+            
+            if [[ "$HTTP_CODE" != "200" && "$HTTP_CODE" != "301" && "$HTTP_CODE" != "302" ]]; then
+              echo "❌ Page $page returned unexpected status: $HTTP_CODE"
+              exit 1
+            fi
+          done
+          
+          echo "✅ Smoke tests passed"

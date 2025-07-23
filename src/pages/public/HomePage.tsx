@@ -149,6 +149,191 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Pricing Section */}
+      <div id="pricing" className="py-12 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="lg:text-center">
+            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">Pricing</h2>
+            <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+              Simple, transparent pricing
+            </p>
+            <p className="mt-4 max-w-2xl text-xl text-gray-500 lg:mx-auto">
+              Choose the plan that fits your business needs. All plans include our core features.
+            </p>
+          </div>
+
+          <div className="mt-10">
+            <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:gap-8">
+              {/* Basic Plan */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm divide-y divide-gray-200">
+                <div className="p-6">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Basic</h3>
+                  <p className="mt-4 text-sm text-gray-500">Perfect for getting started</p>
+                  <p className="mt-8">
+                    <span className="text-4xl font-extrabold text-gray-900">$0</span>
+                    <span className="text-base font-medium text-gray-500">/month</span>
+                  </p>
+                  <Link
+                    to="/register"
+                    className="mt-8 block w-full bg-gray-800 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-gray-900"
+                  >
+                    Get started
+                  </Link>
+                </div>
+                <div className="pt-6 pb-8 px-6">
+                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h4>
+                  <ul className="mt-6 space-y-4">
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Up to 100 calls/month</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Basic analytics</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Email support</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Professional Plan */}
+              <div className="bg-white border border-primary-500 rounded-lg shadow-sm divide-y divide-gray-200">
+                <div className="p-6">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Professional</h3>
+                  <p className="mt-4 text-sm text-gray-500">Best for growing businesses</p>
+                  <p className="mt-8">
+                    <span className="text-4xl font-extrabold text-gray-900">$299</span>
+                    <span className="text-base font-medium text-gray-500">/month</span>
+                  </p>
+                  <Link
+                    to="/register"
+                    className="mt-8 block w-full bg-primary-600 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-primary-700"
+                  >
+                    Start free trial
+                  </Link>
+                </div>
+                <div className="pt-6 pb-8 px-6">
+                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h4>
+                  <ul className="mt-6 space-y-4">
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Up to 1,000 calls/month</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Advanced analytics</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Priority support</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">API access</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Enterprise Plan */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm divide-y divide-gray-200">
+                <div className="p-6">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Enterprise</h3>
+                  <p className="mt-4 text-sm text-gray-500">For high-volume operations</p>
+                  <p className="mt-8">
+                    <span className="text-4xl font-extrabold text-gray-900">Custom</span>
+                  </p>
+                  <Link
+                    to="/contact"
+                    className="mt-8 block w-full bg-gray-800 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-gray-900"
+                  >
+                    Contact sales
+                  </Link>
+                </div>
+                <div className="pt-6 pb-8 px-6">
+                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h4>
+                  <ul className="mt-6 space-y-4">
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Unlimited calls</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Custom integrations</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">Dedicated account manager</span>
+                    </li>
+                    <li className="flex space-x-3">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-sm text-gray-500">24/7 phone support</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* About Section */}
+      <div id="about" className="py-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="lg:text-center">
+            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">About Us</h2>
+            <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+              The trusted pay-per-call network
+            </p>
+            <p className="mt-4 max-w-2xl text-xl text-gray-500 lg:mx-auto">
+              We've been connecting quality traffic providers with serious advertisers since 2020, 
+              building a reputation for transparency, reliability, and exceptional results.
+            </p>
+          </div>
+
+          <div className="mt-10">
+            <div className="space-y-10 md:space-y-0 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-10">
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900">Our Mission</h3>
+                <p className="mt-2 text-base text-gray-500">
+                  To create a transparent, fraud-free marketplace where traffic suppliers and advertisers 
+                  can build mutually beneficial relationships based on quality and performance.
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900">Why Choose Us</h3>
+                <p className="mt-2 text-base text-gray-500">
+                  With industry-leading fraud detection, real-time analytics, and a commitment to 
+                  partner success, we're the platform of choice for serious performance marketers.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="text-center">
+                <p className="text-4xl font-extrabold text-primary-600">$50M+</p>
+                <p className="mt-2 text-base text-gray-500">Revenue Generated</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-extrabold text-primary-600">10K+</p>
+                <p className="mt-2 text-base text-gray-500">Active Campaigns</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-extrabold text-primary-600">500+</p>
+                <p className="mt-2 text-base text-gray-500">Trusted Partners</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-extrabold text-primary-600">24/7</p>
+                <p className="mt-2 text-base text-gray-500">Support Available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* CTA Section */}
       <div className="bg-gray-50">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between">

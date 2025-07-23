@@ -9,9 +9,17 @@ import AppLayout from './components/layout/AppLayout'
 
 // Public Pages
 import HomePage from './pages/public/HomePage'
+import BlogPage from './pages/public/BlogPage'
+import ContactPage from './pages/public/ContactPage'
+import CareersPage from './pages/public/CareersPage'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+
+// Legal Pages
+import PrivacyPage from './pages/legal/PrivacyPage'
+import TermsPage from './pages/legal/TermsPage'
+import CompliancePage from './pages/legal/CompliancePage'
 
 // Authenticated Pages
 import DashboardPage from './pages/dashboard/DashboardPage'

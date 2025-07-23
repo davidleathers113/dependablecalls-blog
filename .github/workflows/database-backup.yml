@@ -1,0 +1,97 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: 'Backup retention in days'
+        required: false
+        default: '7'
+
+jobs:
+  backup:
+    name: Backup Supabase Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          
+      - name: Install PostgreSQL client
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get -y install postgresql-client-16
+          
+      - name: Run backup script
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_PROD }}
+          AWS_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          RETENTION_DAYS: ${{ github.event.inputs.retention_days || '7' }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+        run: |
+          bash scripts/backup/supabase-backup.sh
+          
+      - name: Verify backup
+        run: |
+          # Check if backup was created in S3
+          LATEST_BACKUP=$(aws s3 ls s3://${{ secrets.BACKUP_S3_BUCKET }}/database-backups/ | grep dump.gz | sort | tail -1 | awk '{print $4}')
+          if [[ -z "$LATEST_BACKUP" ]]; then
+            echo "ERROR: No backup found in S3"
+            exit 1
+          fi
+          echo "Latest backup: $LATEST_BACKUP"
+          
+      - name: Test restore (dry run)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Backup restore test would be performed here in a test environment"
+          # In production, this would restore to a test database to verify backup integrity
+
+  backup-staging:
+    name: Backup Staging Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          
+      - name: Install PostgreSQL client
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get -y install postgresql-client-16
+          
+      - name: Run staging backup
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_STAGING }}
+          AWS_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          RETENTION_DAYS: '3'  # Shorter retention for staging
+          BACKUP_DIR: /tmp/backups/staging
+        run: |
+          # Modify backup path for staging
+          export AWS_S3_BUCKET="${AWS_S3_BUCKET}/staging"
+          bash scripts/backup/supabase-backup.sh

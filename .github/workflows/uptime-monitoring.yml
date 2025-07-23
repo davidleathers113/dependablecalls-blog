@@ -1,0 +1,196 @@
+name: Uptime Monitoring
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check-production:
+    name: Check Production Health
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Health check - Main site
+        id: health_main
+        run: |
+          response=$(curl -s -o response.txt -w "%{http_code}" https://dependablecalls.com/health || echo "000")
+          echo "status_code=$response" >> $GITHUB_OUTPUT
+          
+          if [[ "$response" == "200" ]]; then
+            echo "✅ Main site is healthy"
+            jq . response.txt || cat response.txt
+          else
+            echo "❌ Main site is unhealthy (HTTP $response)"
+            cat response.txt || echo "No response body"
+            exit 1
+          fi
+          
+      - name: Check critical endpoints
+        run: |
+          endpoints=(
+            "https://dependablecalls.com"
+            "https://dependablecalls.com/login"
+            "https://dependablecalls.com/api/health"
+          )
+          
+          for endpoint in "${endpoints[@]}"; do
+            echo "Checking $endpoint..."
+            status=$(curl -s -o /dev/null -w "%{http_code}" "$endpoint" || echo "000")
+            
+            if [[ "$status" == "200" || "$status" == "301" || "$status" == "302" ]]; then
+              echo "✅ $endpoint - HTTP $status"
+            else
+              echo "❌ $endpoint - HTTP $status"
+              exit 1
+            fi
+          done
+          
+      - name: Performance check
+        run: |
+          echo "Measuring response times..."
+          
+          # Measure homepage load time
+          time_total=$(curl -s -o /dev/null -w "%{time_total}" https://dependablecalls.com)
+          echo "Homepage load time: ${time_total}s"
+          
+          # Check if response time is acceptable (under 3 seconds)
+          if (( $(echo "$time_total > 3" | bc -l) )); then
+            echo "⚠️ Homepage load time is slow (${time_total}s > 3s)"
+          fi
+          
+      - name: Create incident if unhealthy
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = ['incident', 'production', 'automated'];
+            const title = `🚨 Production Health Check Failed`;
+            const body = `## Production Health Check Failed
+            
+            **Time:** ${new Date().toISOString()}
+            **Status Code:** ${{ steps.health_main.outputs.status_code }}
+            **Workflow:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+            
+            ### Immediate Actions Required:
+            1. Check production logs
+            2. Verify database connectivity
+            3. Check for deployment issues
+            4. Review error tracking in Sentry
+            
+            ### Escalation:
+            - [ ] Notify on-call engineer
+            - [ ] Check monitoring dashboards
+            - [ ] Review recent deployments
+            `;
+            
+            // Check if there's already an open incident
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: labels.join(','),
+              state: 'open'
+            });
+            
+            if (issues.data.length === 0) {
+              // Create new incident
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels
+              });
+            } else {
+              // Add comment to existing incident
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `Health check failed again at ${new Date().toISOString()}`
+              });
+            }
+            
+      - name: Send alerts
+        if: failure()
+        run: |
+          # Send Slack notification
+          if [[ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{
+                "text": "🚨 Production health check failed!",
+                "attachments": [{
+                  "color": "danger",
+                  "fields": [
+                    {"title": "Environment", "value": "Production", "short": true},
+                    {"title": "Status", "value": "${{ steps.health_main.outputs.status_code }}", "short": true},
+                    {"title": "Time", "value": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'", "short": true}
+                  ]
+                }]
+              }' \
+              ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
+          
+          # Send PagerDuty alert
+          if [[ -n "${{ secrets.PAGERDUTY_INTEGRATION_KEY }}" ]]; then
+            curl -X POST https://events.pagerduty.com/v2/enqueue \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "routing_key": "${{ secrets.PAGERDUTY_INTEGRATION_KEY }}",
+                "event_action": "trigger",
+                "payload": {
+                  "summary": "Production health check failed",
+                  "severity": "critical",
+                  "source": "github-actions",
+                  "custom_details": {
+                    "status_code": "${{ steps.health_main.outputs.status_code }}",
+                    "workflow_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              }'
+          fi
+
+  check-staging:
+    name: Check Staging Health
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.run_number % 3 == 0  # Run every 15 minutes
+    
+    steps:
+      - name: Health check - Staging
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://staging.dependablecalls.com/health || echo "000")
+          
+          if [[ "$response" == "200" ]]; then
+            echo "✅ Staging is healthy"
+          else
+            echo "⚠️ Staging is unhealthy (HTTP $response)"
+            # Don't fail the job for staging
+          fi
+
+  metrics:
+    name: Store Uptime Metrics
+    needs: [check-production]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Calculate uptime
+        run: |
+          # This would typically store metrics in a time-series database
+          if [[ "${{ needs.check-production.result }}" == "success" ]]; then
+            echo "UPTIME_STATUS=up" >> $GITHUB_ENV
+            echo "✅ Recording successful health check"
+          else
+            echo "UPTIME_STATUS=down" >> $GITHUB_ENV
+            echo "❌ Recording failed health check"
+          fi
+          
+      - name: Update status page
+        run: |
+          # This would update a public status page
+          echo "Status: $UPTIME_STATUS"
+          echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
