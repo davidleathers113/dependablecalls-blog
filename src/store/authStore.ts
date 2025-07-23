@@ -8,6 +8,7 @@ interface AuthState {
   session: Session | null
   userType: 'supplier' | 'buyer' | 'admin' | null
   loading: boolean
+  isAuthenticated: boolean
   setUser: (user: User | null) => void
   setSession: (session: Session | null) => void
   setUserType: (userType: 'supplier' | 'buyer' | 'admin' | null) => void
@@ -19,11 +20,15 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       session: null,
       userType: null,
       loading: true,
+
+      get isAuthenticated() {
+        return !!get().user && !!get().session
+      },
 
       setUser: (user) => set({ user }),
       setSession: (session) => set({ session }),
@@ -39,7 +44,7 @@ export const useAuthStore = create<AuthState>()(
 
         if (data.user && data.session) {
           set({ user: data.user, session: data.session })
-          
+
           // Fetch user type from users table
           const { data: userData } = await supabase
             .from('users')
@@ -76,12 +81,14 @@ export const useAuthStore = create<AuthState>()(
 
       checkSession: async () => {
         set({ loading: true })
-        
-        const { data: { session } } = await supabase.auth.getSession()
-        
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
         if (session) {
           set({ user: session.user, session })
-          
+
           // Fetch user type
           const { data: userData } = await supabase
             .from('users')
@@ -93,13 +100,13 @@ export const useAuthStore = create<AuthState>()(
             set({ userType: userData.user_type })
           }
         }
-        
+
         set({ loading: false })
       },
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ 
+      partialize: (state) => ({
         user: state.user,
         session: state.session,
         userType: state.userType,

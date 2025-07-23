@@ -184,6 +184,7 @@ tests/
 .gitignore
 .prettierignore
 .prettierrc.json
+BACKEND_SETUP.md
 CLAUDE.md
 eslint.config.js
 index.html
@@ -201,443 +202,6 @@ vite.config.ts
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path="src/integrations/fraud/maxmind.ts">
-import axios from 'axios';
-import { fraudConfig } from './config';
-import type { MaxMindGeoResult } from './types';
-
-export class MaxMindClient {
-  private client = axios.create({
-    baseURL: fraudConfig.maxmind.baseUrl,
-    timeout: fraudConfig.maxmind.timeout,
-    auth: {
-      username: fraudConfig.maxmind.apiKey,
-      password: '', // MaxMind uses account ID as username and license key as password
-    },
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
-
-  async checkIPLocation(ipAddress: string): Promise<MaxMindGeoResult> {
-    try {
-      // Get both insights and country data
-      const [insightsResponse, countryResponse] = await Promise.allSettled([
-        this.getInsights(ipAddress),
-        this.getCountry(ipAddress),
-      ]);
-
-      let insightsData: Record<string, unknown> = {};
-      let countryData: Record<string, unknown> = {};
-
-      if (insightsResponse.status === 'fulfilled') {
-        insightsData = insightsResponse.value.data as Record<string, unknown>;
-      }
-
-      if (countryResponse.status === 'fulfilled') {
-        countryData = countryResponse.value.data as Record<string, unknown>;
-      }
-
-      return this.processGeoData(insightsData, countryData);
-    } catch (error) {
-      console.error('MaxMind GeoIP check error:', error);
-      
-      if (axios.isAxiosError(error)) {
-        return {
-          fraudScore: 0,
-          riskLevel: 'low',
-          error: `MaxMind check failed: ${error.response?.data?.error || error.message}`,
-        };
-      }
-      
-      return {
-        fraudScore: 0,
-        riskLevel: 'low',
-        error: 'MaxMind GeoIP service unavailable',
-      };
-    }
-  }
-
-  private async getInsights(ip: string): Promise<{ data: unknown }> {
-    return this.client.get(`/insights/${ip}`);
-  }
-
-  private async getCountry(ip: string): Promise<{ data: unknown }> {
-    return this.client.get(`/country/${ip}`);
-  }
-
-  private processGeoData(insights: Record<string, unknown>, country: Record<string, unknown>): MaxMindGeoResult {
-    // Extract location data
-    const countryInfo = (insights.country || country.country || {}) as Record<string, unknown>;
-    const city = insights.city as Record<string, unknown> || {};
-    const location = insights.location as Record<string, unknown> || {};
-    const traits = insights.traits as Record<string, unknown> || {};
-    
-    const countryCode = countryInfo.iso_code as string;
-    const region = (city.names as any)?.en as string;
-    const cityName = (city.names as any)?.en as string;
-    
-    // Extract risk indicators
-    const riskScore = Number(traits.risk_score) || 0;
-    const isAnonymousProxy = Boolean(traits.is_anonymous_proxy);
-    const isSatelliteProvider = Boolean(traits.is_satellite_provider);
-    const userType = traits.user_type as string;
-    
-    // Calculate fraud score based on various factors
-    let fraudScore = riskScore * 10; // MaxMind risk score is 0-10, convert to 0-100
-    
-    // Apply additional risk factors
-    const riskFactors = [
-      { condition: isAnonymousProxy, penalty: 30 },
-      { condition: isSatelliteProvider, penalty: 15 },
-      { condition: userType === 'hosting', penalty: 20 },
-      { condition: userType === 'cellular', penalty: 5 },
-      { condition: this.isHighRiskCountry(countryCode), penalty: 25 },
-      { condition: Number(location.accuracy_radius) > 1000, penalty: 10 },
-    ];
-
-    for (const factor of riskFactors) {
-      if (factor.condition) {
-        fraudScore = Math.min(100, fraudScore + factor.penalty);
-      }
-    }
-
-    // Determine risk level
-    let riskLevel: 'low' | 'medium' | 'high' = 'low';
-    if (fraudScore >= 70) {
-      riskLevel = 'high';
-    } else if (fraudScore >= 40) {
-      riskLevel = 'medium';
-    }
-
-    return {
-      fraudScore: Math.round(fraudScore),
-      countryCode,
-      region,
-      city: cityName,
-      riskLevel,
-      isVpn: userType === 'hosting' || isAnonymousProxy,
-      isProxy: isAnonymousProxy,
-      isp: traits.isp as string,
-      accuracyRadius: Number(location.accuracy_radius),
-    };
-  }
-
-  private isHighRiskCountry(countryCode?: string): boolean {
-    // List of countries commonly associated with higher fraud risk
-    const highRiskCountries = [
-      'CN', 'RU', 'NG', 'PK', 'BD', 'ID', 'VN', 'IN', 
-      'MY', 'TH', 'PH', 'EG', 'MA', 'RO', 'BG', 'UA'
-    ];
-    
-    return countryCode ? highRiskCountries.includes(countryCode) : false;
-  }
-
-  // Utility methods
-  async isVpnOrProxy(ipAddress: string): Promise<boolean> {
-    const result = await this.checkIPLocation(ipAddress);
-    return !!(result.isVpn || result.isProxy);
-  }
-
-  async getCountryRisk(ipAddress: string): Promise<{
-    country?: string;
-    riskLevel: 'low' | 'medium' | 'high';
-  }> {
-    const result = await this.checkIPLocation(ipAddress);
-    return {
-      country: result.countryCode,
-      riskLevel: result.riskLevel,
-    };
-  }
-
-  async validateIPLocation(ipAddress: string, expectedCountry: string): Promise<{
-    matches: boolean;
-    actualCountry?: string;
-    distance?: number;
-  }> {
-    const result = await this.checkIPLocation(ipAddress);
-    
-    const matches = result.countryCode === expectedCountry.toUpperCase();
-    
-    return {
-      matches,
-      actualCountry: result.countryCode,
-      distance: result.accuracyRadius,
-    };
-  }
-
-  async detectAnomalousLocation(
-    ipAddress: string,
-    previousLocations: Array<{ country: string; timestamp: Date }>
-  ): Promise<{
-    isAnomalous: boolean;
-    reason?: string;
-    newLocation?: string;
-  }> {
-    const result = await this.checkIPLocation(ipAddress);
-    
-    if (result.error || !result.countryCode) {
-      return { isAnomalous: false };
-    }
-
-    // Check for rapid location changes
-    const recentLocations = previousLocations.filter(
-      loc => Date.now() - loc.timestamp.getTime() < 24 * 60 * 60 * 1000 // Last 24 hours
-    );
-
-    const uniqueCountries = new Set(recentLocations.map(loc => loc.country));
-    
-    if (uniqueCountries.size > 3 && !uniqueCountries.has(result.countryCode)) {
-      return {
-        isAnomalous: true,
-        reason: 'Multiple countries accessed within 24 hours',
-        newLocation: result.countryCode,
-      };
-    }
-
-    // Check for impossible travel
-    const lastLocation = recentLocations[recentLocations.length - 1];
-    if (lastLocation && lastLocation.country !== result.countryCode) {
-      const timeDiff = Date.now() - lastLocation.timestamp.getTime();
-      const hoursDiff = timeDiff / (1000 * 60 * 60);
-      
-      // If location changed in less than 2 hours, flag as suspicious
-      if (hoursDiff < 2) {
-        return {
-          isAnomalous: true,
-          reason: 'Impossible travel time between locations',
-          newLocation: result.countryCode,
-        };
-      }
-    }
-
-    return { isAnomalous: false, newLocation: result.countryCode };
-  }
-}
-
-// Export singleton instance
-export const maxMindClient = new MaxMindClient();
-</file>
-
-<file path="src/integrations/fraud/sift.ts">
-import axios from 'axios';
-import { fraudConfig } from './config';
-import type { SiftFraudResult, FraudCheckRequest } from './types';
-
-export class SiftClient {
-  private client = axios.create({
-    baseURL: fraudConfig.sift.baseUrl,
-    timeout: fraudConfig.sift.timeout,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  async screenTransaction(request: FraudCheckRequest): Promise<SiftFraudResult> {
-    try {
-      // Create user if needed and send events
-      if (request.userId) {
-        await this.sendUserEvent(request);
-      }
-
-      // Send transaction event for payment fraud detection
-      if (request.amount) {
-        await this.sendTransactionEvent(request);
-      }
-
-      // Get fraud score
-      const scoreResponse = await this.getScore(request.userId || 'anonymous');
-      
-      return this.processScoreResponse(scoreResponse.data as Record<string, unknown>);
-    } catch (error) {
-      console.error('Sift fraud check error:', error);
-      
-      if (axios.isAxiosError(error)) {
-        return {
-          fraudScore: 0,
-          status: 'review',
-          reasons: [],
-          error: `Sift screening failed: ${error.response?.data?.message || error.message}`,
-        };
-      }
-      
-      return {
-        fraudScore: 0,
-        status: 'review',
-        reasons: [],
-        error: 'Sift fraud detection service unavailable',
-      };
-    }
-  }
-
-  private async sendUserEvent(request: FraudCheckRequest): Promise<void> {
-    const eventData = {
-      $type: '$create_account',
-      $api_key: fraudConfig.sift.apiKey,
-      $user_id: request.userId,
-      $session_id: this.generateSessionId(),
-      $ip: request.ip,
-      $user_email: request.email,
-      $phone: request.phone,
-      $time: Math.floor(Date.now() / 1000),
-      // Additional context
-      $brand_name: 'DependableCalls',
-      $site_country: 'US',
-      $site_domain: 'dependablecalls.com',
-    };
-
-    await this.client.post('/events', eventData);
-  }
-
-  private async sendTransactionEvent(request: FraudCheckRequest): Promise<void> {
-    const eventData = {
-      $type: '$transaction',
-      $api_key: fraudConfig.sift.apiKey,
-      $user_id: request.userId || 'anonymous',
-      $session_id: this.generateSessionId(),
-      $ip: request.ip,
-      $time: Math.floor(Date.now() / 1000),
-      $amount: Math.round((request.amount || 0) * 1000000), // Convert to micros
-      $currency_code: request.currency || 'USD',
-      $transaction_type: '$sale',
-      $transaction_status: '$pending',
-      $order_id: request.campaignId,
-      // Payment method details
-      $payment_method: {
-        $payment_type: '$credit_card',
-        $payment_gateway: '$stripe',
-      },
-      // Additional fraud signals
-      $digital_goods: false,
-      $shipping_address: {
-        $country: 'US', // Default for call platform
-      },
-      $billing_address: {
-        $country: 'US',
-      },
-    };
-
-    await this.client.post('/events', eventData);
-  }
-
-  private async getScore(userId: string): Promise<{ data: unknown }> {
-    const params = new URLSearchParams({
-      api_key: fraudConfig.sift.apiKey,
-      abuse_types: 'payment_abuse,account_abuse',
-    });
-
-    const response = await this.client.get(`/score/${userId}?${params.toString()}`);
-    return response;
-  }
-
-  private processScoreResponse(data: Record<string, unknown>): SiftFraudResult {
-    const scores = data.scores as Record<string, unknown> || {};
-    const paymentAbuse = scores.payment_abuse as Record<string, unknown> || {};
-    const accountAbuse = scores.account_abuse as Record<string, unknown> || {};
-    
-    const paymentScore = Number(paymentAbuse.score) || 0;
-    const accountScore = Number(accountAbuse.score) || 0;
-    
-    // Take the higher of the two scores
-    const fraudScore = Math.max(paymentScore, accountScore) * 100; // Convert to 0-100 scale
-    
-    const reasons: string[] = [];
-    const workflowStatus = data.workflow_statuses as Record<string, unknown> || {};
-    
-    // Extract reasons from workflow decisions
-    Object.entries(workflowStatus).forEach(([key, value]) => {
-      if (value && typeof value === 'object') {
-        const decision = value as Record<string, unknown>;
-        if (decision.decision === 'block' || decision.decision === 'review') {
-          reasons.push(`Sift ${key} triggered: ${decision.decision}`);
-        }
-      }
-    });
-
-    // Determine status based on score and workflow
-    let status: 'approve' | 'review' | 'reject' = 'approve';
-    
-    if (Object.values(workflowStatus).some(w => 
-      w && typeof w === 'object' && (w as Record<string, unknown>).decision === 'block'
-    )) {
-      status = 'reject';
-    } else if (fraudScore >= 80 || Object.values(workflowStatus).some(w => 
-      w && typeof w === 'object' && (w as Record<string, unknown>).decision === 'review'
-    )) {
-      status = 'review';
-    }
-
-    return {
-      fraudScore: Math.round(fraudScore),
-      status,
-      workflowStatus: JSON.stringify(workflowStatus),
-      reasons,
-      paymentAbuseScore: paymentScore * 100,
-      accountAbuseScore: accountScore * 100,
-    };
-  }
-
-  private generateSessionId(): string {
-    return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  // Utility methods
-  async reportGoodTransaction(userId: string, _orderId: string): Promise<void> {
-    const eventData = {
-      $type: '$label',
-      $api_key: fraudConfig.sift.apiKey,
-      $is_fraud: false,
-      $abuse_type: 'payment_abuse',
-      $description: 'Confirmed good transaction',
-      $source: 'manual_review',
-      $analyst: 'system',
-      $time: Math.floor(Date.now() / 1000),
-    };
-
-    await this.client.post(`/users/${userId}/labels`, eventData);
-  }
-
-  async reportFraudulentTransaction(userId: string, _orderId: string, reason: string): Promise<void> {
-    const eventData = {
-      $type: '$label',
-      $api_key: fraudConfig.sift.apiKey,
-      $is_fraud: true,
-      $abuse_type: 'payment_abuse',
-      $description: `Fraudulent transaction: ${reason}`,
-      $source: 'manual_review',
-      $analyst: 'system',
-      $time: Math.floor(Date.now() / 1000),
-    };
-
-    await this.client.post(`/users/${userId}/labels`, eventData);
-  }
-
-  async sendCallEvent(phoneNumber: string, campaignId: string, ip: string): Promise<void> {
-    const eventData = {
-      $type: '$create_content',
-      $api_key: fraudConfig.sift.apiKey,
-      $user_id: `phone_${phoneNumber}`,
-      $session_id: this.generateSessionId(),
-      $ip: ip,
-      $time: Math.floor(Date.now() / 1000),
-      $content_id: campaignId,
-      $contact_phone: phoneNumber,
-      // Custom properties for call fraud detection
-      $custom: {
-        event_type: 'incoming_call',
-        campaign_id: campaignId,
-        call_source: 'external',
-      },
-    };
-
-    await this.client.post('/events', eventData);
-  }
-}
-
-// Export singleton instance
-export const siftClient = new SiftClient();
-</file>
 
 <file path=".github/workflows/deploy-production.yml">
 name: Deploy to Production
@@ -2272,49 +1836,6 @@ describe('useLocalStorage', () => {
 - FOLLOW React hooks rules (no conditional hooks)
 </file>
 
-<file path="src/hooks/useStripe.ts">
-import { useState, useEffect } from 'react';
-import type { Stripe, StripeElements } from '@stripe/stripe-js';
-import { getStripeClient } from '../integrations/stripe';
-
-export const useStripe = () => {
-  const [stripe, setStripe] = useState<Stripe | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const initStripe = async () => {
-      try {
-        const stripeClient = await getStripeClient();
-        setStripe(stripeClient);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to initialize Stripe';
-        setError(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initStripe();
-  }, []);
-
-  return { stripe, isLoading, error };
-};
-
-export const useStripeElements = () => {
-  const { stripe } = useStripe();
-  const [elements, setElements] = useState<StripeElements | null>(null);
-
-  useEffect(() => {
-    if (stripe) {
-      setElements(stripe.elements());
-    }
-  }, [stripe]);
-
-  return { stripe, elements };
-};
-</file>
-
 <file path="src/integrations/fraud/blocking.ts">
 import { supabase } from '../../lib/supabase'
 import type { BlockingRule, UnifiedFraudScore } from './types'
@@ -2601,62 +2122,6 @@ export class AutoBlockingService {
 export const autoBlockingService = new AutoBlockingService()
 </file>
 
-<file path="src/integrations/fraud/config.ts">
-import type { FraudConfig } from './types'
-
-export const fraudConfig: FraudConfig = {
-  truecaller: {
-    apiKey: import.meta.env.VITE_TRUECALLER_API_KEY || '',
-    baseUrl: 'https://api.truecaller.com/v2',
-    timeout: 5000,
-  },
-  ipquality: {
-    apiKey: import.meta.env.VITE_IPQUALITY_API_KEY || '',
-    baseUrl: 'https://ipqualityscore.com/api/json',
-    timeout: 5000,
-  },
-  fraudlabs: {
-    apiKey: import.meta.env.VITE_FRAUDLABS_API_KEY || '',
-    baseUrl: 'https://api.fraudlabspro.com/v1',
-    timeout: 5000,
-  },
-  sift: {
-    apiKey: import.meta.env.VITE_SIFT_API_KEY || '',
-    baseUrl: 'https://api.sift.com/v205',
-    timeout: 10000,
-  },
-  maxmind: {
-    apiKey: import.meta.env.VITE_MAXMIND_API_KEY || '',
-    baseUrl: 'https://geoip.maxmind.com/geoip/v2.1',
-    timeout: 5000,
-  },
-  thresholds: {
-    autoReject: 85, // Fraud score >= 85: automatic rejection
-    manualReview: 50, // Fraud score 50-84: manual review required
-    autoApprove: 49, // Fraud score <= 49: automatic approval
-  },
-}
-
-export const isFraudDetectionConfigured = (): boolean => {
-  return !!(
-    fraudConfig.truecaller.apiKey &&
-    fraudConfig.ipquality.apiKey &&
-    fraudConfig.fraudlabs.apiKey &&
-    fraudConfig.sift.apiKey &&
-    fraudConfig.maxmind.apiKey
-  )
-}
-
-export const getFraudDecision = (score: number): 'approve' | 'review' | 'reject' => {
-  if (score >= fraudConfig.thresholds.autoReject) {
-    return 'reject'
-  } else if (score >= fraudConfig.thresholds.manualReview) {
-    return 'review'
-  }
-  return 'approve'
-}
-</file>
-
 <file path="src/integrations/fraud/fraudlabs.ts">
 import axios from 'axios'
 import { fraudConfig } from './config'
@@ -2822,95 +2287,6 @@ export class FraudLabsClient {
 export const fraudLabsClient = new FraudLabsClient()
 </file>
 
-<file path="src/integrations/fraud/index.ts">
-export * from './types'
-export * from './config'
-export { truecallerClient } from './truecaller'
-export { ipQualityClient } from './ipquality'
-export { fraudLabsClient } from './fraudlabs'
-export { siftClient } from './sift'
-export { maxMindClient } from './maxmind'
-export { fraudScoringService } from './scoring'
-export { autoBlockingService } from './blocking'
-
-// Main fraud detection API
-import { fraudScoringService } from './scoring'
-import { autoBlockingService } from './blocking'
-import type { FraudCheckRequest, UnifiedFraudScore } from './types'
-
-export async function checkFraud(request: FraudCheckRequest): Promise<UnifiedFraudScore> {
-  // Check if any values are already blocked
-  const blockChecks = await Promise.all([
-    request.phone ? autoBlockingService.checkBlocked('phone', request.phone) : null,
-    request.ip ? autoBlockingService.checkBlocked('ip', request.ip) : null,
-    request.email ? autoBlockingService.checkBlocked('email', request.email) : null,
-  ])
-
-  // If any value is blocked, return immediate rejection
-  const blockedRule = blockChecks.find((rule) => rule !== null)
-  if (blockedRule) {
-    return {
-      overallScore: 100,
-      decision: 'reject',
-      reasons: [`Blocked: ${blockedRule.reason}`],
-      timestamp: new Date(),
-    }
-  }
-
-  // Perform comprehensive fraud check
-  const fraudScore = await fraudScoringService.performComprehensiveCheck(request)
-
-  // Process auto-blocking if needed
-  await autoBlockingService.processAutoBlocking(fraudScore, request)
-
-  return fraudScore
-}
-
-// Utility function for call validation
-export async function validateIncomingCall(
-  phoneNumber: string,
-  ipAddress: string,
-  campaignId: string
-): Promise<{ allowed: boolean; score: UnifiedFraudScore }> {
-  const score = await checkFraud({
-    phone: phoneNumber,
-    ip: ipAddress,
-    campaignId,
-    metadata: { type: 'incoming_call' },
-  })
-
-  return {
-    allowed: score.decision === 'approve',
-    score,
-  }
-}
-
-// Utility function for user registration validation
-export async function validateRegistration(
-  email: string,
-  ipAddress: string,
-  phone?: string
-): Promise<{ allowed: boolean; score: UnifiedFraudScore }> {
-  const score = await checkFraud({
-    email,
-    ip: ipAddress,
-    phone,
-    metadata: { type: 'user_registration' },
-  })
-
-  return {
-    allowed: score.decision !== 'reject',
-    score,
-  }
-}
-
-// Cleanup function to be called periodically
-export async function cleanupFraudData(): Promise<void> {
-  const cleaned = await autoBlockingService.cleanupExpiredRules()
-  console.log(`Cleaned up ${cleaned} expired blocking rules`)
-}
-</file>
-
 <file path="src/integrations/fraud/ipquality.ts">
 import axios from 'axios'
 import { fraudConfig } from './config'
@@ -3038,267 +2414,466 @@ export class IPQualityClient {
 export const ipQualityClient = new IPQualityClient()
 </file>
 
-<file path="src/integrations/fraud/scoring.ts">
-import { truecallerClient } from './truecaller'
-import { ipQualityClient } from './ipquality'
-import { fraudLabsClient } from './fraudlabs'
-import { siftClient } from './sift'
-import { maxMindClient } from './maxmind'
-import { getFraudDecision } from './config'
-import type {
-  FraudCheckRequest,
-  UnifiedFraudScore,
-  PhoneVerificationResult,
-  IPReputationResult,
-  TransactionScreeningResult,
-  SiftFraudResult,
-  MaxMindGeoResult,
-} from './types'
+<file path="src/integrations/fraud/maxmind.ts">
+import axios from 'axios'
+import { fraudConfig } from './config'
+import type { MaxMindGeoResult } from './types'
 
-export class FraudScoringService {
-  async performComprehensiveCheck(request: FraudCheckRequest): Promise<UnifiedFraudScore> {
-    const timestamp = new Date()
-    const results = await Promise.allSettled([
-      request.phone ? truecallerClient.verifyPhone(request.phone) : Promise.resolve(null),
-      request.ip ? ipQualityClient.checkIPReputation(request.ip) : Promise.resolve(null),
-      fraudLabsClient.screenTransaction(request),
-      siftClient.screenTransaction(request),
-      request.ip ? maxMindClient.checkIPLocation(request.ip) : Promise.resolve(null),
-    ])
+export class MaxMindClient {
+  private client = axios.create({
+    baseURL: fraudConfig.maxmind.baseUrl,
+    timeout: fraudConfig.maxmind.timeout,
+    auth: {
+      username: fraudConfig.maxmind.apiKey,
+      password: '', // MaxMind uses account ID as username and license key as password
+    },
+    headers: {
+      Accept: 'application/json',
+    },
+  })
 
-    // Extract results
-    const phoneResult =
-      results[0].status === 'fulfilled'
-        ? (results[0].value as PhoneVerificationResult | null)
-        : null
-    const ipResult =
-      results[1].status === 'fulfilled' ? (results[1].value as IPReputationResult | null) : null
-    const transactionResult =
-      results[2].status === 'fulfilled' ? (results[2].value as TransactionScreeningResult) : null
-    const siftResult =
-      results[3].status === 'fulfilled' ? (results[3].value as SiftFraudResult) : null
-    const maxMindResult =
-      results[4].status === 'fulfilled' ? (results[4].value as MaxMindGeoResult | null) : null
+  async checkIPLocation(ipAddress: string): Promise<MaxMindGeoResult> {
+    try {
+      // Get both insights and country data
+      const [insightsResponse, countryResponse] = await Promise.allSettled([
+        this.getInsights(ipAddress),
+        this.getCountry(ipAddress),
+      ])
 
-    // Calculate individual scores
-    const phoneScore = this.calculatePhoneScore(phoneResult)
-    const ipScore = ipResult?.fraudScore || 0
-    const transactionScore = transactionResult?.fraudScore || 0
-    const siftScore = siftResult?.fraudScore || 0
-    const maxmindScore = maxMindResult?.fraudScore || 0
+      let insightsData: Record<string, unknown> = {}
+      let countryData: Record<string, unknown> = {}
 
-    // Calculate weighted overall score
-    const overallScore = this.calculateOverallScore({
-      phoneScore,
-      ipScore,
-      transactionScore,
-      siftScore,
-      maxmindScore,
-    })
+      if (insightsResponse.status === 'fulfilled') {
+        insightsData = insightsResponse.value.data as Record<string, unknown>
+      }
 
-    // Collect reasons for the score
-    const reasons = this.collectReasons({
-      phoneResult,
-      ipResult,
-      transactionResult,
-      siftResult,
-      maxMindResult,
-    })
+      if (countryResponse.status === 'fulfilled') {
+        countryData = countryResponse.value.data as Record<string, unknown>
+      }
 
-    // Make final decision
-    const decision = getFraudDecision(overallScore)
+      return this.processGeoData(insightsData, countryData)
+    } catch (error) {
+      console.error('MaxMind GeoIP check error:', error)
+
+      if (axios.isAxiosError(error)) {
+        return {
+          fraudScore: 0,
+          riskLevel: 'low',
+          error: `MaxMind check failed: ${error.response?.data?.error || error.message}`,
+        }
+      }
+
+      return {
+        fraudScore: 0,
+        riskLevel: 'low',
+        error: 'MaxMind GeoIP service unavailable',
+      }
+    }
+  }
+
+  private async getInsights(ip: string): Promise<{ data: unknown }> {
+    return this.client.get(`/insights/${ip}`)
+  }
+
+  private async getCountry(ip: string): Promise<{ data: unknown }> {
+    return this.client.get(`/country/${ip}`)
+  }
+
+  private processGeoData(
+    insights: Record<string, unknown>,
+    country: Record<string, unknown>
+  ): MaxMindGeoResult {
+    // Extract location data
+    const countryInfo = (insights.country || country.country || {}) as Record<string, unknown>
+    const city = (insights.city as Record<string, unknown>) || {}
+    const location = (insights.location as Record<string, unknown>) || {}
+    const traits = (insights.traits as Record<string, unknown>) || {}
+
+    const countryCode = countryInfo.iso_code as string
+    const region = (city.names as Record<string, unknown>)?.en as string
+    const cityName = (city.names as Record<string, unknown>)?.en as string
+
+    // Extract risk indicators
+    const riskScore = Number(traits.risk_score) || 0
+    const isAnonymousProxy = Boolean(traits.is_anonymous_proxy)
+    const isSatelliteProvider = Boolean(traits.is_satellite_provider)
+    const userType = traits.user_type as string
+
+    // Calculate fraud score based on various factors
+    let fraudScore = riskScore * 10 // MaxMind risk score is 0-10, convert to 0-100
+
+    // Apply additional risk factors
+    const riskFactors = [
+      { condition: isAnonymousProxy, penalty: 30 },
+      { condition: isSatelliteProvider, penalty: 15 },
+      { condition: userType === 'hosting', penalty: 20 },
+      { condition: userType === 'cellular', penalty: 5 },
+      { condition: this.isHighRiskCountry(countryCode), penalty: 25 },
+      { condition: Number(location.accuracy_radius) > 1000, penalty: 10 },
+    ]
+
+    for (const factor of riskFactors) {
+      if (factor.condition) {
+        fraudScore = Math.min(100, fraudScore + factor.penalty)
+      }
+    }
+
+    // Determine risk level
+    let riskLevel: 'low' | 'medium' | 'high' = 'low'
+    if (fraudScore >= 70) {
+      riskLevel = 'high'
+    } else if (fraudScore >= 40) {
+      riskLevel = 'medium'
+    }
 
     return {
-      overallScore,
-      phoneScore,
-      ipScore,
-      transactionScore,
-      siftScore,
-      maxmindScore,
-      decision,
-      reasons,
-      timestamp,
+      fraudScore: Math.round(fraudScore),
+      countryCode,
+      region,
+      city: cityName,
+      riskLevel,
+      isVpn: userType === 'hosting' || isAnonymousProxy,
+      isProxy: isAnonymousProxy,
+      isp: traits.isp as string,
+      accuracyRadius: Number(location.accuracy_radius),
     }
   }
 
-  private calculatePhoneScore(result: PhoneVerificationResult | null): number {
-    if (!result) return 0
+  private isHighRiskCountry(countryCode?: string): boolean {
+    // List of countries commonly associated with higher fraud risk
+    const highRiskCountries = [
+      'CN',
+      'RU',
+      'NG',
+      'PK',
+      'BD',
+      'ID',
+      'VN',
+      'IN',
+      'MY',
+      'TH',
+      'PH',
+      'EG',
+      'MA',
+      'RO',
+      'BG',
+      'UA',
+    ]
 
-    let score = 0
-
-    // Invalid phone number
-    if (!result.valid) {
-      score += 40
-    }
-
-    // High spam score
-    if ((result.spamScore || 0) > 50) {
-      score += 30
-    }
-
-    // VOIP numbers are higher risk
-    if (result.lineType === 'voip') {
-      score += 20
-    }
-
-    // Inactive numbers
-    if (result.valid && !result.isActive) {
-      score += 25
-    }
-
-    return Math.min(100, score)
+    return countryCode ? highRiskCountries.includes(countryCode) : false
   }
 
-  private calculateOverallScore(scores: {
-    phoneScore: number
-    ipScore: number
-    transactionScore: number
-    siftScore: number
-    maxmindScore: number
-  }): number {
-    // Weighted average with Sift and transaction screening having the highest weights
-    const weights = {
-      phone: 0.15,
-      ip: 0.20,
-      transaction: 0.25,
-      sift: 0.25,
-      maxmind: 0.15,
-    }
-
-    const weightedScore =
-      scores.phoneScore * weights.phone +
-      scores.ipScore * weights.ip +
-      scores.transactionScore * weights.transaction +
-      scores.siftScore * weights.sift +
-      scores.maxmindScore * weights.maxmind
-
-    return Math.round(weightedScore)
+  // Utility methods
+  async isVpnOrProxy(ipAddress: string): Promise<boolean> {
+    const result = await this.checkIPLocation(ipAddress)
+    return !!(result.isVpn || result.isProxy)
   }
 
-  private collectReasons(data: {
-    phoneResult: PhoneVerificationResult | null
-    ipResult: IPReputationResult | null
-    transactionResult: TransactionScreeningResult | null
-    siftResult: SiftFraudResult | null
-    maxMindResult: MaxMindGeoResult | null
-  }): string[] {
-    const reasons: string[] = []
+  async getCountryRisk(ipAddress: string): Promise<{
+    country?: string
+    riskLevel: 'low' | 'medium' | 'high'
+  }> {
+    const result = await this.checkIPLocation(ipAddress)
+    return {
+      country: result.countryCode,
+      riskLevel: result.riskLevel,
+    }
+  }
 
-    // Phone-related reasons
-    if (data.phoneResult) {
-      if (!data.phoneResult.valid) {
-        reasons.push('Invalid phone number')
-      }
-      if ((data.phoneResult.spamScore || 0) > 50) {
-        reasons.push('High spam score on phone number')
-      }
-      if (data.phoneResult.lineType === 'voip') {
-        reasons.push('VOIP phone number detected')
-      }
-      if (data.phoneResult.valid && !data.phoneResult.isActive) {
-        reasons.push('Inactive phone number')
-      }
+  async validateIPLocation(
+    ipAddress: string,
+    expectedCountry: string
+  ): Promise<{
+    matches: boolean
+    actualCountry?: string
+    distance?: number
+  }> {
+    const result = await this.checkIPLocation(ipAddress)
+
+    const matches = result.countryCode === expectedCountry.toUpperCase()
+
+    return {
+      matches,
+      actualCountry: result.countryCode,
+      distance: result.accuracyRadius,
+    }
+  }
+
+  async detectAnomalousLocation(
+    ipAddress: string,
+    previousLocations: Array<{ country: string; timestamp: Date }>
+  ): Promise<{
+    isAnomalous: boolean
+    reason?: string
+    newLocation?: string
+  }> {
+    const result = await this.checkIPLocation(ipAddress)
+
+    if (result.error || !result.countryCode) {
+      return { isAnomalous: false }
     }
 
-    // IP-related reasons
-    if (data.ipResult) {
-      if (data.ipResult.proxy) {
-        reasons.push('Proxy IP detected')
-      }
-      if (data.ipResult.vpn) {
-        reasons.push('VPN connection detected')
-      }
-      if (data.ipResult.tor) {
-        reasons.push('TOR network detected')
-      }
-      if (data.ipResult.recentAbuse) {
-        reasons.push('Recent abuse from IP address')
-      }
-      if (data.ipResult.botStatus) {
-        reasons.push('Bot activity detected')
+    // Check for rapid location changes
+    const recentLocations = previousLocations.filter(
+      (loc) => Date.now() - loc.timestamp.getTime() < 24 * 60 * 60 * 1000 // Last 24 hours
+    )
+
+    const uniqueCountries = new Set(recentLocations.map((loc) => loc.country))
+
+    if (uniqueCountries.size > 3 && !uniqueCountries.has(result.countryCode)) {
+      return {
+        isAnomalous: true,
+        reason: 'Multiple countries accessed within 24 hours',
+        newLocation: result.countryCode,
       }
     }
 
-    // Transaction-related reasons
-    if (data.transactionResult) {
-      reasons.push(...data.transactionResult.rules)
-    }
+    // Check for impossible travel
+    const lastLocation = recentLocations[recentLocations.length - 1]
+    if (lastLocation && lastLocation.country !== result.countryCode) {
+      const timeDiff = Date.now() - lastLocation.timestamp.getTime()
+      const hoursDiff = timeDiff / (1000 * 60 * 60)
 
-    // Sift-related reasons
-    if (data.siftResult) {
-      reasons.push(...data.siftResult.reasons)
-      if (data.siftResult.status === 'reject') {
-        reasons.push('Sift AI flagged as high-risk transaction')
+      // If location changed in less than 2 hours, flag as suspicious
+      if (hoursDiff < 2) {
+        return {
+          isAnomalous: true,
+          reason: 'Impossible travel time between locations',
+          newLocation: result.countryCode,
+        }
       }
     }
 
-    // MaxMind-related reasons
-    if (data.maxMindResult) {
-      if (data.maxMindResult.isVpn) {
-        reasons.push('VPN detected by MaxMind')
-      }
-      if (data.maxMindResult.isProxy) {
-        reasons.push('Proxy detected by MaxMind')
-      }
-      if (data.maxMindResult.riskLevel === 'high') {
-        reasons.push('High-risk location detected')
-      }
-    }
-
-    return [...new Set(reasons)] // Remove duplicates
-  }
-
-  // Quick check methods for specific scenarios
-  async quickPhoneCheck(phone: string): Promise<number> {
-    const result = await truecallerClient.verifyPhone(phone)
-    return this.calculatePhoneScore(result)
-  }
-
-  async quickIPCheck(ip: string): Promise<number> {
-    const result = await ipQualityClient.checkIPReputation(ip)
-    return result.fraudScore
-  }
-
-  async checkCallFraud(phone: string, ip: string, campaignId: string): Promise<UnifiedFraudScore> {
-    return this.performComprehensiveCheck({
-      phone,
-      ip,
-      campaignId,
-      metadata: { checkType: 'incoming_call' },
-    })
-  }
-
-  async checkRegistrationFraud(
-    email: string,
-    ip: string,
-    phone?: string
-  ): Promise<UnifiedFraudScore> {
-    return this.performComprehensiveCheck({
-      email,
-      ip,
-      phone,
-      metadata: { checkType: 'user_registration' },
-    })
-  }
-
-  async checkPaymentFraud(
-    amount: number,
-    currency: string,
-    email: string,
-    ip: string
-  ): Promise<UnifiedFraudScore> {
-    return this.performComprehensiveCheck({
-      amount,
-      currency,
-      email,
-      ip,
-      metadata: { checkType: 'payment_transaction' },
-    })
+    return { isAnomalous: false, newLocation: result.countryCode }
   }
 }
 
 // Export singleton instance
-export const fraudScoringService = new FraudScoringService()
+export const maxMindClient = new MaxMindClient()
+</file>
+
+<file path="src/integrations/fraud/sift.ts">
+import axios from 'axios'
+import { fraudConfig } from './config'
+import type { SiftFraudResult, FraudCheckRequest } from './types'
+
+export class SiftClient {
+  private client = axios.create({
+    baseURL: fraudConfig.sift.baseUrl,
+    timeout: fraudConfig.sift.timeout,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  async screenTransaction(request: FraudCheckRequest): Promise<SiftFraudResult> {
+    try {
+      // Create user if needed and send events
+      if (request.userId) {
+        await this.sendUserEvent(request)
+      }
+
+      // Send transaction event for payment fraud detection
+      if (request.amount) {
+        await this.sendTransactionEvent(request)
+      }
+
+      // Get fraud score
+      const scoreResponse = await this.getScore(request.userId || 'anonymous')
+
+      return this.processScoreResponse(scoreResponse.data as Record<string, unknown>)
+    } catch (error) {
+      console.error('Sift fraud check error:', error)
+
+      if (axios.isAxiosError(error)) {
+        return {
+          fraudScore: 0,
+          status: 'review',
+          reasons: [],
+          error: `Sift screening failed: ${error.response?.data?.message || error.message}`,
+        }
+      }
+
+      return {
+        fraudScore: 0,
+        status: 'review',
+        reasons: [],
+        error: 'Sift fraud detection service unavailable',
+      }
+    }
+  }
+
+  private async sendUserEvent(request: FraudCheckRequest): Promise<void> {
+    const eventData = {
+      $type: '$create_account',
+      $api_key: fraudConfig.sift.apiKey,
+      $user_id: request.userId,
+      $session_id: this.generateSessionId(),
+      $ip: request.ip,
+      $user_email: request.email,
+      $phone: request.phone,
+      $time: Math.floor(Date.now() / 1000),
+      // Additional context
+      $brand_name: 'DependableCalls',
+      $site_country: 'US',
+      $site_domain: 'dependablecalls.com',
+    }
+
+    await this.client.post('/events', eventData)
+  }
+
+  private async sendTransactionEvent(request: FraudCheckRequest): Promise<void> {
+    const eventData = {
+      $type: '$transaction',
+      $api_key: fraudConfig.sift.apiKey,
+      $user_id: request.userId || 'anonymous',
+      $session_id: this.generateSessionId(),
+      $ip: request.ip,
+      $time: Math.floor(Date.now() / 1000),
+      $amount: Math.round((request.amount || 0) * 1000000), // Convert to micros
+      $currency_code: request.currency || 'USD',
+      $transaction_type: '$sale',
+      $transaction_status: '$pending',
+      $order_id: request.campaignId,
+      // Payment method details
+      $payment_method: {
+        $payment_type: '$credit_card',
+        $payment_gateway: '$stripe',
+      },
+      // Additional fraud signals
+      $digital_goods: false,
+      $shipping_address: {
+        $country: 'US', // Default for call platform
+      },
+      $billing_address: {
+        $country: 'US',
+      },
+    }
+
+    await this.client.post('/events', eventData)
+  }
+
+  private async getScore(userId: string): Promise<{ data: unknown }> {
+    const params = new URLSearchParams({
+      api_key: fraudConfig.sift.apiKey,
+      abuse_types: 'payment_abuse,account_abuse',
+    })
+
+    const response = await this.client.get(`/score/${userId}?${params.toString()}`)
+    return response
+  }
+
+  private processScoreResponse(data: Record<string, unknown>): SiftFraudResult {
+    const scores = (data.scores as Record<string, unknown>) || {}
+    const paymentAbuse = (scores.payment_abuse as Record<string, unknown>) || {}
+    const accountAbuse = (scores.account_abuse as Record<string, unknown>) || {}
+
+    const paymentScore = Number(paymentAbuse.score) || 0
+    const accountScore = Number(accountAbuse.score) || 0
+
+    // Take the higher of the two scores
+    const fraudScore = Math.max(paymentScore, accountScore) * 100 // Convert to 0-100 scale
+
+    const reasons: string[] = []
+    const workflowStatus = (data.workflow_statuses as Record<string, unknown>) || {}
+
+    // Extract reasons from workflow decisions
+    Object.entries(workflowStatus).forEach(([key, value]) => {
+      if (value && typeof value === 'object') {
+        const decision = value as Record<string, unknown>
+        if (decision.decision === 'block' || decision.decision === 'review') {
+          reasons.push(`Sift ${key} triggered: ${decision.decision}`)
+        }
+      }
+    })
+
+    // Determine status based on score and workflow
+    let status: 'approve' | 'review' | 'reject' = 'approve'
+
+    if (
+      Object.values(workflowStatus).some(
+        (w) => w && typeof w === 'object' && (w as Record<string, unknown>).decision === 'block'
+      )
+    ) {
+      status = 'reject'
+    } else if (
+      fraudScore >= 80 ||
+      Object.values(workflowStatus).some(
+        (w) => w && typeof w === 'object' && (w as Record<string, unknown>).decision === 'review'
+      )
+    ) {
+      status = 'review'
+    }
+
+    return {
+      fraudScore: Math.round(fraudScore),
+      status,
+      workflowStatus: JSON.stringify(workflowStatus),
+      reasons,
+      paymentAbuseScore: paymentScore * 100,
+      accountAbuseScore: accountScore * 100,
+    }
+  }
+
+  private generateSessionId(): string {
+    return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  // Utility methods
+  async reportGoodTransaction(userId: string): Promise<void> {
+    const eventData = {
+      $type: '$label',
+      $api_key: fraudConfig.sift.apiKey,
+      $is_fraud: false,
+      $abuse_type: 'payment_abuse',
+      $description: 'Confirmed good transaction',
+      $source: 'manual_review',
+      $analyst: 'system',
+      $time: Math.floor(Date.now() / 1000),
+    }
+
+    await this.client.post(`/users/${userId}/labels`, eventData)
+  }
+
+  async reportFraudulentTransaction(userId: string, reason: string): Promise<void> {
+    const eventData = {
+      $type: '$label',
+      $api_key: fraudConfig.sift.apiKey,
+      $is_fraud: true,
+      $abuse_type: 'payment_abuse',
+      $description: `Fraudulent transaction: ${reason}`,
+      $source: 'manual_review',
+      $analyst: 'system',
+      $time: Math.floor(Date.now() / 1000),
+    }
+
+    await this.client.post(`/users/${userId}/labels`, eventData)
+  }
+
+  async sendCallEvent(phoneNumber: string, campaignId: string, ip: string): Promise<void> {
+    const eventData = {
+      $type: '$create_content',
+      $api_key: fraudConfig.sift.apiKey,
+      $user_id: `phone_${phoneNumber}`,
+      $session_id: this.generateSessionId(),
+      $ip: ip,
+      $time: Math.floor(Date.now() / 1000),
+      $content_id: campaignId,
+      $contact_phone: phoneNumber,
+      // Custom properties for call fraud detection
+      $custom: {
+        event_type: 'incoming_call',
+        campaign_id: campaignId,
+        call_source: 'external',
+      },
+    }
+
+    await this.client.post('/events', eventData)
+  }
+}
+
+// Export singleton instance
+export const siftClient = new SiftClient()
 </file>
 
 <file path="src/integrations/fraud/truecaller.ts">
@@ -3414,998 +2989,6 @@ export class TruecallerClient {
 
 // Export singleton instance
 export const truecallerClient = new TruecallerClient()
-</file>
-
-<file path="src/integrations/fraud/types.ts">
-export interface PhoneVerificationResult {
-  valid: boolean
-  carrier?: string
-  country?: string
-  lineType?: 'mobile' | 'landline' | 'voip' | 'unknown'
-  name?: string
-  spamScore?: number
-  isActive?: boolean
-  error?: string
-}
-
-export interface IPReputationResult {
-  fraudScore: number
-  countryCode?: string
-  region?: string
-  city?: string
-  isp?: string
-  proxy?: boolean
-  vpn?: boolean
-  tor?: boolean
-  recentAbuse?: boolean
-  botStatus?: boolean
-  error?: string
-}
-
-export interface TransactionScreeningResult {
-  fraudScore: number
-  status: 'approve' | 'review' | 'reject'
-  rules: string[]
-  riskFactors: {
-    ip?: string
-    email?: string
-    phone?: string
-    billing?: string
-    shipping?: string
-  }
-  error?: string
-}
-
-export interface SiftFraudResult {
-  fraudScore: number
-  status: 'approve' | 'review' | 'reject'
-  workflowStatus?: string
-  reasons: string[]
-  paymentAbuseScore?: number
-  accountAbuseScore?: number
-  error?: string
-}
-
-export interface MaxMindGeoResult {
-  fraudScore: number
-  countryCode?: string
-  region?: string
-  city?: string
-  riskLevel: 'low' | 'medium' | 'high'
-  isVpn?: boolean
-  isProxy?: boolean
-  isp?: string
-  accuracyRadius?: number
-  error?: string
-}
-
-export interface UnifiedFraudScore {
-  overallScore: number
-  phoneScore?: number
-  ipScore?: number
-  transactionScore?: number
-  siftScore?: number
-  maxmindScore?: number
-  decision: 'approve' | 'review' | 'reject'
-  reasons: string[]
-  timestamp: Date
-}
-
-export interface FraudCheckRequest {
-  phone?: string
-  ip?: string
-  email?: string
-  amount?: number
-  currency?: string
-  userId?: string
-  campaignId?: string
-  metadata?: Record<string, unknown>
-}
-
-export interface BlockingRule {
-  id: string
-  type: 'phone' | 'ip' | 'email' | 'pattern'
-  value: string
-  reason: string
-  createdAt: Date
-  expiresAt?: Date
-  autoBlocked: boolean
-}
-
-export interface FraudConfig {
-  truecaller: {
-    apiKey: string
-    baseUrl: string
-    timeout: number
-  }
-  ipquality: {
-    apiKey: string
-    baseUrl: string
-    timeout: number
-  }
-  fraudlabs: {
-    apiKey: string
-    baseUrl: string
-    timeout: number
-  }
-  sift: {
-    apiKey: string
-    baseUrl: string
-    timeout: number
-  }
-  maxmind: {
-    apiKey: string
-    baseUrl: string
-    timeout: number
-  }
-  thresholds: {
-    autoReject: number
-    manualReview: number
-    autoApprove: number
-  }
-}
-</file>
-
-<file path="src/integrations/stripe/billing.ts">
-import { stripeServerClient } from './client';
-import type Stripe from 'stripe';
-
-export interface CreateInvoiceParams {
-  customerId: string;
-  description: string;
-  metadata: {
-    buyerId: string;
-    billingPeriod: string;
-    callCount: string;
-  };
-  dueDate?: number;
-  collectionMethod?: 'charge_automatically' | 'send_invoice';
-}
-
-export interface CreateInvoiceItemParams {
-  customerId: string;
-  amount: number;
-  currency: string;
-  description: string;
-  metadata: {
-    callId?: string;
-    campaignId?: string;
-    duration?: string;
-  };
-  invoiceId?: string;
-}
-
-export const createInvoice = async (
-  params: CreateInvoiceParams
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.create({
-      customer: params.customerId,
-      description: params.description,
-      metadata: {
-        ...params.metadata,
-        platform: 'dependablecalls',
-      },
-      due_date: params.dueDate,
-      collection_method: params.collectionMethod || 'charge_automatically',
-      auto_advance: false, // We'll finalize manually
-    });
-    
-    return invoice;
-  } catch (error) {
-    console.error('Error creating invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create invoice: ${errorMessage}`);
-  }
-};
-
-export const createInvoiceItem = async (
-  params: CreateInvoiceItemParams
-): Promise<Stripe.InvoiceItem> => {
-  try {
-    const invoiceItem = await stripeServerClient.invoiceItems.create({
-      customer: params.customerId,
-      amount: params.amount,
-      currency: params.currency,
-      description: params.description,
-      metadata: {
-        ...params.metadata,
-        platform: 'dependablecalls',
-      },
-      ...(params.invoiceId && { invoice: params.invoiceId }),
-    });
-    
-    return invoiceItem;
-  } catch (error) {
-    console.error('Error creating invoice item:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create invoice item: ${errorMessage}`);
-  }
-};
-
-export const finalizeInvoice = async (
-  invoiceId: string,
-  autoAdvance: boolean = true
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.finalizeInvoice(
-      invoiceId,
-      { auto_advance: autoAdvance }
-    );
-    
-    return invoice;
-  } catch (error) {
-    console.error('Error finalizing invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to finalize invoice: ${errorMessage}`);
-  }
-};
-
-export const sendInvoice = async (
-  invoiceId: string
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.sendInvoice(invoiceId);
-    return invoice;
-  } catch (error) {
-    console.error('Error sending invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to send invoice: ${errorMessage}`);
-  }
-};
-
-export const payInvoice = async (
-  invoiceId: string,
-  paymentMethodId?: string
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.pay(invoiceId, {
-      ...(paymentMethodId && { payment_method: paymentMethodId }),
-    });
-    
-    return invoice;
-  } catch (error) {
-    console.error('Error paying invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to pay invoice: ${errorMessage}`);
-  }
-};
-
-export const voidInvoice = async (
-  invoiceId: string
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.voidInvoice(invoiceId);
-    return invoice;
-  } catch (error) {
-    console.error('Error voiding invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to void invoice: ${errorMessage}`);
-  }
-};
-
-export const updateInvoice = async (
-  invoiceId: string,
-  updates: Stripe.InvoiceUpdateParams
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.update(
-      invoiceId,
-      updates
-    );
-    
-    return invoice;
-  } catch (error) {
-    console.error('Error updating invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to update invoice: ${errorMessage}`);
-  }
-};
-
-export const getInvoice = async (
-  invoiceId: string
-): Promise<Stripe.Invoice | null> => {
-  try {
-    const invoice = await stripeServerClient.invoices.retrieve(invoiceId);
-    return invoice;
-  } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing') {
-      return null;
-    }
-    console.error('Error retrieving invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to retrieve invoice: ${errorMessage}`);
-  }
-};
-
-export const listCustomerInvoices = async (
-  customerId: string,
-  status?: 'draft' | 'open' | 'paid' | 'uncollectible' | 'void',
-  limit: number = 100
-): Promise<Stripe.Invoice[]> => {
-  try {
-    const invoices = await stripeServerClient.invoices.list({
-      customer: customerId,
-      status,
-      limit,
-    });
-    
-    return invoices.data;
-  } catch (error) {
-    console.error('Error listing invoices:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to list invoices: ${errorMessage}`);
-  }
-};
-
-export const createCreditNote = async (
-  invoiceId: string,
-  amount: number,
-  reason: 'duplicate' | 'fraudulent' | 'order_change' | 'product_unsatisfactory',
-  memo?: string
-): Promise<Stripe.CreditNote> => {
-  try {
-    const creditNote = await stripeServerClient.creditNotes.create({
-      invoice: invoiceId,
-      amount,
-      reason,
-      memo,
-      metadata: {
-        platform: 'dependablecalls',
-      },
-    });
-    
-    return creditNote;
-  } catch (error) {
-    console.error('Error creating credit note:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create credit note: ${errorMessage}`);
-  }
-};
-
-export const createUsageBasedInvoice = async (
-  customerId: string,
-  billingPeriod: { start: Date; end: Date },
-  usageRecords: Array<{
-    amount: number;
-    description: string;
-    metadata: Record<string, string>;
-  }>
-): Promise<Stripe.Invoice> => {
-  try {
-    // Create invoice for the billing period
-    const invoice = await createInvoice({
-      customerId,
-      description: `Usage charges for ${billingPeriod.start.toISOString().split('T')[0]} to ${billingPeriod.end.toISOString().split('T')[0]}`,
-      metadata: {
-        buyerId: customerId,
-        billingPeriod: `${billingPeriod.start.toISOString()}_${billingPeriod.end.toISOString()}`,
-        callCount: usageRecords.length.toString(),
-      },
-    });
-    
-    // Add line items for each usage record
-    for (const record of usageRecords) {
-      await createInvoiceItem({
-        customerId,
-        amount: record.amount,
-        currency: 'usd',
-        description: record.description,
-        metadata: record.metadata,
-        invoiceId: invoice.id,
-      });
-    }
-    
-    // Finalize and send the invoice
-    if (!invoice.id) {
-      throw new Error('Invoice creation failed - no invoice ID returned');
-    }
-    const finalizedInvoice = await finalizeInvoice(invoice.id);
-    
-    return finalizedInvoice;
-  } catch (error) {
-    console.error('Error creating usage-based invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create usage-based invoice: ${errorMessage}`);
-  }
-};
-</file>
-
-<file path="src/integrations/stripe/index.ts">
-export * from './client';
-export * from './types';
-export * from './customers';
-export * from './connected-accounts';
-export * from './payments';
-export * from './subscriptions';
-export * from './billing';
-export {
-  toCents,
-  toDollars,
-  isValidCents,
-  createCents,
-  createTransfer as createPayoutTransfer,
-  reverseTransfer,
-  getTransfer,
-  updateTransfer,
-  getPayout,
-  listAccountPayouts,
-  createBulkPayout,
-  calculatePayoutSummary,
-  scheduleWeeklyPayouts,
-} from './payouts';
-export * from './webhooks';
-
-// Re-export commonly used functions
-export {
-  stripeServerClient,
-  getStripeClient,
-  isStripeConfigured,
-} from './client';
-
-export {
-  createStripeCustomer,
-} from './customers';
-
-export {
-  createConnectedAccount,
-  createTransfer,
-} from './connected-accounts';
-
-export {
-  createPaymentIntent,
-} from './payments';
-
-export {
-  createSubscription,
-} from './subscriptions';
-
-export {
-  createInvoice,
-} from './billing';
-
-export {
-  handleStripeWebhook,
-} from './webhooks';
-
-// Helper to check if all required Stripe environment variables are set
-export const validateStripeEnvironment = (): { isValid: boolean; missing: string[] } => {
-  const required = [
-    'VITE_STRIPE_SECRET_KEY',
-    'VITE_STRIPE_PUBLISHABLE_KEY',
-    'VITE_STRIPE_WEBHOOK_SECRET',
-  ];
-  
-  const missing = required.filter(key => !import.meta.env[key]);
-  
-  return {
-    isValid: missing.length === 0,
-    missing,
-  };
-};
-</file>
-
-<file path="src/integrations/stripe/payouts.ts">
-import { stripeServerClient } from './client';
-import type { CreateTransferParams } from './types';
-import type Stripe from 'stripe';
-import { v4 as uuid } from 'uuid';
-import { z } from 'zod';
-
-/**
- * Strongly typed cents to prevent decimal amount errors
- * Stripe requires amounts as positive integers in smallest currency unit
- */
-export type Cents = number & { __brand: 'cents' };
-
-/**
- * Convert dollars to cents with proper rounding
- */
-export function toCents(dollars: number): Cents {
-  return Math.round(dollars * 100) as Cents;
-}
-
-/**
- * Convert cents to dollars
- */
-export function toDollars(cents: Cents): number {
-  return cents / 100;
-}
-
-/**
- * Validate amount is valid cents (positive integer)
- */
-export function isValidCents(amount: number): amount is Cents {
-  return Number.isInteger(amount) && amount > 0;
-}
-
-/**
- * Create Cents from a validated number
- */
-export function createCents(amount: number): Cents {
-  if (!isValidCents(amount)) {
-    throw new Error('Amount must be a positive integer in cents');
-  }
-  return amount as Cents;
-}
-
-/**
- * Validate statement descriptor according to Stripe requirements
- */
-const statementDescriptorSchema = z.string()
-  .max(22, 'Statement descriptor must be 22 chars or less')
-  .transform(val => val.replace(/[<>]/g, ''));
-
-/**
- * Restricted update params for transfers (Stripe only allows metadata and description)
- */
-export interface TransferUpdateParams {
-  metadata?: Stripe.Metadata;
-  description?: string;
-}
-
-/**
- * Centralized error handler for Stripe operations
- * Prevents leaking sensitive information and provides type-safe error handling
- */
-function handleStripeError(err: unknown, context: string): never {
-  if (err instanceof stripeServerClient.errors.StripeError) {
-    console.error(`${context} failed`, { 
-      type: err.type, 
-      code: err.code, 
-      param: err.param,
-      requestId: err.requestId 
-    });
-    
-    // Handle idempotent request duplicates as success
-    if (err.code === 'idempotency_key_in_use' || err.statusCode === 409) {
-      // This is actually a success - the operation was already completed
-      // The caller should handle this appropriately
-      const duplicateError = new Error('Operation already completed') as Error & { 
-        isDuplicate: boolean;
-        originalRequest?: unknown;
-      };
-      duplicateError.isDuplicate = true;
-      duplicateError.originalRequest = err.raw;
-      throw duplicateError;
-    }
-    
-    // Return generic error messages to prevent information leakage
-    if (err.code === 'resource_missing') {
-      throw new Error(`Resource not found. Please check your request and try again.`);
-    }
-    
-    if (err.code === 'insufficient_funds') {
-      throw new Error('Insufficient funds for payout. Please try again later.');
-    }
-    
-    if (err.code === 'invalid_request_error' && err.param === 'amount') {
-      throw new Error('Invalid amount. Amount must be a positive integer in cents.');
-    }
-    
-    throw new Error(`Payout service error. Please retry or contact support.`);
-  }
-  
-  console.error(`${context} unexpected error`, err);
-  throw new Error('Internal server error. Please try again later.');
-}
-
-export interface CreatePayoutParams {
-  accountId: string;
-  amount: Cents; // Enforced as integer cents
-  currency: string;
-  metadata: {
-    supplierId: string;
-    payoutPeriod: string;
-    callCount: string;
-  };
-  statementDescriptor?: string;
-}
-
-export interface PayoutSummary {
-  totalAmount: Cents; // Enforced as integer cents
-  currency: string;
-  transferCount: number;
-  period: {
-    start: Date;
-    end: Date;
-  };
-}
-
-export const createTransfer = async (
-  params: CreateTransferParams
-): Promise<Stripe.Transfer> => {
-  try {
-    // Validate amount is positive integer
-    if (!Number.isInteger(params.amount) || params.amount <= 0) {
-      throw new Error('Amount must be a positive integer in cents');
-    }
-    
-    const transfer = await stripeServerClient.transfers.create({
-      amount: params.amount,
-      currency: params.currency,
-      destination: params.destination,
-      transfer_group: `payout_${params.metadata.payoutId}`,
-      metadata: {
-        ...params.metadata,
-        platform: 'dependablecalls',
-      },
-    }, {
-      idempotencyKey: uuid() // Prevent duplicate transfers
-    });
-    
-    return transfer;
-  } catch (error: unknown) {
-    // Check if this is a duplicate operation (409 response)
-    if (error instanceof Error && 'isDuplicate' in error && error.isDuplicate) {
-      console.log('Transfer already created, returning success');
-      // In production, you'd retrieve and return the original transfer
-      // For now, we re-throw to let caller handle
-      throw error;
-    }
-    handleStripeError(error, 'create transfer');
-  }
-};
-
-export const reverseTransfer = async (
-  transferId: string,
-  amount?: Cents,
-  reason?: string
-): Promise<Stripe.TransferReversal> => {
-  try {
-    // Validate amount if provided
-    if (amount !== undefined && (!Number.isInteger(amount) || amount <= 0)) {
-      throw new Error('Amount must be a positive integer in cents');
-    }
-    
-    const reversal = await stripeServerClient.transfers.createReversal(
-      transferId,
-      {
-        amount,
-        description: reason,
-        metadata: {
-          platform: 'dependablecalls',
-          reason: reason || 'fraud_detected',
-        },
-      },
-      {
-        idempotencyKey: uuid() // Prevent duplicate reversals
-      }
-    );
-    
-    return reversal;
-  } catch (error: unknown) {
-    handleStripeError(error, 'reverse transfer');
-  }
-};
-
-export const getTransfer = async (
-  transferId: string
-): Promise<Stripe.Transfer | null> => {
-  try {
-    const transfer = await stripeServerClient.transfers.retrieve(transferId);
-    return transfer;
-  } catch (error: unknown) {
-    if (error instanceof stripeServerClient.errors.StripeError && 
-        error.code === 'resource_missing') {
-      return null;
-    }
-    handleStripeError(error, 'retrieve transfer');
-  }
-};
-
-export const updateTransfer = async (
-  transferId: string,
-  updates: TransferUpdateParams // Restricted to only metadata and description
-): Promise<Stripe.Transfer> => {
-  try {
-    // Stripe only allows updating metadata and description on transfers
-    const allowedUpdates: Stripe.TransferUpdateParams = {};
-    if (updates.metadata !== undefined) {
-      allowedUpdates.metadata = updates.metadata;
-    }
-    if (updates.description !== undefined) {
-      allowedUpdates.description = updates.description;
-    }
-    
-    const transfer = await stripeServerClient.transfers.update(
-      transferId,
-      allowedUpdates,
-      {
-        idempotencyKey: uuid() // Prevent duplicate updates
-      }
-    );
-    
-    return transfer;
-  } catch (error: unknown) {
-    handleStripeError(error, 'update transfer');
-  }
-};
-
-export const createPayout = async (
-  params: CreatePayoutParams
-): Promise<Stripe.Payout> => {
-  try {
-    // Validate amount is positive integer
-    if (!Number.isInteger(params.amount) || params.amount <= 0) {
-      throw new Error('Amount must be a positive integer in cents');
-    }
-    
-    // Validate and sanitize statement descriptor
-    const statementDescriptor = params.statementDescriptor 
-      ? statementDescriptorSchema.parse(params.statementDescriptor)
-      : 'DCE Payout';
-    
-    // First check if account can receive payouts
-    const account = await stripeServerClient.accounts.retrieve(params.accountId);
-    if (account.type === 'standard') {
-      throw new Error('Cannot create payouts for Standard accounts. Use transfers instead.');
-    }
-    if (!account.payouts_enabled) {
-      throw new Error('Account is not enabled for payouts. Please complete account verification.');
-    }
-    
-    const payout = await stripeServerClient.payouts.create(
-      {
-        amount: params.amount,
-        currency: params.currency,
-        statement_descriptor: statementDescriptor,
-        metadata: {
-          ...params.metadata,
-          platform: 'dependablecalls',
-        },
-      },
-      {
-        stripeAccount: params.accountId,
-        idempotencyKey: uuid() // Prevent duplicate payouts
-      }
-    );
-    
-    return payout;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create payout');
-  }
-};
-
-export const cancelPayout = async (
-  payoutId: string,
-  accountId: string
-): Promise<Stripe.Payout> => {
-  try {
-    const payout = await stripeServerClient.payouts.cancel(
-      payoutId,
-      {},
-      { stripeAccount: accountId }
-    );
-    
-    return payout;
-  } catch (error) {
-    console.error('Error canceling payout:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to cancel payout: ${errorMessage}`);
-  }
-};
-
-export const getPayout = async (
-  payoutId: string,
-  accountId: string
-): Promise<Stripe.Payout | null> => {
-  try {
-    const payout = await stripeServerClient.payouts.retrieve(
-      payoutId,
-      {},
-      { stripeAccount: accountId }
-    );
-    
-    return payout;
-  } catch (error: unknown) {
-    if (error instanceof stripeServerClient.errors.StripeError && 
-        error.code === 'resource_missing') {
-      return null;
-    }
-    handleStripeError(error, 'retrieve payout');
-  }
-};
-
-export const listAccountPayouts = async (
-  accountId: string,
-  status?: 'pending' | 'paid' | 'failed' | 'canceled',
-  limit: number = 100
-): Promise<Stripe.Payout[]> => {
-  try {
-    const payouts: Stripe.Payout[] = [];
-    
-    // Use auto-pagination to ensure we get all payouts
-    for await (const payout of stripeServerClient.payouts.list(
-      {
-        status,
-        limit,
-      },
-      {
-        stripeAccount: accountId,
-      }
-    )) {
-      payouts.push(payout);
-    }
-    
-    return payouts;
-  } catch (error: unknown) {
-    handleStripeError(error, 'list payouts');
-  }
-};
-
-export const createBulkPayout = async (
-  payouts: Array<{
-    accountId: string;
-    amount: Cents;
-    metadata: Record<string, string>;
-  }>,
-  transferGroup: string,
-  maxConcurrency: number = 5 // Limit concurrent requests
-): Promise<Array<{ success: boolean; transfer?: Stripe.Transfer; error?: Error }>> => {
-  try {
-    // Create batches for concurrent processing
-    const results: Array<{ success: boolean; transfer?: Stripe.Transfer; error?: Error }> = [];
-    
-    // Process in batches to avoid rate limits
-    for (let i = 0; i < payouts.length; i += maxConcurrency) {
-      const batch = payouts.slice(i, i + maxConcurrency);
-      
-      const batchPromises = batch.map(async (payout) => {
-        try {
-          const transfer = await createTransfer({
-            amount: payout.amount,
-            currency: 'usd',
-            destination: payout.accountId,
-            metadata: {
-              ...payout.metadata,
-              transferGroup,
-              payoutId: `${transferGroup}_${payout.accountId}_${Date.now()}`,
-              supplierId: payout.metadata.supplierId || 'bulk',
-              callCount: payout.metadata.callCount || '0',
-              period: payout.metadata.period || transferGroup,
-            },
-          } as CreateTransferParams);
-          
-          return { success: true, transfer };
-        } catch (error: unknown) {
-          // Don't fail entire batch for individual errors
-          const errorObj = error instanceof Error ? error : new Error(String(error));
-          return { success: false, error: errorObj };
-        }
-      });
-      
-      const batchResults = await Promise.allSettled(batchPromises);
-      
-      batchResults.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          results.push(result.value);
-        } else {
-          results.push({ success: false, error: result.reason });
-        }
-      });
-    }
-    
-    return results;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create bulk payout');
-  }
-};
-
-export const calculatePayoutSummary = async (
-  accountId: string,
-  period: { start: Date; end: Date }
-): Promise<PayoutSummary> => {
-  try {
-    let totalAmount = 0;
-    let transferCount = 0;
-    
-    // Use auto-pagination to ensure we get ALL transfers
-    for await (const transfer of stripeServerClient.transfers.list({
-      destination: accountId,
-      created: {
-        gte: Math.floor(period.start.getTime() / 1000),
-        lt: Math.floor(period.end.getTime() / 1000),
-      },
-      limit: 100, // Page size
-    })) {
-      totalAmount += transfer.amount;
-      transferCount++;
-    }
-    
-    return {
-      totalAmount: totalAmount as Cents,
-      currency: 'usd',
-      transferCount,
-      period,
-    };
-  } catch (error: unknown) {
-    handleStripeError(error, 'calculate payout summary');
-  }
-};
-
-export const scheduleWeeklyPayouts = async (
-  suppliers: Array<{
-    accountId: string;
-    supplierId: string;
-    amount: Cents;
-    callCount: number;
-  }>,
-  maxConcurrency: number = 5
-): Promise<Array<{ supplierId: string; success: boolean; transfer?: Stripe.Transfer; error?: Error }>> => {
-  try {
-    const now = new Date();
-    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const payoutPeriod = weekStart.toISOString().split('T')[0];
-    const payoutGroup = `weekly_${payoutPeriod}`;
-    
-    // Generate deterministic payout IDs to prevent duplicates
-    const generatePayoutId = (supplierId: string) => {
-      // Use supplier ID and period for idempotency
-      return `payout_${supplierId}_${payoutPeriod}`;
-    };
-    
-    const results: Array<{ supplierId: string; success: boolean; transfer?: Stripe.Transfer; error?: Error }> = [];
-    
-    // Filter eligible suppliers
-    const eligibleSuppliers = suppliers.filter(s => s.amount >= 10000); // $100 minimum
-    
-    // Process in batches for better performance
-    for (let i = 0; i < eligibleSuppliers.length; i += maxConcurrency) {
-      const batch = eligibleSuppliers.slice(i, i + maxConcurrency);
-      
-      const batchPromises = batch.map(async (supplier) => {
-        try {
-          const transfer = await createTransfer({
-            amount: supplier.amount,
-            currency: 'usd',
-            destination: supplier.accountId,
-            metadata: {
-              payoutId: generatePayoutId(supplier.supplierId),
-              supplierId: supplier.supplierId,
-              callCount: supplier.callCount.toString(),
-              period: payoutGroup,
-            },
-          } as CreateTransferParams);
-          
-          return { supplierId: supplier.supplierId, success: true, transfer };
-        } catch (error: unknown) {
-          // Check if it's a duplicate (already processed)
-          if (error instanceof Error && 'isDuplicate' in error && (error as Error & { isDuplicate: boolean }).isDuplicate) {
-            console.log(`Payout already processed for supplier ${supplier.supplierId}`);
-            return { supplierId: supplier.supplierId, success: true, transfer: undefined };
-          }
-          
-          console.error(`Failed to create payout for supplier ${supplier.supplierId}:`, error);
-          return { supplierId: supplier.supplierId, success: false, error: error as Error };
-        }
-      });
-      
-      const batchResults = await Promise.allSettled(batchPromises);
-      
-      batchResults.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          results.push(result.value);
-        } else {
-          results.push({ 
-            supplierId: 'unknown', 
-            success: false, 
-            error: result.reason 
-          });
-        }
-      });
-    }
-    
-    // Log summary
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-    console.log(`Weekly payouts completed: ${successful} successful, ${failed} failed`);
-    
-    return results;
-  } catch (error: unknown) {
-    handleStripeError(error, 'schedule weekly payouts');
-  }
-};
 </file>
 
 <file path="src/integrations/stripe/README.md">
@@ -4569,227 +3152,6 @@ try {
 4. Implement rate limiting on payment endpoints
 5. Log all payment-related activities
 6. Monitor for suspicious patterns
-</file>
-
-<file path="src/integrations/stripe/subscriptions.ts">
-import { stripeServerClient } from './client';
-import type Stripe from 'stripe';
-
-export interface CreateSubscriptionParams {
-  customerId: string;
-  priceId: string;
-  metadata: {
-    buyerId: string;
-    planType: 'starter' | 'professional' | 'enterprise';
-  };
-  trialDays?: number;
-  defaultPaymentMethod?: string;
-}
-
-export interface UsageRecord {
-  subscriptionItemId: string;
-  quantity: number;
-  timestamp?: number;
-  action?: 'set' | 'increment';
-}
-
-export const createSubscription = async (
-  params: CreateSubscriptionParams
-): Promise<Stripe.Subscription> => {
-  try {
-    const subscription = await stripeServerClient.subscriptions.create({
-      customer: params.customerId,
-      items: [{ price: params.priceId }],
-      payment_behavior: 'default_incomplete',
-      payment_settings: { save_default_payment_method: 'on_subscription' },
-      expand: ['latest_invoice.payment_intent'],
-      metadata: {
-        ...params.metadata,
-        platform: 'dependablecalls',
-      },
-      ...(params.trialDays && { trial_period_days: params.trialDays }),
-      ...(params.defaultPaymentMethod && {
-        default_payment_method: params.defaultPaymentMethod,
-      }),
-    });
-    
-    return subscription;
-  } catch (error) {
-    console.error('Error creating subscription:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create subscription: ${errorMessage}`);
-  }
-};
-
-export const updateSubscription = async (
-  subscriptionId: string,
-  updates: Stripe.SubscriptionUpdateParams
-): Promise<Stripe.Subscription> => {
-  try {
-    const subscription = await stripeServerClient.subscriptions.update(
-      subscriptionId,
-      updates
-    );
-    
-    return subscription;
-  } catch (error) {
-    console.error('Error updating subscription:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to update subscription: ${errorMessage}`);
-  }
-};
-
-export const cancelSubscription = async (
-  subscriptionId: string,
-  immediately: boolean = false
-): Promise<Stripe.Subscription> => {
-  try {
-    if (immediately) {
-      return await stripeServerClient.subscriptions.cancel(subscriptionId);
-    } else {
-      return await stripeServerClient.subscriptions.update(subscriptionId, {
-        cancel_at_period_end: true,
-      });
-    }
-  } catch (error) {
-    console.error('Error canceling subscription:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to cancel subscription: ${errorMessage}`);
-  }
-};
-
-export const reactivateSubscription = async (
-  subscriptionId: string
-): Promise<Stripe.Subscription> => {
-  try {
-    const subscription = await stripeServerClient.subscriptions.update(
-      subscriptionId,
-      {
-        cancel_at_period_end: false,
-      }
-    );
-    
-    return subscription;
-  } catch (error) {
-    console.error('Error reactivating subscription:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to reactivate subscription: ${errorMessage}`);
-  }
-};
-
-export const getSubscription = async (
-  subscriptionId: string
-): Promise<Stripe.Subscription | null> => {
-  try {
-    const subscription = await stripeServerClient.subscriptions.retrieve(
-      subscriptionId
-    );
-    
-    return subscription;
-  } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing') {
-      return null;
-    }
-    console.error('Error retrieving subscription:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to retrieve subscription: ${errorMessage}`);
-  }
-};
-
-export const listCustomerSubscriptions = async (
-  customerId: string,
-  status?: 'active' | 'canceled' | 'past_due' | 'trialing'
-): Promise<Stripe.Subscription[]> => {
-  try {
-    const subscriptions = await stripeServerClient.subscriptions.list({
-      customer: customerId,
-      status,
-    });
-    
-    return subscriptions.data;
-  } catch (error) {
-    console.error('Error listing subscriptions:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to list subscriptions: ${errorMessage}`);
-  }
-};
-
-export const createUsageRecord = async (
-  record: UsageRecord
-): Promise<unknown> => {
-  try {
-    // Note: Usage records are created through billing, not directly
-    // This is a placeholder implementation
-    console.warn('Usage records should be created through billing system');
-    return { success: true, record };
-  } catch (error) {
-    console.error('Error creating usage record:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create usage record: ${errorMessage}`);
-  }
-};
-
-export const listUsageRecords = async (
-  _subscriptionItemId: string,
-  _limit: number = 100
-): Promise<unknown[]> => {
-  try {
-    // Note: Usage records are retrieved through billing, not directly
-    // This is a placeholder implementation
-    console.warn('Usage records should be retrieved through billing system');
-    return [];
-  } catch (error) {
-    console.error('Error listing usage records:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to list usage records: ${errorMessage}`);
-  }
-};
-
-export const updateSubscriptionItem = async (
-  subscriptionId: string,
-  itemId: string,
-  newPriceId: string
-): Promise<Stripe.Subscription> => {
-  try {
-    const subscription = await stripeServerClient.subscriptions.update(
-      subscriptionId,
-      {
-        items: [
-          {
-            id: itemId,
-            price: newPriceId,
-          },
-        ],
-        proration_behavior: 'create_prorations',
-      }
-    );
-    
-    return subscription;
-  } catch (error) {
-    console.error('Error updating subscription item:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to update subscription item: ${errorMessage}`);
-  }
-};
-
-export const createSubscriptionSchedule = async (
-  customerId: string,
-  phases: Stripe.SubscriptionScheduleCreateParams.Phase[]
-): Promise<Stripe.SubscriptionSchedule> => {
-  try {
-    const schedule = await stripeServerClient.subscriptionSchedules.create({
-      customer: customerId,
-      start_date: 'now',
-      phases,
-    });
-    
-    return schedule;
-  } catch (error) {
-    console.error('Error creating subscription schedule:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create subscription schedule: ${errorMessage}`);
-  }
-};
 </file>
 
 <file path="src/integrations/CLAUDE.md">
@@ -5201,184 +3563,6 @@ export function debounce<T extends unknown[]>(
 - ALWAYS handle errors explicitly
 - ALWAYS use proper TypeScript typing
 - NO direct external API calls - use abstractions
-</file>
-
-<file path="src/lib/monitoring.ts">
-import * as Sentry from "@sentry/react";
-import { Routes, Route } from "react-router-dom";
-
-/**
- * Initialize Sentry monitoring for error tracking and performance monitoring
- */
-export function initSentry(): void {
-  const dsn = import.meta.env.VITE_SENTRY_DSN;
-  const environment = import.meta.env.MODE;
-  
-  if (!dsn) {
-    console.warn("Sentry DSN not configured, monitoring disabled");
-    return;
-  }
-
-  Sentry.init({
-    dsn,
-    environment,
-    integrations: [
-      Sentry.browserTracingIntegration({
-        // Set up automatic route change tracking for React Router
-        enableInp: true,
-      }),
-      Sentry.replayIntegration({
-        // Mask sensitive data
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
-    ],
-    
-    // Performance monitoring
-    tracesSampleRate: environment === "production" ? 0.1 : 1.0,
-    
-    // Session replay
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1.0,
-    
-    // Release tracking
-    release: import.meta.env.VITE_APP_VERSION || "unknown",
-    
-    // Error filtering
-    beforeSend(event, hint) {
-      // Filter out development errors
-      if (environment === "development") {
-        console.error("Sentry event:", event, hint);
-        return null;
-      }
-      
-      // Filter out network errors that are not actionable
-      if (event.exception) {
-        const error = hint.originalException;
-        if (error instanceof TypeError && error.message.includes("NetworkError")) {
-          return null;
-        }
-      }
-      
-      return event;
-    },
-    
-    // Additional context
-    initialScope: {
-      tags: {
-        component: "dce-website",
-        platform: "web",
-      },
-    },
-  });
-}
-
-/**
- * Set user context for error tracking
- */
-export function setSentryUser(user: {
-  id: string;
-  email?: string;
-  role?: string;
-}): void {
-  Sentry.setUser({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-  });
-}
-
-/**
- * Add breadcrumb for debugging
- */
-export function addBreadcrumb(
-  message: string,
-  category: string = "custom",
-  level: Sentry.SeverityLevel = "info",
-  data?: Record<string, unknown>
-): void {
-  Sentry.addBreadcrumb({
-    message,
-    category,
-    level,
-    data,
-    timestamp: Date.now() / 1000,
-  });
-}
-
-/**
- * Capture exception manually
- */
-export function captureError(
-  error: Error,
-  context?: Record<string, unknown>
-): void {
-  Sentry.withScope((scope) => {
-    if (context) {
-      scope.setContext("error_context", context);
-    }
-    Sentry.captureException(error);
-  });
-}
-
-/**
- * Capture custom message
- */
-export function captureMessage(
-  message: string,
-  level: Sentry.SeverityLevel = "info",
-  context?: Record<string, unknown>
-): void {
-  Sentry.withScope((scope) => {
-    if (context) {
-      scope.setContext("message_context", context);
-    }
-    scope.setLevel(level);
-    Sentry.captureMessage(message);
-  });
-}
-
-/**
- * Performance monitoring for critical operations
- */
-export function startTransaction(
-  name: string,
-  operation: string = "navigation"
-): unknown {
-  return Sentry.startSpan({
-    name,
-    op: operation,
-  }, () => ({}));
-}
-
-/**
- * Track API call performance
- */
-export function trackApiCall<T>(
-  apiName: string,
-  apiCall: () => Promise<T>
-): Promise<T> {
-  const transaction = startTransaction(apiName, "http.client");
-  
-  return apiCall()
-    .then((result) => {
-      (transaction as any)?.setStatus?.("ok");
-      return result;
-    })
-    .catch((error) => {
-      (transaction as any)?.setStatus?.("internal_error");
-      captureError(error, { apiName });
-      throw error;
-    })
-    .finally(() => {
-      (transaction as any)?.finish?.();
-    });
-}
-
-// React integration components
-export const SentryRoutes = Sentry.withSentryRouting(Routes);
-export const SentryRoute = Sentry.withSentryRouting(Route);
-export const SentryErrorBoundary = Sentry.ErrorBoundary;
 </file>
 
 <file path="src/lib/supabase.ts">
@@ -16932,6 +15116,110 @@ tsconfig.tsbuildinfo
 }
 </file>
 
+<file path="BACKEND_SETUP.md">
+# DCE Platform Backend Setup Complete
+
+## ✅ Database Schema Implementation
+
+The complete Supabase database schema has been implemented according to the technical architecture specifications. The following migrations have been created:
+
+### Migration Files Created:
+
+1. **001_initial_schema.sql** - Core database schema
+   - Users, suppliers, buyers, admins tables
+   - Campaigns and buyer_campaigns tables
+   - Calls and tracking_numbers tables
+   - Financial tables (payouts, invoices, invoice_line_items)
+   - Quality and compliance tables (call_quality_scores, disputes)
+   - Analytics tables (campaign_stats, buyer_campaign_stats)
+   - Audit logs table for compliance
+   - All required ENUM types and constraints
+
+2. **002_security_policies.sql** - Row Level Security
+   - Comprehensive RLS policies for all tables
+   - Role-based access control (suppliers, buyers, admins)
+   - Helper functions for role checking
+   - Data isolation and privacy protection
+
+3. **003_functions.sql** - Business Logic Functions
+   - Balance calculation functions (supplier/buyer balances)
+   - Quality scoring and fraud detection
+   - Campaign matching algorithms
+   - Billing calculation functions
+   - Analytics and reporting functions
+   - Validation and utility functions
+
+4. **004_triggers.sql** - Automated Processes
+   - Audit logging triggers for all sensitive operations
+   - Automatic call completion processing
+   - Balance update triggers
+   - Data validation triggers
+   - Real-time notification triggers
+   - Stats aggregation triggers
+
+5. **005_indexes.sql** - Performance Optimization
+   - 80+ optimized indexes for all query patterns
+   - Composite indexes for complex queries
+   - Partial indexes for active records
+   - JSONB indexes for metadata queries
+   - Full-text search indexes
+
+### Configuration Files:
+
+- **config.toml** - Supabase local development configuration
+- **seed.sql** - Comprehensive test data including all user types
+- **README.md** - Complete setup and deployment guide
+- **.env.local** - Local development environment variables
+
+## 🔐 Security Features Implemented:
+
+- Row Level Security (RLS) enabled on all tables
+- Role-based access control with proper data isolation
+- Comprehensive audit logging for compliance
+- Input validation at database level
+- Fraud detection and quality scoring systems
+
+## 🚀 Performance Features:
+
+- Comprehensive indexing strategy for all query patterns
+- Real-time data aggregation and statistics
+- Optimized queries with proper joins and filters
+- Connection pooling and query optimization
+
+## 📊 Business Logic Features:
+
+- Automated balance calculations
+- Quality scoring algorithms (1-100 scale)
+- Fraud detection with pattern analysis
+- Real-time campaign matching
+- Automated billing and payout calculations
+
+## 🛠️ Development Environment:
+
+- Local Supabase configuration ready
+- Test data for all user types and scenarios
+- Environment variables properly configured
+- Documentation for setup and deployment
+
+## 📋 Next Steps:
+
+1. Start local Supabase instance: `npx supabase start`
+2. Apply migrations: `npx supabase db reset`
+3. Generate TypeScript types: `npx supabase gen types typescript --local > src/types/database.ts`
+4. Test API endpoints and real-time subscriptions
+
+The backend is now fully ready for frontend integration and supports all features required for the DCE pay-per-call platform including real-time call tracking, fraud prevention, automated billing, and comprehensive analytics.
+
+## Files Location:
+
+All Supabase files are located in the `supabase/` directory:
+
+- `/supabase/migrations/` - Database migration files
+- `/supabase/config.toml` - Supabase configuration
+- `/supabase/seed.sql` - Development test data
+- `/supabase/README.md` - Detailed setup guide
+</file>
+
 <file path="CLAUDE.md">
 # Tech Stack
 - Vite 7.0, React 19.1, TypeScript 5.8
@@ -17229,15 +15517,6 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
   },
 })
-</file>
-
-<file path="postcss.config.js">
-export default {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-}
 </file>
 
 <file path="tailwind.config.js">
@@ -17557,41 +15836,843 @@ export default function AppLayout() {
 }
 </file>
 
-<file path="src/integrations/stripe/client.ts">
-import Stripe from 'stripe';
-import { loadStripe } from '@stripe/stripe-js';
+<file path="src/hooks/useStripe.ts">
+import { useState, useEffect } from 'react'
+import type { Stripe, StripeElements } from '@stripe/stripe-js'
+import { getStripeClient } from '../integrations/stripe'
 
-const STRIPE_API_VERSION = '2025-06-30.basil' as const;
+export const useStripe = () => {
+  const [stripe, setStripe] = useState<Stripe | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-export const stripeServerClient = new Stripe(
-  import.meta.env.VITE_STRIPE_SECRET_KEY || '',
-  {
-    apiVersion: STRIPE_API_VERSION,
-    typescript: true,
-  }
-);
+  useEffect(() => {
+    const initStripe = async () => {
+      try {
+        const stripeClient = await getStripeClient()
+        setStripe(stripeClient)
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to initialize Stripe'
+        setError(errorMessage)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-let stripePromise: Promise<import('@stripe/stripe-js').Stripe | null> | null = null;
+    initStripe()
+  }, [])
 
-export const getStripeClient = () => {
-  if (!stripePromise) {
-    stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
-  }
-  return stripePromise;
-};
+  return { stripe, isLoading, error }
+}
 
-export const stripeConfig = {
-  webhookSecret: import.meta.env.VITE_STRIPE_WEBHOOK_SECRET || '',
-  connectClientId: import.meta.env.VITE_STRIPE_CONNECT_CLIENT_ID || '',
-  apiVersion: STRIPE_API_VERSION,
-};
+export const useStripeElements = () => {
+  const { stripe } = useStripe()
+  const [elements, setElements] = useState<StripeElements | null>(null)
 
-export const isStripeConfigured = () => {
+  useEffect(() => {
+    if (stripe) {
+      setElements(stripe.elements())
+    }
+  }, [stripe])
+
+  return { stripe, elements }
+}
+</file>
+
+<file path="src/integrations/fraud/config.ts">
+import type { FraudConfig } from './types'
+
+export const fraudConfig: FraudConfig = {
+  truecaller: {
+    apiKey: import.meta.env.VITE_TRUECALLER_API_KEY || '',
+    baseUrl: 'https://api.truecaller.com/v2',
+    timeout: 5000,
+  },
+  ipquality: {
+    apiKey: import.meta.env.VITE_IPQUALITY_API_KEY || '',
+    baseUrl: 'https://ipqualityscore.com/api/json',
+    timeout: 5000,
+  },
+  fraudlabs: {
+    apiKey: import.meta.env.VITE_FRAUDLABS_API_KEY || '',
+    baseUrl: 'https://api.fraudlabspro.com/v1',
+    timeout: 5000,
+  },
+  sift: {
+    apiKey: import.meta.env.VITE_SIFT_API_KEY || '',
+    baseUrl: 'https://api.sift.com/v205',
+    timeout: 10000,
+  },
+  maxmind: {
+    apiKey: import.meta.env.VITE_MAXMIND_API_KEY || '',
+    baseUrl: 'https://geoip.maxmind.com/geoip/v2.1',
+    timeout: 5000,
+  },
+  thresholds: {
+    autoReject: 85, // Fraud score >= 85: automatic rejection
+    manualReview: 50, // Fraud score 50-84: manual review required
+    autoApprove: 49, // Fraud score <= 49: automatic approval
+  },
+}
+
+export const isFraudDetectionConfigured = (): boolean => {
   return !!(
-    import.meta.env.VITE_STRIPE_SECRET_KEY &&
-    import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-  );
-};
+    fraudConfig.truecaller.apiKey &&
+    fraudConfig.ipquality.apiKey &&
+    fraudConfig.fraudlabs.apiKey &&
+    fraudConfig.sift.apiKey &&
+    fraudConfig.maxmind.apiKey
+  )
+}
+
+export const getFraudDecision = (score: number): 'approve' | 'review' | 'reject' => {
+  if (score >= fraudConfig.thresholds.autoReject) {
+    return 'reject'
+  } else if (score >= fraudConfig.thresholds.manualReview) {
+    return 'review'
+  }
+  return 'approve'
+}
+</file>
+
+<file path="src/integrations/fraud/index.ts">
+export * from './types'
+export * from './config'
+export { truecallerClient } from './truecaller'
+export { ipQualityClient } from './ipquality'
+export { fraudLabsClient } from './fraudlabs'
+export { siftClient } from './sift'
+export { maxMindClient } from './maxmind'
+export { fraudScoringService } from './scoring'
+export { autoBlockingService } from './blocking'
+
+// Main fraud detection API
+import { fraudScoringService } from './scoring'
+import { autoBlockingService } from './blocking'
+import type { FraudCheckRequest, UnifiedFraudScore } from './types'
+
+export async function checkFraud(request: FraudCheckRequest): Promise<UnifiedFraudScore> {
+  // Check if any values are already blocked
+  const blockChecks = await Promise.all([
+    request.phone ? autoBlockingService.checkBlocked('phone', request.phone) : null,
+    request.ip ? autoBlockingService.checkBlocked('ip', request.ip) : null,
+    request.email ? autoBlockingService.checkBlocked('email', request.email) : null,
+  ])
+
+  // If any value is blocked, return immediate rejection
+  const blockedRule = blockChecks.find((rule) => rule !== null)
+  if (blockedRule) {
+    return {
+      overallScore: 100,
+      decision: 'reject',
+      reasons: [`Blocked: ${blockedRule.reason}`],
+      timestamp: new Date(),
+    }
+  }
+
+  // Perform comprehensive fraud check
+  const fraudScore = await fraudScoringService.performComprehensiveCheck(request)
+
+  // Process auto-blocking if needed
+  await autoBlockingService.processAutoBlocking(fraudScore, request)
+
+  return fraudScore
+}
+
+// Utility function for call validation
+export async function validateIncomingCall(
+  phoneNumber: string,
+  ipAddress: string,
+  campaignId: string
+): Promise<{ allowed: boolean; score: UnifiedFraudScore }> {
+  const score = await checkFraud({
+    phone: phoneNumber,
+    ip: ipAddress,
+    campaignId,
+    metadata: { type: 'incoming_call' },
+  })
+
+  return {
+    allowed: score.decision === 'approve',
+    score,
+  }
+}
+
+// Utility function for user registration validation
+export async function validateRegistration(
+  email: string,
+  ipAddress: string,
+  phone?: string
+): Promise<{ allowed: boolean; score: UnifiedFraudScore }> {
+  const score = await checkFraud({
+    email,
+    ip: ipAddress,
+    phone,
+    metadata: { type: 'user_registration' },
+  })
+
+  return {
+    allowed: score.decision !== 'reject',
+    score,
+  }
+}
+
+// Cleanup function to be called periodically
+export async function cleanupFraudData(): Promise<void> {
+  const cleaned = await autoBlockingService.cleanupExpiredRules()
+  console.log(`Cleaned up ${cleaned} expired blocking rules`)
+}
+</file>
+
+<file path="src/integrations/fraud/scoring.ts">
+import { truecallerClient } from './truecaller'
+import { ipQualityClient } from './ipquality'
+import { fraudLabsClient } from './fraudlabs'
+import { siftClient } from './sift'
+import { maxMindClient } from './maxmind'
+import { getFraudDecision } from './config'
+import type {
+  FraudCheckRequest,
+  UnifiedFraudScore,
+  PhoneVerificationResult,
+  IPReputationResult,
+  TransactionScreeningResult,
+  SiftFraudResult,
+  MaxMindGeoResult,
+} from './types'
+
+export class FraudScoringService {
+  async performComprehensiveCheck(request: FraudCheckRequest): Promise<UnifiedFraudScore> {
+    const timestamp = new Date()
+    const results = await Promise.allSettled([
+      request.phone ? truecallerClient.verifyPhone(request.phone) : Promise.resolve(null),
+      request.ip ? ipQualityClient.checkIPReputation(request.ip) : Promise.resolve(null),
+      fraudLabsClient.screenTransaction(request),
+      siftClient.screenTransaction(request),
+      request.ip ? maxMindClient.checkIPLocation(request.ip) : Promise.resolve(null),
+    ])
+
+    // Extract results
+    const phoneResult =
+      results[0].status === 'fulfilled'
+        ? (results[0].value as PhoneVerificationResult | null)
+        : null
+    const ipResult =
+      results[1].status === 'fulfilled' ? (results[1].value as IPReputationResult | null) : null
+    const transactionResult =
+      results[2].status === 'fulfilled' ? (results[2].value as TransactionScreeningResult) : null
+    const siftResult =
+      results[3].status === 'fulfilled' ? (results[3].value as SiftFraudResult) : null
+    const maxMindResult =
+      results[4].status === 'fulfilled' ? (results[4].value as MaxMindGeoResult | null) : null
+
+    // Calculate individual scores
+    const phoneScore = this.calculatePhoneScore(phoneResult)
+    const ipScore = ipResult?.fraudScore || 0
+    const transactionScore = transactionResult?.fraudScore || 0
+    const siftScore = siftResult?.fraudScore || 0
+    const maxmindScore = maxMindResult?.fraudScore || 0
+
+    // Calculate weighted overall score
+    const overallScore = this.calculateOverallScore({
+      phoneScore,
+      ipScore,
+      transactionScore,
+      siftScore,
+      maxmindScore,
+    })
+
+    // Collect reasons for the score
+    const reasons = this.collectReasons({
+      phoneResult,
+      ipResult,
+      transactionResult,
+      siftResult,
+      maxMindResult,
+    })
+
+    // Make final decision
+    const decision = getFraudDecision(overallScore)
+
+    return {
+      overallScore,
+      phoneScore,
+      ipScore,
+      transactionScore,
+      siftScore,
+      maxmindScore,
+      decision,
+      reasons,
+      timestamp,
+    }
+  }
+
+  private calculatePhoneScore(result: PhoneVerificationResult | null): number {
+    if (!result) return 0
+
+    let score = 0
+
+    // Invalid phone number
+    if (!result.valid) {
+      score += 40
+    }
+
+    // High spam score
+    if ((result.spamScore || 0) > 50) {
+      score += 30
+    }
+
+    // VOIP numbers are higher risk
+    if (result.lineType === 'voip') {
+      score += 20
+    }
+
+    // Inactive numbers
+    if (result.valid && !result.isActive) {
+      score += 25
+    }
+
+    return Math.min(100, score)
+  }
+
+  private calculateOverallScore(scores: {
+    phoneScore: number
+    ipScore: number
+    transactionScore: number
+    siftScore: number
+    maxmindScore: number
+  }): number {
+    // Weighted average with Sift and transaction screening having the highest weights
+    const weights = {
+      phone: 0.15,
+      ip: 0.2,
+      transaction: 0.25,
+      sift: 0.25,
+      maxmind: 0.15,
+    }
+
+    const weightedScore =
+      scores.phoneScore * weights.phone +
+      scores.ipScore * weights.ip +
+      scores.transactionScore * weights.transaction +
+      scores.siftScore * weights.sift +
+      scores.maxmindScore * weights.maxmind
+
+    return Math.round(weightedScore)
+  }
+
+  private collectReasons(data: {
+    phoneResult: PhoneVerificationResult | null
+    ipResult: IPReputationResult | null
+    transactionResult: TransactionScreeningResult | null
+    siftResult: SiftFraudResult | null
+    maxMindResult: MaxMindGeoResult | null
+  }): string[] {
+    const reasons: string[] = []
+
+    // Phone-related reasons
+    if (data.phoneResult) {
+      if (!data.phoneResult.valid) {
+        reasons.push('Invalid phone number')
+      }
+      if ((data.phoneResult.spamScore || 0) > 50) {
+        reasons.push('High spam score on phone number')
+      }
+      if (data.phoneResult.lineType === 'voip') {
+        reasons.push('VOIP phone number detected')
+      }
+      if (data.phoneResult.valid && !data.phoneResult.isActive) {
+        reasons.push('Inactive phone number')
+      }
+    }
+
+    // IP-related reasons
+    if (data.ipResult) {
+      if (data.ipResult.proxy) {
+        reasons.push('Proxy IP detected')
+      }
+      if (data.ipResult.vpn) {
+        reasons.push('VPN connection detected')
+      }
+      if (data.ipResult.tor) {
+        reasons.push('TOR network detected')
+      }
+      if (data.ipResult.recentAbuse) {
+        reasons.push('Recent abuse from IP address')
+      }
+      if (data.ipResult.botStatus) {
+        reasons.push('Bot activity detected')
+      }
+    }
+
+    // Transaction-related reasons
+    if (data.transactionResult) {
+      reasons.push(...data.transactionResult.rules)
+    }
+
+    // Sift-related reasons
+    if (data.siftResult) {
+      reasons.push(...data.siftResult.reasons)
+      if (data.siftResult.status === 'reject') {
+        reasons.push('Sift AI flagged as high-risk transaction')
+      }
+    }
+
+    // MaxMind-related reasons
+    if (data.maxMindResult) {
+      if (data.maxMindResult.isVpn) {
+        reasons.push('VPN detected by MaxMind')
+      }
+      if (data.maxMindResult.isProxy) {
+        reasons.push('Proxy detected by MaxMind')
+      }
+      if (data.maxMindResult.riskLevel === 'high') {
+        reasons.push('High-risk location detected')
+      }
+    }
+
+    return [...new Set(reasons)] // Remove duplicates
+  }
+
+  // Quick check methods for specific scenarios
+  async quickPhoneCheck(phone: string): Promise<number> {
+    const result = await truecallerClient.verifyPhone(phone)
+    return this.calculatePhoneScore(result)
+  }
+
+  async quickIPCheck(ip: string): Promise<number> {
+    const result = await ipQualityClient.checkIPReputation(ip)
+    return result.fraudScore
+  }
+
+  async checkCallFraud(phone: string, ip: string, campaignId: string): Promise<UnifiedFraudScore> {
+    return this.performComprehensiveCheck({
+      phone,
+      ip,
+      campaignId,
+      metadata: { checkType: 'incoming_call' },
+    })
+  }
+
+  async checkRegistrationFraud(
+    email: string,
+    ip: string,
+    phone?: string
+  ): Promise<UnifiedFraudScore> {
+    return this.performComprehensiveCheck({
+      email,
+      ip,
+      phone,
+      metadata: { checkType: 'user_registration' },
+    })
+  }
+
+  async checkPaymentFraud(
+    amount: number,
+    currency: string,
+    email: string,
+    ip: string
+  ): Promise<UnifiedFraudScore> {
+    return this.performComprehensiveCheck({
+      amount,
+      currency,
+      email,
+      ip,
+      metadata: { checkType: 'payment_transaction' },
+    })
+  }
+}
+
+// Export singleton instance
+export const fraudScoringService = new FraudScoringService()
+</file>
+
+<file path="src/integrations/fraud/types.ts">
+export interface PhoneVerificationResult {
+  valid: boolean
+  carrier?: string
+  country?: string
+  lineType?: 'mobile' | 'landline' | 'voip' | 'unknown'
+  name?: string
+  spamScore?: number
+  isActive?: boolean
+  error?: string
+}
+
+export interface IPReputationResult {
+  fraudScore: number
+  countryCode?: string
+  region?: string
+  city?: string
+  isp?: string
+  proxy?: boolean
+  vpn?: boolean
+  tor?: boolean
+  recentAbuse?: boolean
+  botStatus?: boolean
+  error?: string
+}
+
+export interface TransactionScreeningResult {
+  fraudScore: number
+  status: 'approve' | 'review' | 'reject'
+  rules: string[]
+  riskFactors: {
+    ip?: string
+    email?: string
+    phone?: string
+    billing?: string
+    shipping?: string
+  }
+  error?: string
+}
+
+export interface SiftFraudResult {
+  fraudScore: number
+  status: 'approve' | 'review' | 'reject'
+  workflowStatus?: string
+  reasons: string[]
+  paymentAbuseScore?: number
+  accountAbuseScore?: number
+  error?: string
+}
+
+export interface MaxMindGeoResult {
+  fraudScore: number
+  countryCode?: string
+  region?: string
+  city?: string
+  riskLevel: 'low' | 'medium' | 'high'
+  isVpn?: boolean
+  isProxy?: boolean
+  isp?: string
+  accuracyRadius?: number
+  error?: string
+}
+
+export interface UnifiedFraudScore {
+  overallScore: number
+  phoneScore?: number
+  ipScore?: number
+  transactionScore?: number
+  siftScore?: number
+  maxmindScore?: number
+  decision: 'approve' | 'review' | 'reject'
+  reasons: string[]
+  timestamp: Date
+}
+
+export interface FraudCheckRequest {
+  phone?: string
+  ip?: string
+  email?: string
+  amount?: number
+  currency?: string
+  userId?: string
+  campaignId?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface BlockingRule {
+  id: string
+  type: 'phone' | 'ip' | 'email' | 'pattern'
+  value: string
+  reason: string
+  createdAt: Date
+  expiresAt?: Date
+  autoBlocked: boolean
+}
+
+export interface FraudConfig {
+  truecaller: {
+    apiKey: string
+    baseUrl: string
+    timeout: number
+  }
+  ipquality: {
+    apiKey: string
+    baseUrl: string
+    timeout: number
+  }
+  fraudlabs: {
+    apiKey: string
+    baseUrl: string
+    timeout: number
+  }
+  sift: {
+    apiKey: string
+    baseUrl: string
+    timeout: number
+  }
+  maxmind: {
+    apiKey: string
+    baseUrl: string
+    timeout: number
+  }
+  thresholds: {
+    autoReject: number
+    manualReview: number
+    autoApprove: number
+  }
+}
+</file>
+
+<file path="src/integrations/stripe/billing.ts">
+import { stripeServerClient } from './client'
+import type Stripe from 'stripe'
+
+export interface CreateInvoiceParams {
+  customerId: string
+  description: string
+  metadata: {
+    buyerId: string
+    billingPeriod: string
+    callCount: string
+  }
+  dueDate?: number
+  collectionMethod?: 'charge_automatically' | 'send_invoice'
+}
+
+export interface CreateInvoiceItemParams {
+  customerId: string
+  amount: number
+  currency: string
+  description: string
+  metadata: {
+    callId?: string
+    campaignId?: string
+    duration?: string
+  }
+  invoiceId?: string
+}
+
+export const createInvoice = async (params: CreateInvoiceParams): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.create({
+      customer: params.customerId,
+      description: params.description,
+      metadata: {
+        ...params.metadata,
+        platform: 'dependablecalls',
+      },
+      due_date: params.dueDate,
+      collection_method: params.collectionMethod || 'charge_automatically',
+      auto_advance: false, // We'll finalize manually
+    })
+
+    return invoice
+  } catch (error) {
+    console.error('Error creating invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create invoice: ${errorMessage}`)
+  }
+}
+
+export const createInvoiceItem = async (
+  params: CreateInvoiceItemParams
+): Promise<Stripe.InvoiceItem> => {
+  try {
+    const invoiceItem = await stripeServerClient.invoiceItems.create({
+      customer: params.customerId,
+      amount: params.amount,
+      currency: params.currency,
+      description: params.description,
+      metadata: {
+        ...params.metadata,
+        platform: 'dependablecalls',
+      },
+      ...(params.invoiceId && { invoice: params.invoiceId }),
+    })
+
+    return invoiceItem
+  } catch (error) {
+    console.error('Error creating invoice item:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create invoice item: ${errorMessage}`)
+  }
+}
+
+export const finalizeInvoice = async (
+  invoiceId: string,
+  autoAdvance: boolean = true
+): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.finalizeInvoice(invoiceId, {
+      auto_advance: autoAdvance,
+    })
+
+    return invoice
+  } catch (error) {
+    console.error('Error finalizing invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to finalize invoice: ${errorMessage}`)
+  }
+}
+
+export const sendInvoice = async (invoiceId: string): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.sendInvoice(invoiceId)
+    return invoice
+  } catch (error) {
+    console.error('Error sending invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to send invoice: ${errorMessage}`)
+  }
+}
+
+export const payInvoice = async (
+  invoiceId: string,
+  paymentMethodId?: string
+): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.pay(invoiceId, {
+      ...(paymentMethodId && { payment_method: paymentMethodId }),
+    })
+
+    return invoice
+  } catch (error) {
+    console.error('Error paying invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to pay invoice: ${errorMessage}`)
+  }
+}
+
+export const voidInvoice = async (invoiceId: string): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.voidInvoice(invoiceId)
+    return invoice
+  } catch (error) {
+    console.error('Error voiding invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to void invoice: ${errorMessage}`)
+  }
+}
+
+export const updateInvoice = async (
+  invoiceId: string,
+  updates: Stripe.InvoiceUpdateParams
+): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.update(invoiceId, updates)
+
+    return invoice
+  } catch (error) {
+    console.error('Error updating invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to update invoice: ${errorMessage}`)
+  }
+}
+
+export const getInvoice = async (invoiceId: string): Promise<Stripe.Invoice | null> => {
+  try {
+    const invoice = await stripeServerClient.invoices.retrieve(invoiceId)
+    return invoice
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'resource_missing'
+    ) {
+      return null
+    }
+    console.error('Error retrieving invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to retrieve invoice: ${errorMessage}`)
+  }
+}
+
+export const listCustomerInvoices = async (
+  customerId: string,
+  status?: 'draft' | 'open' | 'paid' | 'uncollectible' | 'void',
+  limit: number = 100
+): Promise<Stripe.Invoice[]> => {
+  try {
+    const invoices = await stripeServerClient.invoices.list({
+      customer: customerId,
+      status,
+      limit,
+    })
+
+    return invoices.data
+  } catch (error) {
+    console.error('Error listing invoices:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to list invoices: ${errorMessage}`)
+  }
+}
+
+export const createCreditNote = async (
+  invoiceId: string,
+  amount: number,
+  reason: 'duplicate' | 'fraudulent' | 'order_change' | 'product_unsatisfactory',
+  memo?: string
+): Promise<Stripe.CreditNote> => {
+  try {
+    const creditNote = await stripeServerClient.creditNotes.create({
+      invoice: invoiceId,
+      amount,
+      reason,
+      memo,
+      metadata: {
+        platform: 'dependablecalls',
+      },
+    })
+
+    return creditNote
+  } catch (error) {
+    console.error('Error creating credit note:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create credit note: ${errorMessage}`)
+  }
+}
+
+export const createUsageBasedInvoice = async (
+  customerId: string,
+  billingPeriod: { start: Date; end: Date },
+  usageRecords: Array<{
+    amount: number
+    description: string
+    metadata: Record<string, string>
+  }>
+): Promise<Stripe.Invoice> => {
+  try {
+    // Create invoice for the billing period
+    const invoice = await createInvoice({
+      customerId,
+      description: `Usage charges for ${billingPeriod.start.toISOString().split('T')[0]} to ${billingPeriod.end.toISOString().split('T')[0]}`,
+      metadata: {
+        buyerId: customerId,
+        billingPeriod: `${billingPeriod.start.toISOString()}_${billingPeriod.end.toISOString()}`,
+        callCount: usageRecords.length.toString(),
+      },
+    })
+
+    // Add line items for each usage record
+    for (const record of usageRecords) {
+      await createInvoiceItem({
+        customerId,
+        amount: record.amount,
+        currency: 'usd',
+        description: record.description,
+        metadata: record.metadata,
+        invoiceId: invoice.id,
+      })
+    }
+
+    // Finalize and send the invoice
+    if (!invoice.id) {
+      throw new Error('Invoice creation failed - no invoice ID returned')
+    }
+    const finalizedInvoice = await finalizeInvoice(invoice.id)
+
+    return finalizedInvoice
+  } catch (error) {
+    console.error('Error creating usage-based invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create usage-based invoice: ${errorMessage}`)
+  }
+}
 </file>
 
 <file path="src/integrations/stripe/connected-accounts.ts">
@@ -17881,10 +16962,122 @@ export const createPayout = async (
 };
 </file>
 
-<file path="src/integrations/stripe/customers.ts">
-import { stripeServerClient } from './client';
-import type Stripe from 'stripe';
-import { v4 as uuid } from 'uuid';
+<file path="src/integrations/stripe/index.ts">
+export * from './client'
+export * from './types'
+export * from './customers'
+export * from './connected-accounts'
+export * from './payments'
+export * from './subscriptions'
+export * from './billing'
+export {
+  toCents,
+  toDollars,
+  isValidCents,
+  createCents,
+  createTransfer as createPayoutTransfer,
+  reverseTransfer,
+  getTransfer,
+  updateTransfer,
+  getPayout,
+  listAccountPayouts,
+  createBulkPayout,
+  calculatePayoutSummary,
+  scheduleWeeklyPayouts,
+} from './payouts'
+export * from './webhooks'
+
+// Re-export commonly used functions
+export { stripeServerClient, getStripeClient, isStripeConfigured } from './client'
+
+export { createStripeCustomer } from './customers'
+
+export { createConnectedAccount, createTransfer } from './connected-accounts'
+
+export { createPaymentIntent } from './payments'
+
+export { createSubscription } from './subscriptions'
+
+export { createInvoice } from './billing'
+
+export { handleStripeWebhook } from './webhooks'
+
+// Helper to check if all required Stripe environment variables are set
+export const validateStripeEnvironment = (): { isValid: boolean; missing: string[] } => {
+  const required = [
+    'VITE_STRIPE_SECRET_KEY',
+    'VITE_STRIPE_PUBLISHABLE_KEY',
+    'VITE_STRIPE_WEBHOOK_SECRET',
+  ]
+
+  const missing = required.filter((key) => !import.meta.env[key])
+
+  return {
+    isValid: missing.length === 0,
+    missing,
+  }
+}
+</file>
+
+<file path="src/integrations/stripe/payouts.ts">
+import { stripeServerClient } from './client'
+import type { CreateTransferParams } from './types'
+import type Stripe from 'stripe'
+import { v4 as uuid } from 'uuid'
+import { z } from 'zod'
+
+/**
+ * Strongly typed cents to prevent decimal amount errors
+ * Stripe requires amounts as positive integers in smallest currency unit
+ */
+export type Cents = number & { __brand: 'cents' }
+
+/**
+ * Convert dollars to cents with proper rounding
+ */
+export function toCents(dollars: number): Cents {
+  return Math.round(dollars * 100) as Cents
+}
+
+/**
+ * Convert cents to dollars
+ */
+export function toDollars(cents: Cents): number {
+  return cents / 100
+}
+
+/**
+ * Validate amount is valid cents (positive integer)
+ */
+export function isValidCents(amount: number): amount is Cents {
+  return Number.isInteger(amount) && amount > 0
+}
+
+/**
+ * Create Cents from a validated number
+ */
+export function createCents(amount: number): Cents {
+  if (!isValidCents(amount)) {
+    throw new Error('Amount must be a positive integer in cents')
+  }
+  return amount as Cents
+}
+
+/**
+ * Validate statement descriptor according to Stripe requirements
+ */
+const statementDescriptorSchema = z
+  .string()
+  .max(22, 'Statement descriptor must be 22 chars or less')
+  .transform((val) => val.replace(/[<>]/g, ''))
+
+/**
+ * Restricted update params for transfers (Stripe only allows metadata and description)
+ */
+export interface TransferUpdateParams {
+  metadata?: Stripe.Metadata
+  description?: string
+}
 
 /**
  * Centralized error handler for Stripe operations
@@ -17892,541 +17085,677 @@ import { v4 as uuid } from 'uuid';
  */
 function handleStripeError(err: unknown, context: string): never {
   if (err instanceof stripeServerClient.errors.StripeError) {
-    console.error(`${context} failed`, { 
-      type: err.type, 
-      code: err.code, 
+    console.error(`${context} failed`, {
+      type: err.type,
+      code: err.code,
       param: err.param,
-      requestId: err.requestId 
-    });
-    
+      requestId: err.requestId,
+    })
+
+    // Handle idempotent request duplicates as success
+    if (err.code === 'idempotency_key_in_use' || err.statusCode === 409) {
+      // This is actually a success - the operation was already completed
+      // The caller should handle this appropriately
+      const duplicateError = new Error('Operation already completed') as Error & {
+        isDuplicate: boolean
+        originalRequest?: unknown
+      }
+      duplicateError.isDuplicate = true
+      duplicateError.originalRequest = err.raw
+      throw duplicateError
+    }
+
     // Return generic error messages to prevent information leakage
     if (err.code === 'resource_missing') {
-      throw new Error(`Resource not found. Please check your request and try again.`);
+      throw new Error(`Resource not found. Please check your request and try again.`)
     }
-    
-    throw new Error(`Customer service error. Please retry or contact support.`);
+
+    if (err.code === 'insufficient_funds') {
+      throw new Error('Insufficient funds for payout. Please try again later.')
+    }
+
+    if (err.code === 'invalid_request_error' && err.param === 'amount') {
+      throw new Error('Invalid amount. Amount must be a positive integer in cents.')
+    }
+
+    throw new Error(`Payout service error. Please retry or contact support.`)
   }
-  
-  console.error(`${context} unexpected error`, err);
-  throw new Error('Internal server error. Please try again later.');
+
+  console.error(`${context} unexpected error`, err)
+  throw new Error('Internal server error. Please try again later.')
 }
 
-export const createStripeCustomer = async (
-  email: string,
+export interface CreatePayoutParams {
+  accountId: string
+  amount: Cents // Enforced as integer cents
+  currency: string
   metadata: {
-    userId: string;
-    userType: 'buyer' | 'supplier';
-    companyName?: string;
-  },
-  additionalData?: {
-    name?: string;
-    phone?: string;
-    address?: {
-      line1?: string;
-      line2?: string;
-      city?: string;
-      state?: string;
-      postal_code?: string;
-      country?: string;
-    };
+    supplierId: string
+    payoutPeriod: string
+    callCount: string
   }
-): Promise<Stripe.Customer> => {
-  try {
-    const customer = await stripeServerClient.customers.create({
-      email,
-      name: additionalData?.name,
-      phone: additionalData?.phone,
-      address: additionalData?.address,
-      metadata: {
-        ...metadata,
-        platform: 'dependablecalls',
-      },
-    }, {
-      idempotencyKey: uuid() // Prevent duplicate customer creation
-    });
-    
-    return customer;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create Stripe customer');
-  }
-};
+  statementDescriptor?: string
+}
 
-export const updateStripeCustomer = async (
-  customerId: string,
-  updates: Stripe.CustomerUpdateParams
-): Promise<Stripe.Customer> => {
+export interface PayoutSummary {
+  totalAmount: Cents // Enforced as integer cents
+  currency: string
+  transferCount: number
+  period: {
+    start: Date
+    end: Date
+  }
+}
+
+export const createTransfer = async (params: CreateTransferParams): Promise<Stripe.Transfer> => {
   try {
-    const customer = await stripeServerClient.customers.update(
-      customerId,
-      updates,
+    // Validate amount is positive integer
+    if (!Number.isInteger(params.amount) || params.amount <= 0) {
+      throw new Error('Amount must be a positive integer in cents')
+    }
+
+    const transfer = await stripeServerClient.transfers.create(
       {
-        idempotencyKey: uuid() // Prevent duplicate updates
-      }
-    );
-    
-    return customer;
-  } catch (error: unknown) {
-    handleStripeError(error, 'update Stripe customer');
-  }
-};
-
-export const getStripeCustomer = async (
-  customerId: string
-): Promise<Stripe.Customer | null> => {
-  try {
-    const customer = await stripeServerClient.customers.retrieve(customerId);
-    
-    if (customer.deleted) {
-      return null;
-    }
-    
-    return customer as Stripe.Customer;
-  } catch (error: unknown) {
-    if (error instanceof stripeServerClient.errors.StripeError && 
-        error.code === 'resource_missing') {
-      return null;
-    }
-    handleStripeError(error, 'retrieve Stripe customer');
-  }
-};
-
-export const deleteStripeCustomer = async (
-  customerId: string
-): Promise<boolean> => {
-  try {
-    const result = await stripeServerClient.customers.del(customerId);
-    return result.deleted;
-  } catch (error: unknown) {
-    handleStripeError(error, 'delete Stripe customer');
-  }
-};
-
-/**
- * List all payment methods for a customer with automatic pagination
- * Specifying type improves performance by 3-4x for large merchants
- */
-export const listCustomerPaymentMethods = async (
-  customerId: string,
-  type: 'card' | 'us_bank_account' = 'card',
-  limit = 100
-): Promise<Stripe.PaymentMethod[]> => {
-  try {
-    const paymentMethods: Stripe.PaymentMethod[] = [];
-    
-    // Use auto-pagination to ensure we get all payment methods
-    for await (const paymentMethod of stripeServerClient.paymentMethods.list({
-      customer: customerId,
-      type, // Always specify type for better performance
-      limit,
-    })) {
-      paymentMethods.push(paymentMethod);
-    }
-    
-    return paymentMethods;
-  } catch (error: unknown) {
-    handleStripeError(error, 'list payment methods');
-  }
-};
-
-/**
- * Save a payment method using SetupIntent for SCA optimization
- * This replaces direct attachment and reduces decline rates by 10-20%
- * @deprecated Use savePaymentMethod instead of attachPaymentMethod
- */
-export const attachPaymentMethod = async (
-  paymentMethodId: string,
-  customerId: string
-): Promise<Stripe.PaymentMethod> => {
-  console.warn('attachPaymentMethod is deprecated. Use savePaymentMethod for better SCA compliance.');
-  return savePaymentMethod(customerId, paymentMethodId);
-};
-
-/**
- * Save a payment method using SetupIntent for proper SCA optimization
- * Reduces decline rates by 10-20% compared to direct attachment
- */
-export const savePaymentMethod = async (
-  customerId: string,
-  paymentMethodId: string,
-  metadata?: Record<string, string>
-): Promise<Stripe.PaymentMethod> => {
-  try {
-    // Create a SetupIntent with the payment method
-    const setupIntent = await stripeServerClient.setupIntents.create(
-      {
-        customer: customerId,
-        payment_method_types: ['card', 'us_bank_account'],
-        payment_method: paymentMethodId,
-        confirm: true, // Immediately confirms and attaches
-        usage: 'off_session',
+        amount: params.amount,
+        currency: params.currency,
+        destination: params.destination,
+        transfer_group: `payout_${params.metadata.payoutId}`,
         metadata: {
-          ...metadata,
+          ...params.metadata,
           platform: 'dependablecalls',
         },
       },
-      { idempotencyKey: uuid() } // Prevents duplicate setup
-    );
+      {
+        idempotencyKey: uuid(), // Prevent duplicate transfers
+      }
+    )
 
-    if (setupIntent.status !== 'succeeded') {
-      throw new Error(`SetupIntent failed with status: ${setupIntent.status}`);
+    return transfer
+  } catch (error: unknown) {
+    // Check if this is a duplicate operation (409 response)
+    if (error instanceof Error && 'isDuplicate' in error && error.isDuplicate) {
+      console.log('Transfer already created, returning success')
+      // In production, you'd retrieve and return the original transfer
+      // For now, we re-throw to let caller handle
+      throw error
+    }
+    handleStripeError(error, 'create transfer')
+  }
+}
+
+export const reverseTransfer = async (
+  transferId: string,
+  amount?: Cents,
+  reason?: string
+): Promise<Stripe.TransferReversal> => {
+  try {
+    // Validate amount if provided
+    if (amount !== undefined && (!Number.isInteger(amount) || amount <= 0)) {
+      throw new Error('Amount must be a positive integer in cents')
     }
 
-    // The PaymentMethod is now attached and 3DS optimized
-    return stripeServerClient.paymentMethods.retrieve(paymentMethodId);
-  } catch (error: unknown) {
-    handleStripeError(error, 'save payment method');
-  }
-};
-
-export const detachPaymentMethod = async (
-  paymentMethodId: string
-): Promise<Stripe.PaymentMethod> => {
-  try {
-    const paymentMethod = await stripeServerClient.paymentMethods.detach(
-      paymentMethodId
-    );
-    
-    return paymentMethod;
-  } catch (error: unknown) {
-    handleStripeError(error, 'detach payment method');
-  }
-};
-
-export const setDefaultPaymentMethod = async (
-  customerId: string,
-  paymentMethodId: string
-): Promise<Stripe.Customer> => {
-  try {
-    const customer = await stripeServerClient.customers.update(
-      customerId,
+    const reversal = await stripeServerClient.transfers.createReversal(
+      transferId,
       {
-        invoice_settings: {
-          default_payment_method: paymentMethodId,
+        amount,
+        description: reason,
+        metadata: {
+          platform: 'dependablecalls',
+          reason: reason || 'fraud_detected',
         },
       },
       {
-        idempotencyKey: uuid() // Prevent duplicate default method updates
+        idempotencyKey: uuid(), // Prevent duplicate reversals
       }
-    );
-    
-    return customer;
+    )
+
+    return reversal
   } catch (error: unknown) {
-    handleStripeError(error, 'set default payment method');
+    handleStripeError(error, 'reverse transfer')
   }
-};
-
-export const createSetupIntent = async (
-  customerId: string,
-  metadata?: Record<string, string>
-): Promise<Stripe.SetupIntent> => {
-  try {
-    const setupIntent = await stripeServerClient.setupIntents.create({
-      customer: customerId,
-      payment_method_types: ['card', 'us_bank_account'],
-      usage: 'off_session',
-      metadata: {
-        ...metadata,
-        platform: 'dependablecalls',
-      },
-    }, {
-      idempotencyKey: uuid() // Prevent duplicate setup intent creation
-    });
-    
-    return setupIntent;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create setup intent');
-  }
-};
-</file>
-
-<file path="src/integrations/stripe/payments.ts">
-import { stripeServerClient } from './client';
-import type { CreatePaymentIntentParams, PaymentStatus } from './types';
-import type Stripe from 'stripe';
-import { v4 as uuid } from 'uuid';
-
-/**
- * Centralized error handler for Stripe operations
- * Prevents leaking sensitive information and provides type-safe error handling
- */
-function handleStripeError(err: unknown, context: string): never {
-  if (err instanceof stripeServerClient.errors.StripeError) {
-    console.error(`${context} failed`, { 
-      type: err.type, 
-      code: err.code, 
-      param: err.param,
-      requestId: err.requestId 
-    });
-    
-    // Return generic error messages to prevent information leakage
-    if (err.code === 'resource_missing') {
-      throw new Error(`Resource not found. Please check your request and try again.`);
-    }
-    
-    throw new Error(`Payment service error. Please retry or contact support.`);
-  }
-  
-  console.error(`${context} unexpected error`, err);
-  throw new Error('Internal server error. Please try again later.');
 }
 
-export const createPaymentIntent = async (
-  params: CreatePaymentIntentParams
-): Promise<Stripe.PaymentIntent> => {
+export const getTransfer = async (transferId: string): Promise<Stripe.Transfer | null> => {
   try {
-    const paymentIntent = await stripeServerClient.paymentIntents.create({
-      amount: params.amount,
-      currency: params.currency,
+    const transfer = await stripeServerClient.transfers.retrieve(transferId)
+    return transfer
+  } catch (error: unknown) {
+    if (
+      error instanceof stripeServerClient.errors.StripeError &&
+      error.code === 'resource_missing'
+    ) {
+      return null
+    }
+    handleStripeError(error, 'retrieve transfer')
+  }
+}
+
+export const updateTransfer = async (
+  transferId: string,
+  updates: TransferUpdateParams // Restricted to only metadata and description
+): Promise<Stripe.Transfer> => {
+  try {
+    // Stripe only allows updating metadata and description on transfers
+    const allowedUpdates: Stripe.TransferUpdateParams = {}
+    if (updates.metadata !== undefined) {
+      allowedUpdates.metadata = updates.metadata
+    }
+    if (updates.description !== undefined) {
+      allowedUpdates.description = updates.description
+    }
+
+    const transfer = await stripeServerClient.transfers.update(transferId, allowedUpdates, {
+      idempotencyKey: uuid(), // Prevent duplicate updates
+    })
+
+    return transfer
+  } catch (error: unknown) {
+    handleStripeError(error, 'update transfer')
+  }
+}
+
+export const createPayout = async (params: CreatePayoutParams): Promise<Stripe.Payout> => {
+  try {
+    // Validate amount is positive integer
+    if (!Number.isInteger(params.amount) || params.amount <= 0) {
+      throw new Error('Amount must be a positive integer in cents')
+    }
+
+    // Validate and sanitize statement descriptor
+    const statementDescriptor = params.statementDescriptor
+      ? statementDescriptorSchema.parse(params.statementDescriptor)
+      : 'DCE Payout'
+
+    // First check if account can receive payouts
+    const account = await stripeServerClient.accounts.retrieve(params.accountId)
+    if (account.type === 'standard') {
+      throw new Error('Cannot create payouts for Standard accounts. Use transfers instead.')
+    }
+    if (!account.payouts_enabled) {
+      throw new Error('Account is not enabled for payouts. Please complete account verification.')
+    }
+
+    const payout = await stripeServerClient.payouts.create(
+      {
+        amount: params.amount,
+        currency: params.currency,
+        statement_descriptor: statementDescriptor,
+        metadata: {
+          ...params.metadata,
+          platform: 'dependablecalls',
+        },
+      },
+      {
+        stripeAccount: params.accountId,
+        idempotencyKey: uuid(), // Prevent duplicate payouts
+      }
+    )
+
+    return payout
+  } catch (error: unknown) {
+    handleStripeError(error, 'create payout')
+  }
+}
+
+export const cancelPayout = async (payoutId: string, accountId: string): Promise<Stripe.Payout> => {
+  try {
+    const payout = await stripeServerClient.payouts.cancel(
+      payoutId,
+      {},
+      { stripeAccount: accountId }
+    )
+
+    return payout
+  } catch (error) {
+    console.error('Error canceling payout:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to cancel payout: ${errorMessage}`)
+  }
+}
+
+export const getPayout = async (
+  payoutId: string,
+  accountId: string
+): Promise<Stripe.Payout | null> => {
+  try {
+    const payout = await stripeServerClient.payouts.retrieve(
+      payoutId,
+      {},
+      { stripeAccount: accountId }
+    )
+
+    return payout
+  } catch (error: unknown) {
+    if (
+      error instanceof stripeServerClient.errors.StripeError &&
+      error.code === 'resource_missing'
+    ) {
+      return null
+    }
+    handleStripeError(error, 'retrieve payout')
+  }
+}
+
+export const listAccountPayouts = async (
+  accountId: string,
+  status?: 'pending' | 'paid' | 'failed' | 'canceled',
+  limit: number = 100
+): Promise<Stripe.Payout[]> => {
+  try {
+    const payouts: Stripe.Payout[] = []
+
+    // Use auto-pagination to ensure we get all payouts
+    for await (const payout of stripeServerClient.payouts.list(
+      {
+        status,
+        limit,
+      },
+      {
+        stripeAccount: accountId,
+      }
+    )) {
+      payouts.push(payout)
+    }
+
+    return payouts
+  } catch (error: unknown) {
+    handleStripeError(error, 'list payouts')
+  }
+}
+
+export const createBulkPayout = async (
+  payouts: Array<{
+    accountId: string
+    amount: Cents
+    metadata: Record<string, string>
+  }>,
+  transferGroup: string,
+  maxConcurrency: number = 5 // Limit concurrent requests
+): Promise<Array<{ success: boolean; transfer?: Stripe.Transfer; error?: Error }>> => {
+  try {
+    // Create batches for concurrent processing
+    const results: Array<{ success: boolean; transfer?: Stripe.Transfer; error?: Error }> = []
+
+    // Process in batches to avoid rate limits
+    for (let i = 0; i < payouts.length; i += maxConcurrency) {
+      const batch = payouts.slice(i, i + maxConcurrency)
+
+      const batchPromises = batch.map(async (payout) => {
+        try {
+          const transfer = await createTransfer({
+            amount: payout.amount,
+            currency: 'usd',
+            destination: payout.accountId,
+            metadata: {
+              ...payout.metadata,
+              transferGroup,
+              payoutId: `${transferGroup}_${payout.accountId}_${Date.now()}`,
+              supplierId: payout.metadata.supplierId || 'bulk',
+              callCount: payout.metadata.callCount || '0',
+              period: payout.metadata.period || transferGroup,
+            },
+          } as CreateTransferParams)
+
+          return { success: true, transfer }
+        } catch (error: unknown) {
+          // Don't fail entire batch for individual errors
+          const errorObj = error instanceof Error ? error : new Error(String(error))
+          return { success: false, error: errorObj }
+        }
+      })
+
+      const batchResults = await Promise.allSettled(batchPromises)
+
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value)
+        } else {
+          results.push({ success: false, error: result.reason })
+        }
+      })
+    }
+
+    return results
+  } catch (error: unknown) {
+    handleStripeError(error, 'create bulk payout')
+  }
+}
+
+export const calculatePayoutSummary = async (
+  accountId: string,
+  period: { start: Date; end: Date }
+): Promise<PayoutSummary> => {
+  try {
+    let totalAmount = 0
+    let transferCount = 0
+
+    // Use auto-pagination to ensure we get ALL transfers
+    for await (const transfer of stripeServerClient.transfers.list({
+      destination: accountId,
+      created: {
+        gte: Math.floor(period.start.getTime() / 1000),
+        lt: Math.floor(period.end.getTime() / 1000),
+      },
+      limit: 100, // Page size
+    })) {
+      totalAmount += transfer.amount
+      transferCount++
+    }
+
+    return {
+      totalAmount: totalAmount as Cents,
+      currency: 'usd',
+      transferCount,
+      period,
+    }
+  } catch (error: unknown) {
+    handleStripeError(error, 'calculate payout summary')
+  }
+}
+
+export const scheduleWeeklyPayouts = async (
+  suppliers: Array<{
+    accountId: string
+    supplierId: string
+    amount: Cents
+    callCount: number
+  }>,
+  maxConcurrency: number = 5
+): Promise<
+  Array<{ supplierId: string; success: boolean; transfer?: Stripe.Transfer; error?: Error }>
+> => {
+  try {
+    const now = new Date()
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const payoutPeriod = weekStart.toISOString().split('T')[0]
+    const payoutGroup = `weekly_${payoutPeriod}`
+
+    // Generate deterministic payout IDs to prevent duplicates
+    const generatePayoutId = (supplierId: string) => {
+      // Use supplier ID and period for idempotency
+      return `payout_${supplierId}_${payoutPeriod}`
+    }
+
+    const results: Array<{
+      supplierId: string
+      success: boolean
+      transfer?: Stripe.Transfer
+      error?: Error
+    }> = []
+
+    // Filter eligible suppliers
+    const eligibleSuppliers = suppliers.filter((s) => s.amount >= 10000) // $100 minimum
+
+    // Process in batches for better performance
+    for (let i = 0; i < eligibleSuppliers.length; i += maxConcurrency) {
+      const batch = eligibleSuppliers.slice(i, i + maxConcurrency)
+
+      const batchPromises = batch.map(async (supplier) => {
+        try {
+          const transfer = await createTransfer({
+            amount: supplier.amount,
+            currency: 'usd',
+            destination: supplier.accountId,
+            metadata: {
+              payoutId: generatePayoutId(supplier.supplierId),
+              supplierId: supplier.supplierId,
+              callCount: supplier.callCount.toString(),
+              period: payoutGroup,
+            },
+          } as CreateTransferParams)
+
+          return { supplierId: supplier.supplierId, success: true, transfer }
+        } catch (error: unknown) {
+          // Check if it's a duplicate (already processed)
+          if (
+            error instanceof Error &&
+            'isDuplicate' in error &&
+            (error as Error & { isDuplicate: boolean }).isDuplicate
+          ) {
+            console.log(`Payout already processed for supplier ${supplier.supplierId}`)
+            return { supplierId: supplier.supplierId, success: true, transfer: undefined }
+          }
+
+          console.error(`Failed to create payout for supplier ${supplier.supplierId}:`, error)
+          return { supplierId: supplier.supplierId, success: false, error: error as Error }
+        }
+      })
+
+      const batchResults = await Promise.allSettled(batchPromises)
+
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value)
+        } else {
+          results.push({
+            supplierId: 'unknown',
+            success: false,
+            error: result.reason,
+          })
+        }
+      })
+    }
+
+    // Log summary
+    const successful = results.filter((r) => r.success).length
+    const failed = results.filter((r) => !r.success).length
+    console.log(`Weekly payouts completed: ${successful} successful, ${failed} failed`)
+
+    return results
+  } catch (error: unknown) {
+    handleStripeError(error, 'schedule weekly payouts')
+  }
+}
+</file>
+
+<file path="src/integrations/stripe/subscriptions.ts">
+import { stripeServerClient } from './client'
+import type Stripe from 'stripe'
+
+export interface CreateSubscriptionParams {
+  customerId: string
+  priceId: string
+  metadata: {
+    buyerId: string
+    planType: 'starter' | 'professional' | 'enterprise'
+  }
+  trialDays?: number
+  defaultPaymentMethod?: string
+}
+
+export interface UsageRecord {
+  subscriptionItemId: string
+  quantity: number
+  timestamp?: number
+  action?: 'set' | 'increment'
+}
+
+export const createSubscription = async (
+  params: CreateSubscriptionParams
+): Promise<Stripe.Subscription> => {
+  try {
+    const subscription = await stripeServerClient.subscriptions.create({
       customer: params.customerId,
-      payment_method_types: params.paymentMethodTypes ?? ['card', 'us_bank_account'],
+      items: [{ price: params.priceId }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
       metadata: {
         ...params.metadata,
         platform: 'dependablecalls',
       },
-      setup_future_usage: 'off_session',
-      automatic_payment_methods: {
-        enabled: true, // Enable for better payment method management
-      },
-    }, {
-      idempotencyKey: uuid() // Prevent duplicate payment intent creation
-    });
-    
-    return paymentIntent;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create payment intent');
-  }
-};
+      ...(params.trialDays && { trial_period_days: params.trialDays }),
+      ...(params.defaultPaymentMethod && {
+        default_payment_method: params.defaultPaymentMethod,
+      }),
+    })
 
-export const confirmPaymentIntent = async (
-  paymentIntentId: string,
-  paymentMethodId: string,
-  returnUrl: string
-): Promise<Stripe.PaymentIntent> => {
-  try {
-    const paymentIntent = await stripeServerClient.paymentIntents.confirm(
-      paymentIntentId,
-      {
-        payment_method: paymentMethodId,
-        return_url: returnUrl, // Required for payment methods that need redirect
-      },
-      {
-        idempotencyKey: uuid() // Prevent duplicate confirmation
-      }
-    );
-    
-    return paymentIntent;
-  } catch (error: unknown) {
-    handleStripeError(error, 'confirm payment intent');
+    return subscription
+  } catch (error) {
+    console.error('Error creating subscription:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create subscription: ${errorMessage}`)
   }
-};
+}
 
-export const cancelPaymentIntent = async (
-  paymentIntentId: string,
-  _reason?: string
-): Promise<Stripe.PaymentIntent> => {
+export const updateSubscription = async (
+  subscriptionId: string,
+  updates: Stripe.SubscriptionUpdateParams
+): Promise<Stripe.Subscription> => {
   try {
-    const paymentIntent = await stripeServerClient.paymentIntents.cancel(
-      paymentIntentId,
-      {},
-      {
-        idempotencyKey: uuid() // Prevent duplicate cancellation
-      }
-    );
-    
-    return paymentIntent;
-  } catch (error: unknown) {
-    handleStripeError(error, 'cancel payment intent');
+    const subscription = await stripeServerClient.subscriptions.update(subscriptionId, updates)
+
+    return subscription
+  } catch (error) {
+    console.error('Error updating subscription:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to update subscription: ${errorMessage}`)
   }
-};
+}
 
-export const getPaymentIntent = async (
-  paymentIntentId: string
-): Promise<Stripe.PaymentIntent | null> => {
+export const cancelSubscription = async (
+  subscriptionId: string,
+  immediately: boolean = false
+): Promise<Stripe.Subscription> => {
   try {
-    const paymentIntent = await stripeServerClient.paymentIntents.retrieve(
-      paymentIntentId
-    );
-    
-    return paymentIntent;
-  } catch (error: unknown) {
-    if (error instanceof stripeServerClient.errors.StripeError && 
-        error.code === 'resource_missing') {
-      return null;
+    if (immediately) {
+      return await stripeServerClient.subscriptions.cancel(subscriptionId)
+    } else {
+      return await stripeServerClient.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+      })
     }
-    handleStripeError(error, 'retrieve payment intent');
+  } catch (error) {
+    console.error('Error canceling subscription:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to cancel subscription: ${errorMessage}`)
   }
-};
+}
 
-export const updatePaymentIntent = async (
-  paymentIntentId: string,
-  updates: Stripe.PaymentIntentUpdateParams
-): Promise<Stripe.PaymentIntent> => {
+export const reactivateSubscription = async (
+  subscriptionId: string
+): Promise<Stripe.Subscription> => {
   try {
-    const paymentIntent = await stripeServerClient.paymentIntents.update(
-      paymentIntentId,
-      updates,
-      {
-        idempotencyKey: uuid() // Prevent duplicate updates
-      }
-    );
-    
-    return paymentIntent;
-  } catch (error: unknown) {
-    handleStripeError(error, 'update payment intent');
-  }
-};
+    const subscription = await stripeServerClient.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: false,
+    })
 
-export const createRefund = async (
-  paymentIntentId: string,
-  amount?: number,
-  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer',
-  metadata?: Record<string, string>
-): Promise<Stripe.Refund> => {
+    return subscription
+  } catch (error) {
+    console.error('Error reactivating subscription:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to reactivate subscription: ${errorMessage}`)
+  }
+}
+
+export const getSubscription = async (
+  subscriptionId: string
+): Promise<Stripe.Subscription | null> => {
   try {
-    const refund = await stripeServerClient.refunds.create({
-      payment_intent: paymentIntentId,
-      amount,
-      reason,
-      metadata: {
-        ...metadata,
-        platform: 'dependablecalls',
-      },
-    }, {
-      idempotencyKey: uuid() // Prevent duplicate refunds
-    });
-    
-    return refund;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create refund');
-  }
-};
+    const subscription = await stripeServerClient.subscriptions.retrieve(subscriptionId)
 
-export const getPaymentStatus = (
-  paymentIntent: Stripe.PaymentIntent
-): PaymentStatus => {
-  let status: PaymentStatus['status'] = 'pending';
-  let error: string | undefined;
-  
-  switch (paymentIntent.status) {
-    case 'succeeded':
-      status = 'succeeded';
-      break;
-    case 'processing':
-      status = 'processing';
-      break;
-    case 'canceled':
-    case 'requires_payment_method':
-      status = 'failed';
-      error = paymentIntent.last_payment_error?.message;
-      break;
-    default:
-      status = 'pending';
-  }
-  
-  return {
-    id: paymentIntent.id,
-    status,
-    amount: paymentIntent.amount,
-    currency: paymentIntent.currency,
-    error,
-  };
-};
-
-/**
- * List all payment intents for a customer with automatic pagination
- * This ensures we get ALL payments, not just the first page
- */
-export const listCustomerPayments = async (
-  customerId: string,
-  limit = 1000 // Increased from 100 for better performance
-): Promise<Stripe.PaymentIntent[]> => {
-  try {
-    const payments: Stripe.PaymentIntent[] = [];
-    
-    // Use auto-pagination to ensure we get all payment intents
-    for await (const paymentIntent of stripeServerClient.paymentIntents.list({
-      customer: customerId,
-      limit, // Page size
-    })) {
-      payments.push(paymentIntent);
+    return subscription
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'resource_missing'
+    ) {
+      return null
     }
-    
-    return payments;
-  } catch (error: unknown) {
-    handleStripeError(error, 'list customer payments');
+    console.error('Error retrieving subscription:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to retrieve subscription: ${errorMessage}`)
   }
-};
+}
 
-/**
- * Create and immediately capture a payment using PaymentIntents
- * This replaces the legacy charges.create API for SCA compliance
- * @deprecated Use createPaymentIntent with automatic capture instead
- */
-export const createAndCapturePayment = async (
-  amount: number,
-  currency: string,
-  paymentMethodId: string,
-  customerId?: string,
-  metadata?: Record<string, string>
-): Promise<Stripe.PaymentIntent> => {
-  try {
-    // Create and confirm payment intent in one API call
-    const paymentIntent = await stripeServerClient.paymentIntents.create({
-      amount,
-      currency,
-      payment_method: paymentMethodId,
-      customer: customerId,
-      confirm: true, // Immediately attempt to confirm
-      capture_method: 'automatic', // Capture funds immediately on confirmation
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never', // For immediate capture, don't allow redirects
-      },
-      metadata: {
-        ...metadata,
-        platform: 'dependablecalls',
-      },
-    }, {
-      idempotencyKey: uuid() // Prevent duplicate charges
-    });
-    
-    return paymentIntent;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create and capture payment');
-  }
-};
-
-/**
- * Helper function to handle off-session payments (e.g., recurring charges)
- */
-export const createOffSessionPayment = async (
-  amount: number,
-  currency: string,
+export const listCustomerSubscriptions = async (
   customerId: string,
-  paymentMethodId: string,
-  metadata?: Record<string, string>
-): Promise<Stripe.PaymentIntent> => {
+  status?: 'active' | 'canceled' | 'past_due' | 'trialing'
+): Promise<Stripe.Subscription[]> => {
   try {
-    const paymentIntent = await stripeServerClient.paymentIntents.create({
-      amount,
-      currency,
+    const subscriptions = await stripeServerClient.subscriptions.list({
       customer: customerId,
-      payment_method: paymentMethodId,
-      off_session: true,
-      confirm: true,
-      metadata: {
-        ...metadata,
-        platform: 'dependablecalls',
-      },
-    }, {
-      idempotencyKey: uuid() // Prevent duplicate charges
-    });
-    
-    return paymentIntent;
-  } catch (error: unknown) {
-    handleStripeError(error, 'create off-session payment');
+      status,
+    })
+
+    return subscriptions.data
+  } catch (error) {
+    console.error('Error listing subscriptions:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to list subscriptions: ${errorMessage}`)
   }
-};
+}
+
+export const createUsageRecord = async (record: UsageRecord): Promise<unknown> => {
+  try {
+    // Note: Usage records are created through billing, not directly
+    // This is a placeholder implementation
+    console.warn('Usage records should be created through billing system')
+    return { success: true, record }
+  } catch (error) {
+    console.error('Error creating usage record:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create usage record: ${errorMessage}`)
+  }
+}
+
+export const listUsageRecords = async (): Promise<unknown[]> => {
+  try {
+    // Note: Usage records are retrieved through billing, not directly
+    // This is a placeholder implementation
+    console.warn('Usage records should be retrieved through billing system')
+    return []
+  } catch (error) {
+    console.error('Error listing usage records:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to list usage records: ${errorMessage}`)
+  }
+}
+
+export const updateSubscriptionItem = async (
+  subscriptionId: string,
+  itemId: string,
+  newPriceId: string
+): Promise<Stripe.Subscription> => {
+  try {
+    const subscription = await stripeServerClient.subscriptions.update(subscriptionId, {
+      items: [
+        {
+          id: itemId,
+          price: newPriceId,
+        },
+      ],
+      proration_behavior: 'create_prorations',
+    })
+
+    return subscription
+  } catch (error) {
+    console.error('Error updating subscription item:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to update subscription item: ${errorMessage}`)
+  }
+}
+
+export const createSubscriptionSchedule = async (
+  customerId: string,
+  phases: Stripe.SubscriptionScheduleCreateParams.Phase[]
+): Promise<Stripe.SubscriptionSchedule> => {
+  try {
+    const schedule = await stripeServerClient.subscriptionSchedules.create({
+      customer: customerId,
+      start_date: 'now',
+      phases,
+    })
+
+    return schedule
+  } catch (error) {
+    console.error('Error creating subscription schedule:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create subscription schedule: ${errorMessage}`)
+  }
+}
 </file>
 
 <file path="src/integrations/stripe/types.ts">
@@ -18529,187 +17858,172 @@ export interface WebhookHandlerMap {
 }
 </file>
 
-<file path="src/integrations/stripe/webhooks.ts">
-import crypto from 'crypto';
-interface Request {
-  body: unknown;
-  headers: Record<string, string | string[] | undefined>;
+<file path="src/lib/monitoring.ts">
+import * as Sentry from '@sentry/react'
+import { Routes, Route } from 'react-router-dom'
+
+/**
+ * Initialize Sentry monitoring for error tracking and performance monitoring
+ */
+export function initSentry(): void {
+  const dsn = import.meta.env.VITE_SENTRY_DSN
+  const environment = import.meta.env.MODE
+
+  if (!dsn) {
+    console.warn('Sentry DSN not configured, monitoring disabled')
+    return
+  }
+
+  Sentry.init({
+    dsn,
+    environment,
+    integrations: [
+      Sentry.browserTracingIntegration({
+        // Set up automatic route change tracking for React Router
+        enableInp: true,
+      }),
+      Sentry.replayIntegration({
+        // Mask sensitive data
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
+    ],
+
+    // Performance monitoring
+    tracesSampleRate: environment === 'production' ? 0.1 : 1.0,
+
+    // Session replay
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+
+    // Release tracking
+    release: import.meta.env.VITE_APP_VERSION || 'unknown',
+
+    // Error filtering
+    beforeSend(event, hint) {
+      // Filter out development errors
+      if (environment === 'development') {
+        console.error('Sentry event:', event, hint)
+        return null
+      }
+
+      // Filter out network errors that are not actionable
+      if (event.exception) {
+        const error = hint.originalException
+        if (error instanceof TypeError && error.message.includes('NetworkError')) {
+          return null
+        }
+      }
+
+      return event
+    },
+
+    // Additional context
+    initialScope: {
+      tags: {
+        component: 'dce-website',
+        platform: 'web',
+      },
+    },
+  })
 }
 
-interface Response {
-  status: (code: number) => Response;
-  json: (data: unknown) => Response;
-  send: (data: unknown) => Response;
+/**
+ * Set user context for error tracking
+ */
+export function setSentryUser(user: { id: string; email?: string; role?: string }): void {
+  Sentry.setUser({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+  })
 }
-import Stripe from 'stripe';
-import { stripeServerClient, stripeConfig } from './client';
-import type { WebhookHandlerMap } from './types';
 
-export const verifyWebhookSignature = (
-  payload: string | Buffer,
-  signature: string
-): Stripe.Event => {
-  try {
-    return stripeServerClient.webhooks.constructEvent(
-      payload,
-      signature,
-      stripeConfig.webhookSecret
-    );
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    throw new Error(`Webhook signature verification failed: ${errorMessage}`);
-  }
-};
+/**
+ * Add breadcrumb for debugging
+ */
+export function addBreadcrumb(
+  message: string,
+  category: string = 'custom',
+  level: Sentry.SeverityLevel = 'info',
+  data?: Record<string, unknown>
+): void {
+  Sentry.addBreadcrumb({
+    message,
+    category,
+    level,
+    data,
+    timestamp: Date.now() / 1000,
+  })
+}
 
-const webhookHandlers: WebhookHandlerMap = {
-  'payment_intent.succeeded': async (event) => {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    console.log('Payment succeeded:', paymentIntent.id);
-    
-    // Update invoice status in database
-    // Send confirmation email
-    // Update buyer's balance
-  },
-  
-  'payment_intent.payment_failed': async (event) => {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    console.error('Payment failed:', paymentIntent.id);
-    
-    // Mark invoice as failed
-    // Send failure notification
-    // Potentially pause campaigns if recurring failure
-  },
-  
-  'charge.dispute.created': async (event) => {
-    const dispute = event.data.object as Stripe.Dispute;
-    console.warn('Dispute created:', dispute.id);
-    
-    // Create dispute record
-    // Notify admin team
-    // Gather evidence automatically
-  },
-  
-  'account.updated': async (event) => {
-    const account = event.data.object as Stripe.Account;
-    console.log('Connected account updated:', account.id);
-    
-    // Update supplier's account status
-    // Check if charges/payouts are enabled
-    // Notify supplier of any required actions
-  },
-  
-  'account.application.authorized': async (event) => {
-    const account = event.data.object as Stripe.Account;
-    console.log('Account authorized:', account.id);
-    
-    // Mark supplier as active
-    // Enable campaign creation
-    // Send welcome email
-  },
-  
-  'account.application.deauthorized': async (event) => {
-    const account = event.data.object as Stripe.Account;
-    console.log('Account deauthorized:', account.id);
-    
-    // Pause all supplier campaigns
-    // Notify admin team
-    // Schedule final payout
-  },
-  
-  'payout.created': async (event) => {
-    const payout = event.data.object as Stripe.Payout;
-    console.log('Payout created:', payout.id);
-    
-    // Create payout record
-    // Update supplier balance
-    // Send notification
-  },
-  
-  'payout.paid': async (event) => {
-    const payout = event.data.object as Stripe.Payout;
-    console.log('Payout completed:', payout.id);
-    
-    // Mark payout as completed
-    // Send confirmation
-    // Update ledger
-  },
-  
-  'payout.failed': async (event) => {
-    const payout = event.data.object as Stripe.Payout;
-    console.error('Payout failed:', payout.id);
-    
-    // Mark payout as failed
-    // Notify supplier and admin
-    // Schedule retry or manual intervention
-  },
-  
-  'transfer.created': async (event) => {
-    const transfer = event.data.object as Stripe.Transfer;
-    console.log('Transfer created:', transfer.id);
-    
-    // Record transfer
-    // Update internal ledger
-  },
-  
-  'transfer.reversed': async (event) => {
-    const transfer = event.data.object as Stripe.Transfer;
-    console.warn('Transfer reversed:', transfer.id);
-    
-    // Update ledger
-    // Investigate reason
-    // Notify affected parties
-  },
-};
-
-export const handleStripeWebhook = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const signature = req.headers['stripe-signature'] as string;
-  
-  if (!signature) {
-    res.status(400).send('Missing stripe-signature header');
-    return;
-  }
-  
-  let event: Stripe.Event;
-  
-  try {
-    event = verifyWebhookSignature(req.body as string | Buffer, signature);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    res.status(400).send(`Webhook Error: ${errorMessage}`);
-    return;
-  }
-  
-  const handler = webhookHandlers[event.type];
-  
-  if (handler) {
-    try {
-      await handler(event);
-      res.json({ received: true });
-    } catch (err) {
-      console.error(`Error handling webhook ${event.type}:`, err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).send(`Webhook handler error: ${errorMessage}`);
+/**
+ * Capture exception manually
+ */
+export function captureError(error: Error, context?: Record<string, unknown>): void {
+  Sentry.withScope((scope) => {
+    if (context) {
+      scope.setContext('error_context', context)
     }
-  } else {
-    console.log(`Unhandled webhook event type: ${event.type}`);
-    res.json({ received: true });
-  }
-};
+    Sentry.captureException(error)
+  })
+}
 
-export const timingSafeEqual = (a: string, b: string): boolean => {
-  const bufferA = Buffer.from(a);
-  const bufferB = Buffer.from(b);
-  
-  if (bufferA.length !== bufferB.length) {
-    return false;
-  }
-  
-  return crypto.timingSafeEqual(bufferA, bufferB);
-};
+/**
+ * Capture custom message
+ */
+export function captureMessage(
+  message: string,
+  level: Sentry.SeverityLevel = 'info',
+  context?: Record<string, unknown>
+): void {
+  Sentry.withScope((scope) => {
+    if (context) {
+      scope.setContext('message_context', context)
+    }
+    scope.setLevel(level)
+    Sentry.captureMessage(message)
+  })
+}
+
+/**
+ * Performance monitoring for critical operations
+ */
+export function startTransaction(name: string, operation: string = 'navigation'): unknown {
+  return Sentry.startSpan(
+    {
+      name,
+      op: operation,
+    },
+    () => ({})
+  )
+}
+
+/**
+ * Track API call performance
+ */
+export function trackApiCall<T>(apiName: string, apiCall: () => Promise<T>): Promise<T> {
+  const transaction = startTransaction(apiName, 'http.client')
+
+  return apiCall()
+    .then((result) => {
+      ;(transaction as { setStatus?: (status: string) => void })?.setStatus?.('ok')
+      return result
+    })
+    .catch((error) => {
+      ;(transaction as { setStatus?: (status: string) => void })?.setStatus?.('internal_error')
+      captureError(error, { apiName })
+      throw error
+    })
+    .finally(() => {
+      ;(transaction as { finish?: () => void })?.finish?.()
+    })
+}
+
+// React integration components
+export const SentryRoutes = Sentry.withSentryRouting(Routes)
+export const SentryRoute = Sentry.withSentryRouting(Route)
+export const SentryErrorBoundary = Sentry.ErrorBoundary
 </file>
 
 <file path="src/pages/auth/ForgotPasswordPage.tsx">
@@ -19324,6 +18638,15 @@ test-results/
 monitor.log
 </file>
 
+<file path="postcss.config.js">
+import tailwindcss from '@tailwindcss/postcss'
+import autoprefixer from 'autoprefixer'
+
+export default {
+  plugins: [tailwindcss, autoprefixer],
+}
+</file>
+
 <file path="README.md">
 # DCE Platform - Dependable Calls Exchange
 
@@ -19688,6 +19011,770 @@ export default defineConfig({
 })
 </file>
 
+<file path="src/integrations/stripe/client.ts">
+import Stripe from 'stripe'
+import { loadStripe } from '@stripe/stripe-js'
+
+const STRIPE_API_VERSION = '2025-06-30.basil' as const
+
+export const stripeServerClient = new Stripe(import.meta.env.VITE_STRIPE_SECRET_KEY || '', {
+  apiVersion: STRIPE_API_VERSION,
+  typescript: true,
+})
+
+let stripePromise: Promise<import('@stripe/stripe-js').Stripe | null> | null = null
+
+export const getStripeClient = () => {
+  if (!stripePromise) {
+    stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '')
+  }
+  return stripePromise
+}
+
+export const stripeConfig = {
+  webhookSecret: import.meta.env.VITE_STRIPE_WEBHOOK_SECRET || '',
+  connectClientId: import.meta.env.VITE_STRIPE_CONNECT_CLIENT_ID || '',
+  apiVersion: STRIPE_API_VERSION,
+}
+
+export const isStripeConfigured = () => {
+  return !!(import.meta.env.VITE_STRIPE_SECRET_KEY && import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+}
+</file>
+
+<file path="src/integrations/stripe/customers.ts">
+import { stripeServerClient } from './client'
+import type Stripe from 'stripe'
+import { v4 as uuid } from 'uuid'
+
+/**
+ * Centralized error handler for Stripe operations
+ * Prevents leaking sensitive information and provides type-safe error handling
+ */
+function handleStripeError(err: unknown, context: string): never {
+  if (err instanceof stripeServerClient.errors.StripeError) {
+    console.error(`${context} failed`, {
+      type: err.type,
+      code: err.code,
+      param: err.param,
+      requestId: err.requestId,
+    })
+
+    // Return generic error messages to prevent information leakage
+    if (err.code === 'resource_missing') {
+      throw new Error(`Resource not found. Please check your request and try again.`)
+    }
+
+    throw new Error(`Customer service error. Please retry or contact support.`)
+  }
+
+  console.error(`${context} unexpected error`, err)
+  throw new Error('Internal server error. Please try again later.')
+}
+
+export const createStripeCustomer = async (
+  email: string,
+  metadata: {
+    userId: string
+    userType: 'buyer' | 'supplier'
+    companyName?: string
+  },
+  additionalData?: {
+    name?: string
+    phone?: string
+    address?: {
+      line1?: string
+      line2?: string
+      city?: string
+      state?: string
+      postal_code?: string
+      country?: string
+    }
+  }
+): Promise<Stripe.Customer> => {
+  try {
+    const customer = await stripeServerClient.customers.create(
+      {
+        email,
+        name: additionalData?.name,
+        phone: additionalData?.phone,
+        address: additionalData?.address,
+        metadata: {
+          ...metadata,
+          platform: 'dependablecalls',
+        },
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate customer creation
+      }
+    )
+
+    return customer
+  } catch (error: unknown) {
+    handleStripeError(error, 'create Stripe customer')
+  }
+}
+
+export const updateStripeCustomer = async (
+  customerId: string,
+  updates: Stripe.CustomerUpdateParams
+): Promise<Stripe.Customer> => {
+  try {
+    const customer = await stripeServerClient.customers.update(customerId, updates, {
+      idempotencyKey: uuid(), // Prevent duplicate updates
+    })
+
+    return customer
+  } catch (error: unknown) {
+    handleStripeError(error, 'update Stripe customer')
+  }
+}
+
+export const getStripeCustomer = async (customerId: string): Promise<Stripe.Customer | null> => {
+  try {
+    const customer = await stripeServerClient.customers.retrieve(customerId)
+
+    if (customer.deleted) {
+      return null
+    }
+
+    return customer as Stripe.Customer
+  } catch (error: unknown) {
+    if (
+      error instanceof stripeServerClient.errors.StripeError &&
+      error.code === 'resource_missing'
+    ) {
+      return null
+    }
+    handleStripeError(error, 'retrieve Stripe customer')
+  }
+}
+
+export const deleteStripeCustomer = async (customerId: string): Promise<boolean> => {
+  try {
+    const result = await stripeServerClient.customers.del(customerId)
+    return result.deleted
+  } catch (error: unknown) {
+    handleStripeError(error, 'delete Stripe customer')
+  }
+}
+
+/**
+ * List all payment methods for a customer with automatic pagination
+ * Specifying type improves performance by 3-4x for large merchants
+ */
+export const listCustomerPaymentMethods = async (
+  customerId: string,
+  type: 'card' | 'us_bank_account' = 'card',
+  limit = 100
+): Promise<Stripe.PaymentMethod[]> => {
+  try {
+    const paymentMethods: Stripe.PaymentMethod[] = []
+
+    // Use auto-pagination to ensure we get all payment methods
+    for await (const paymentMethod of stripeServerClient.paymentMethods.list({
+      customer: customerId,
+      type, // Always specify type for better performance
+      limit,
+    })) {
+      paymentMethods.push(paymentMethod)
+    }
+
+    return paymentMethods
+  } catch (error: unknown) {
+    handleStripeError(error, 'list payment methods')
+  }
+}
+
+/**
+ * Save a payment method using SetupIntent for SCA optimization
+ * This replaces direct attachment and reduces decline rates by 10-20%
+ * @deprecated Use savePaymentMethod instead of attachPaymentMethod
+ */
+export const attachPaymentMethod = async (
+  paymentMethodId: string,
+  customerId: string
+): Promise<Stripe.PaymentMethod> => {
+  console.warn(
+    'attachPaymentMethod is deprecated. Use savePaymentMethod for better SCA compliance.'
+  )
+  return savePaymentMethod(customerId, paymentMethodId)
+}
+
+/**
+ * Save a payment method using SetupIntent for proper SCA optimization
+ * Reduces decline rates by 10-20% compared to direct attachment
+ */
+export const savePaymentMethod = async (
+  customerId: string,
+  paymentMethodId: string,
+  metadata?: Record<string, string>
+): Promise<Stripe.PaymentMethod> => {
+  try {
+    // Create a SetupIntent with the payment method
+    const setupIntent = await stripeServerClient.setupIntents.create(
+      {
+        customer: customerId,
+        payment_method_types: ['card', 'us_bank_account'],
+        payment_method: paymentMethodId,
+        confirm: true, // Immediately confirms and attaches
+        usage: 'off_session',
+        metadata: {
+          ...metadata,
+          platform: 'dependablecalls',
+        },
+      },
+      { idempotencyKey: uuid() } // Prevents duplicate setup
+    )
+
+    if (setupIntent.status !== 'succeeded') {
+      throw new Error(`SetupIntent failed with status: ${setupIntent.status}`)
+    }
+
+    // The PaymentMethod is now attached and 3DS optimized
+    return stripeServerClient.paymentMethods.retrieve(paymentMethodId)
+  } catch (error: unknown) {
+    handleStripeError(error, 'save payment method')
+  }
+}
+
+export const detachPaymentMethod = async (
+  paymentMethodId: string
+): Promise<Stripe.PaymentMethod> => {
+  try {
+    const paymentMethod = await stripeServerClient.paymentMethods.detach(paymentMethodId)
+
+    return paymentMethod
+  } catch (error: unknown) {
+    handleStripeError(error, 'detach payment method')
+  }
+}
+
+export const setDefaultPaymentMethod = async (
+  customerId: string,
+  paymentMethodId: string
+): Promise<Stripe.Customer> => {
+  try {
+    const customer = await stripeServerClient.customers.update(
+      customerId,
+      {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate default method updates
+      }
+    )
+
+    return customer
+  } catch (error: unknown) {
+    handleStripeError(error, 'set default payment method')
+  }
+}
+
+export const createSetupIntent = async (
+  customerId: string,
+  metadata?: Record<string, string>
+): Promise<Stripe.SetupIntent> => {
+  try {
+    const setupIntent = await stripeServerClient.setupIntents.create(
+      {
+        customer: customerId,
+        payment_method_types: ['card', 'us_bank_account'],
+        usage: 'off_session',
+        metadata: {
+          ...metadata,
+          platform: 'dependablecalls',
+        },
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate setup intent creation
+      }
+    )
+
+    return setupIntent
+  } catch (error: unknown) {
+    handleStripeError(error, 'create setup intent')
+  }
+}
+</file>
+
+<file path="src/integrations/stripe/payments.ts">
+import { stripeServerClient } from './client'
+import type { CreatePaymentIntentParams, PaymentStatus } from './types'
+import type Stripe from 'stripe'
+import { v4 as uuid } from 'uuid'
+
+/**
+ * Centralized error handler for Stripe operations
+ * Prevents leaking sensitive information and provides type-safe error handling
+ */
+function handleStripeError(err: unknown, context: string): never {
+  if (err instanceof stripeServerClient.errors.StripeError) {
+    console.error(`${context} failed`, {
+      type: err.type,
+      code: err.code,
+      param: err.param,
+      requestId: err.requestId,
+    })
+
+    // Return generic error messages to prevent information leakage
+    if (err.code === 'resource_missing') {
+      throw new Error(`Resource not found. Please check your request and try again.`)
+    }
+
+    throw new Error(`Payment service error. Please retry or contact support.`)
+  }
+
+  console.error(`${context} unexpected error`, err)
+  throw new Error('Internal server error. Please try again later.')
+}
+
+export const createPaymentIntent = async (
+  params: CreatePaymentIntentParams
+): Promise<Stripe.PaymentIntent> => {
+  try {
+    const paymentIntent = await stripeServerClient.paymentIntents.create(
+      {
+        amount: params.amount,
+        currency: params.currency,
+        customer: params.customerId,
+        payment_method_types: params.paymentMethodTypes ?? ['card', 'us_bank_account'],
+        metadata: {
+          ...params.metadata,
+          platform: 'dependablecalls',
+        },
+        setup_future_usage: 'off_session',
+        automatic_payment_methods: {
+          enabled: true, // Enable for better payment method management
+        },
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate payment intent creation
+      }
+    )
+
+    return paymentIntent
+  } catch (error: unknown) {
+    handleStripeError(error, 'create payment intent')
+  }
+}
+
+export const confirmPaymentIntent = async (
+  paymentIntentId: string,
+  paymentMethodId: string,
+  returnUrl: string
+): Promise<Stripe.PaymentIntent> => {
+  try {
+    const paymentIntent = await stripeServerClient.paymentIntents.confirm(
+      paymentIntentId,
+      {
+        payment_method: paymentMethodId,
+        return_url: returnUrl, // Required for payment methods that need redirect
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate confirmation
+      }
+    )
+
+    return paymentIntent
+  } catch (error: unknown) {
+    handleStripeError(error, 'confirm payment intent')
+  }
+}
+
+export const cancelPaymentIntent = async (
+  paymentIntentId: string
+): Promise<Stripe.PaymentIntent> => {
+  try {
+    const paymentIntent = await stripeServerClient.paymentIntents.cancel(
+      paymentIntentId,
+      {},
+      {
+        idempotencyKey: uuid(), // Prevent duplicate cancellation
+      }
+    )
+
+    return paymentIntent
+  } catch (error: unknown) {
+    handleStripeError(error, 'cancel payment intent')
+  }
+}
+
+export const getPaymentIntent = async (
+  paymentIntentId: string
+): Promise<Stripe.PaymentIntent | null> => {
+  try {
+    const paymentIntent = await stripeServerClient.paymentIntents.retrieve(paymentIntentId)
+
+    return paymentIntent
+  } catch (error: unknown) {
+    if (
+      error instanceof stripeServerClient.errors.StripeError &&
+      error.code === 'resource_missing'
+    ) {
+      return null
+    }
+    handleStripeError(error, 'retrieve payment intent')
+  }
+}
+
+export const updatePaymentIntent = async (
+  paymentIntentId: string,
+  updates: Stripe.PaymentIntentUpdateParams
+): Promise<Stripe.PaymentIntent> => {
+  try {
+    const paymentIntent = await stripeServerClient.paymentIntents.update(paymentIntentId, updates, {
+      idempotencyKey: uuid(), // Prevent duplicate updates
+    })
+
+    return paymentIntent
+  } catch (error: unknown) {
+    handleStripeError(error, 'update payment intent')
+  }
+}
+
+export const createRefund = async (
+  paymentIntentId: string,
+  amount?: number,
+  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer',
+  metadata?: Record<string, string>
+): Promise<Stripe.Refund> => {
+  try {
+    const refund = await stripeServerClient.refunds.create(
+      {
+        payment_intent: paymentIntentId,
+        amount,
+        reason,
+        metadata: {
+          ...metadata,
+          platform: 'dependablecalls',
+        },
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate refunds
+      }
+    )
+
+    return refund
+  } catch (error: unknown) {
+    handleStripeError(error, 'create refund')
+  }
+}
+
+export const getPaymentStatus = (paymentIntent: Stripe.PaymentIntent): PaymentStatus => {
+  let status: PaymentStatus['status'] = 'pending'
+  let error: string | undefined
+
+  switch (paymentIntent.status) {
+    case 'succeeded':
+      status = 'succeeded'
+      break
+    case 'processing':
+      status = 'processing'
+      break
+    case 'canceled':
+    case 'requires_payment_method':
+      status = 'failed'
+      error = paymentIntent.last_payment_error?.message
+      break
+    default:
+      status = 'pending'
+  }
+
+  return {
+    id: paymentIntent.id,
+    status,
+    amount: paymentIntent.amount,
+    currency: paymentIntent.currency,
+    error,
+  }
+}
+
+/**
+ * List all payment intents for a customer with automatic pagination
+ * This ensures we get ALL payments, not just the first page
+ */
+export const listCustomerPayments = async (
+  customerId: string,
+  limit = 1000 // Increased from 100 for better performance
+): Promise<Stripe.PaymentIntent[]> => {
+  try {
+    const payments: Stripe.PaymentIntent[] = []
+
+    // Use auto-pagination to ensure we get all payment intents
+    for await (const paymentIntent of stripeServerClient.paymentIntents.list({
+      customer: customerId,
+      limit, // Page size
+    })) {
+      payments.push(paymentIntent)
+    }
+
+    return payments
+  } catch (error: unknown) {
+    handleStripeError(error, 'list customer payments')
+  }
+}
+
+/**
+ * Create and immediately capture a payment using PaymentIntents
+ * This replaces the legacy charges.create API for SCA compliance
+ * @deprecated Use createPaymentIntent with automatic capture instead
+ */
+export const createAndCapturePayment = async (
+  amount: number,
+  currency: string,
+  paymentMethodId: string,
+  customerId?: string,
+  metadata?: Record<string, string>
+): Promise<Stripe.PaymentIntent> => {
+  try {
+    // Create and confirm payment intent in one API call
+    const paymentIntent = await stripeServerClient.paymentIntents.create(
+      {
+        amount,
+        currency,
+        payment_method: paymentMethodId,
+        customer: customerId,
+        confirm: true, // Immediately attempt to confirm
+        capture_method: 'automatic', // Capture funds immediately on confirmation
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'never', // For immediate capture, don't allow redirects
+        },
+        metadata: {
+          ...metadata,
+          platform: 'dependablecalls',
+        },
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate charges
+      }
+    )
+
+    return paymentIntent
+  } catch (error: unknown) {
+    handleStripeError(error, 'create and capture payment')
+  }
+}
+
+/**
+ * Helper function to handle off-session payments (e.g., recurring charges)
+ */
+export const createOffSessionPayment = async (
+  amount: number,
+  currency: string,
+  customerId: string,
+  paymentMethodId: string,
+  metadata?: Record<string, string>
+): Promise<Stripe.PaymentIntent> => {
+  try {
+    const paymentIntent = await stripeServerClient.paymentIntents.create(
+      {
+        amount,
+        currency,
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        metadata: {
+          ...metadata,
+          platform: 'dependablecalls',
+        },
+      },
+      {
+        idempotencyKey: uuid(), // Prevent duplicate charges
+      }
+    )
+
+    return paymentIntent
+  } catch (error: unknown) {
+    handleStripeError(error, 'create off-session payment')
+  }
+}
+</file>
+
+<file path="src/integrations/stripe/webhooks.ts">
+import crypto from 'crypto'
+interface Request {
+  body: unknown
+  headers: Record<string, string | string[] | undefined>
+}
+
+interface Response {
+  status: (code: number) => Response
+  json: (data: unknown) => Response
+  send: (data: unknown) => Response
+}
+import Stripe from 'stripe'
+import { stripeServerClient, stripeConfig } from './client'
+import type { WebhookHandlerMap } from './types'
+
+export const verifyWebhookSignature = (
+  payload: string | Buffer,
+  signature: string
+): Stripe.Event => {
+  try {
+    return stripeServerClient.webhooks.constructEvent(
+      payload,
+      signature,
+      stripeConfig.webhookSecret
+    )
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    throw new Error(`Webhook signature verification failed: ${errorMessage}`)
+  }
+}
+
+const webhookHandlers: WebhookHandlerMap = {
+  'payment_intent.succeeded': async (event) => {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent
+    console.log('Payment succeeded:', paymentIntent.id)
+
+    // Update invoice status in database
+    // Send confirmation email
+    // Update buyer's balance
+  },
+
+  'payment_intent.payment_failed': async (event) => {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent
+    console.error('Payment failed:', paymentIntent.id)
+
+    // Mark invoice as failed
+    // Send failure notification
+    // Potentially pause campaigns if recurring failure
+  },
+
+  'charge.dispute.created': async (event) => {
+    const dispute = event.data.object as Stripe.Dispute
+    console.warn('Dispute created:', dispute.id)
+
+    // Create dispute record
+    // Notify admin team
+    // Gather evidence automatically
+  },
+
+  'account.updated': async (event) => {
+    const account = event.data.object as Stripe.Account
+    console.log('Connected account updated:', account.id)
+
+    // Update supplier's account status
+    // Check if charges/payouts are enabled
+    // Notify supplier of any required actions
+  },
+
+  'account.application.authorized': async (event) => {
+    const account = event.data.object as Stripe.Account
+    console.log('Account authorized:', account.id)
+
+    // Mark supplier as active
+    // Enable campaign creation
+    // Send welcome email
+  },
+
+  'account.application.deauthorized': async (event) => {
+    const account = event.data.object as Stripe.Account
+    console.log('Account deauthorized:', account.id)
+
+    // Pause all supplier campaigns
+    // Notify admin team
+    // Schedule final payout
+  },
+
+  'payout.created': async (event) => {
+    const payout = event.data.object as Stripe.Payout
+    console.log('Payout created:', payout.id)
+
+    // Create payout record
+    // Update supplier balance
+    // Send notification
+  },
+
+  'payout.paid': async (event) => {
+    const payout = event.data.object as Stripe.Payout
+    console.log('Payout completed:', payout.id)
+
+    // Mark payout as completed
+    // Send confirmation
+    // Update ledger
+  },
+
+  'payout.failed': async (event) => {
+    const payout = event.data.object as Stripe.Payout
+    console.error('Payout failed:', payout.id)
+
+    // Mark payout as failed
+    // Notify supplier and admin
+    // Schedule retry or manual intervention
+  },
+
+  'transfer.created': async (event) => {
+    const transfer = event.data.object as Stripe.Transfer
+    console.log('Transfer created:', transfer.id)
+
+    // Record transfer
+    // Update internal ledger
+  },
+
+  'transfer.reversed': async (event) => {
+    const transfer = event.data.object as Stripe.Transfer
+    console.warn('Transfer reversed:', transfer.id)
+
+    // Update ledger
+    // Investigate reason
+    // Notify affected parties
+  },
+}
+
+export const handleStripeWebhook = async (req: Request, res: Response): Promise<void> => {
+  const signature = req.headers['stripe-signature'] as string
+
+  if (!signature) {
+    res.status(400).send('Missing stripe-signature header')
+    return
+  }
+
+  let event: Stripe.Event
+
+  try {
+    event = verifyWebhookSignature(req.body as string | Buffer, signature)
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err)
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    res.status(400).send(`Webhook Error: ${errorMessage}`)
+    return
+  }
+
+  const handler = webhookHandlers[event.type]
+
+  if (handler) {
+    try {
+      await handler(event)
+      res.json({ received: true })
+    } catch (err) {
+      console.error(`Error handling webhook ${event.type}:`, err)
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      res.status(500).send(`Webhook handler error: ${errorMessage}`)
+    }
+  } else {
+    console.log(`Unhandled webhook event type: ${event.type}`)
+    res.json({ received: true })
+  }
+}
+
+export const timingSafeEqual = (a: string, b: string): boolean => {
+  const bufferA = Buffer.from(a)
+  const bufferB = Buffer.from(b)
+
+  if (bufferA.length !== bufferB.length) {
+    return false
+  }
+
+  return crypto.timingSafeEqual(bufferA, bufferB)
+}
+</file>
+
 <file path="src/test/test-utils.tsx">
 import React from 'react'
 import { render } from '@testing-library/react'
@@ -19867,6 +19954,7 @@ VITE_ENABLE_REAL_TIME=true
   "devDependencies": {
     "@eslint/js": "^9.30.1",
     "@playwright/test": "^1.54.1",
+    "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
