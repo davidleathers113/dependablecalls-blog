@@ -1,15 +1,22 @@
 import { Component, ErrorInfo, ReactNode } from 'react'
+import {
+  shouldShowTechnicalDetails,
+  shouldLogToConsole,
+  getEnvironmentErrorMessage,
+} from '../../utils/environment'
 
 interface Props {
   children: ReactNode
   fallback?: ReactNode
   onError?: (error: Error, errorInfo: ErrorInfo) => void
   context?: string
+  showTechnicalDetails?: boolean
 }
 
 interface State {
   hasError: boolean
   error?: Error
+  errorInfo?: ErrorInfo
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -22,16 +29,22 @@ export class ErrorBoundary extends Component<Props, State> {
     return {
       hasError: true,
       error,
+      errorInfo: undefined,
     }
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error with context
-    console.error(
-      `ErrorBoundary caught an error${this.props.context ? ` in ${this.props.context}` : ''}:`,
-      error,
-      errorInfo
-    )
+    // Update state with error info for development display
+    this.setState({ errorInfo })
+
+    // Log error with context only in appropriate environments
+    if (shouldLogToConsole()) {
+      console.error(
+        `ErrorBoundary caught an error${this.props.context ? ` in ${this.props.context}` : ''}:`,
+        error,
+        errorInfo
+      )
+    }
 
     // Call custom error handler if provided
     if (this.props.onError) {
@@ -47,9 +60,13 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       // Default fallback UI
+      const showDetails = this.props.showTechnicalDetails ?? shouldShowTechnicalDetails()
+      const error = this.state.error
+      const errorInfo = this.state.errorInfo
+
       return (
         <div className="min-h-[200px] flex items-center justify-center p-8">
-          <div className="text-center">
+          <div className="text-center max-w-2xl">
             <div className="w-16 h-16 mx-auto mb-4 text-red-500">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                 <path
@@ -62,8 +79,51 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Something went wrong</h3>
             <p className="text-gray-600 mb-4">
-              We're sorry, but something unexpected happened. Please try refreshing the page.
+              {getEnvironmentErrorMessage(
+                error,
+                "We're sorry, but something unexpected happened. Please try refreshing the page."
+              )}
             </p>
+
+            {showDetails && error && (
+              <details className="mb-4 text-left">
+                <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 mb-2">
+                  Technical Details
+                </summary>
+                <div className="mt-2 p-4 bg-gray-50 rounded-lg overflow-auto">
+                  <div className="mb-4">
+                    <h4 className="text-xs font-semibold text-gray-700 mb-1">Error Message:</h4>
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap">{error.message}</pre>
+                  </div>
+
+                  {error.stack && (
+                    <div className="mb-4">
+                      <h4 className="text-xs font-semibold text-gray-700 mb-1">Stack Trace:</h4>
+                      <pre className="text-xs text-gray-600 whitespace-pre-wrap overflow-x-auto">
+                        {error.stack}
+                      </pre>
+                    </div>
+                  )}
+
+                  {errorInfo?.componentStack && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-700 mb-1">Component Stack:</h4>
+                      <pre className="text-xs text-gray-600 whitespace-pre-wrap overflow-x-auto">
+                        {errorInfo.componentStack}
+                      </pre>
+                    </div>
+                  )}
+
+                  {this.props.context && (
+                    <div className="mt-4">
+                      <h4 className="text-xs font-semibold text-gray-700 mb-1">Error Context:</h4>
+                      <p className="text-xs text-gray-600">{this.props.context}</p>
+                    </div>
+                  )}
+                </div>
+              </details>
+            )}
+
             <button
               onClick={() => window.location.reload()}
               className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"

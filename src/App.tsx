@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query'
 import { ErrorBoundary } from 'react-error-boundary'
-import { useEffect } from 'react'
+import React, { useEffect, Suspense } from 'react'
 import { useAuthStore } from './store/authStore'
 import { captureError, addBreadcrumb } from './lib/monitoring'
 import { QueryErrorFallback } from './components/ui/QueryErrorFallback'
@@ -25,6 +25,9 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import PrivacyPage from './pages/legal/PrivacyPage'
 import TermsPage from './pages/legal/TermsPage'
 import CompliancePage from './pages/legal/CompliancePage'
+
+// Demo Pages (Development Only)
+const ErrorDemoPage = import.meta.env.DEV ? React.lazy(() => import('./pages/ErrorDemo')) : null
 
 // Authenticated Pages
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -215,6 +218,17 @@ function App() {
                     <Route path="privacy" element={<PrivacyPage />} />
                     <Route path="terms" element={<TermsPage />} />
                     <Route path="compliance" element={<CompliancePage />} />
+                    {/* Development-only demo routes */}
+                    {import.meta.env.DEV && ErrorDemoPage && (
+                      <Route
+                        path="error-demo"
+                        element={
+                          <Suspense fallback={<div>Loading demo...</div>}>
+                            <ErrorDemoPage />
+                          </Suspense>
+                        }
+                      />
+                    )}
                   </Route>
 
                   {/* Protected app routes */}

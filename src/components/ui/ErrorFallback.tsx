@@ -1,13 +1,34 @@
-import { ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import {
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from '@heroicons/react/24/outline'
 import { captureMessage } from '../../lib/monitoring'
+import {
+  shouldShowTechnicalDetails,
+  getEnvironmentName,
+  getEnvironmentErrorMessage,
+  environment,
+} from '../../utils/environment'
+import { useState } from 'react'
 
 interface ErrorFallbackProps {
   error: Error
   resetErrorBoundary: () => void
   isRoot?: boolean
+  errorInfo?: { componentStack?: string; [key: string]: unknown }
 }
 
-export function ErrorFallback({ error, resetErrorBoundary, isRoot = false }: ErrorFallbackProps) {
+export function ErrorFallback({
+  error,
+  resetErrorBoundary,
+  isRoot = false,
+  errorInfo,
+}: ErrorFallbackProps) {
+  const [showDetails, setShowDetails] = useState(false)
+  const shouldShowTechDetails = shouldShowTechnicalDetails()
+  const envName = getEnvironmentName()
   const handleReset = () => {
     // Log the recovery attempt
     captureMessage('User initiated error boundary reset', 'info', {
@@ -42,24 +63,92 @@ export function ErrorFallback({ error, resetErrorBoundary, isRoot = false }: Err
         </h1>
 
         <p className="text-gray-600 mb-6">
-          {isRoot
-            ? 'We apologize for the inconvenience. The application encountered an unexpected error.'
-            : 'This section encountered an error, but the rest of the application should work normally.'}
+          {getEnvironmentErrorMessage(
+            error,
+            isRoot
+              ? 'We apologize for the inconvenience. The application encountered an unexpected error.'
+              : 'This section encountered an error, but the rest of the application should work normally.'
+          )}
         </p>
 
-        {import.meta.env.DEV && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-left">
-            <h3 className="text-sm font-medium text-red-800 mb-2">Error Details (Development)</h3>
-            <pre className="text-xs text-red-700 whitespace-pre-wrap break-words">
-              {error.message}
-            </pre>
-            {error.stack && (
-              <details className="mt-2">
-                <summary className="text-xs text-red-600 cursor-pointer">Stack Trace</summary>
-                <pre className="text-xs text-red-600 mt-1 whitespace-pre-wrap break-words">
-                  {error.stack}
-                </pre>
-              </details>
+        {shouldShowTechDetails && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus:underline mx-auto mb-3"
+              aria-expanded={showDetails}
+              aria-label={showDetails ? 'Hide technical details' : 'Show technical details'}
+            >
+              Technical Details ({envName})
+              {showDetails ? (
+                <ChevronUpIcon className="h-4 w-4" />
+              ) : (
+                <ChevronDownIcon className="h-4 w-4" />
+              )}
+            </button>
+
+            {showDetails && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-left space-y-3">
+                {/* Environment Info */}
+                <div className="text-xs text-gray-600 flex items-center justify-between border-b border-red-200 pb-2">
+                  <span>
+                    Environment: <span className="font-medium">{envName}</span>
+                  </span>
+                  <span>Time: {new Date().toLocaleString()}</span>
+                </div>
+
+                {/* Error Details */}
+                <div>
+                  <h3 className="text-sm font-medium text-red-800 mb-1">Error Message</h3>
+                  <pre className="text-xs text-red-700 whitespace-pre-wrap break-words bg-white p-2 rounded">
+                    {error.message}
+                  </pre>
+                </div>
+
+                {/* Stack Trace */}
+                {error.stack && (
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800 mb-1">Stack Trace</h3>
+                    <pre className="text-xs text-red-600 whitespace-pre-wrap break-words bg-white p-2 rounded max-h-48 overflow-auto">
+                      {error.stack}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Component Stack */}
+                {errorInfo?.componentStack && (
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800 mb-1">Component Stack</h3>
+                    <pre className="text-xs text-red-600 whitespace-pre-wrap break-words bg-white p-2 rounded max-h-48 overflow-auto">
+                      {errorInfo.componentStack}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Error Type & Name */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-red-700 font-medium">Error Type:</span>
+                    <span className="ml-1 text-red-600">{error.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-red-700 font-medium">Root Boundary:</span>
+                    <span className="ml-1 text-red-600">{isRoot ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+
+                {/* Development Hints */}
+                {environment.isDevelopment && (
+                  <div className="text-xs text-gray-600 italic border-t border-red-200 pt-2">
+                    💡 Development Tips:
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      <li>Check browser console for additional debugging info</li>
+                      <li>React DevTools can help identify component issues</li>
+                      <li>Error boundaries don't catch async errors or event handlers</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -89,6 +178,9 @@ export function ErrorFallback({ error, resetErrorBoundary, isRoot = false }: Err
             <p className="mt-1">
               Error ID: {error.name}-{Date.now()}
             </p>
+            {!environment.isProduction && (
+              <p className="mt-1 text-orange-600">[{envName.toUpperCase()} MODE]</p>
+            )}
           </div>
         )}
       </div>
