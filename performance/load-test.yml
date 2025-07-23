@@ -1,0 +1,74 @@
+config:
+  target: 'https://staging.dependablecalls.com'
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: 'Warm up'
+    - duration: 120
+      arrivalRate: 10
+      name: 'Ramp up load'
+    - duration: 300
+      arrivalRate: 20
+      name: 'Sustained load'
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+
+scenarios:
+  - name: 'Homepage load test'
+    weight: 30
+    flow:
+      - get:
+          url: '/'
+          name: 'homepage'
+      - think: 3
+      - get:
+          url: '/features'
+          name: 'features'
+      - think: 2
+      - get:
+          url: '/pricing'
+          name: 'pricing'
+
+  - name: 'Authentication flow'
+    weight: 20
+    flow:
+      - get:
+          url: '/login'
+          name: 'login_page'
+      - think: 5
+      - post:
+          url: '/auth/signin'
+          name: 'login_attempt'
+          json:
+            email: 'test-user-{{ $randomString() }}@example.com'
+            password: 'testpassword123'
+
+  - name: 'Contact form'
+    weight: 15
+    flow:
+      - get:
+          url: '/contact'
+          name: 'contact_page'
+      - think: 10
+      - post:
+          url: '/api/contact'
+          name: 'contact_form_submit'
+          json:
+            firstName: 'Test'
+            lastName: 'User'
+            email: 'test@example.com'
+            message: 'Performance test message'
+
+  - name: 'API endpoints'
+    weight: 35
+    flow:
+      - get:
+          url: '/api/health'
+          name: 'health_check'
+      - get:
+          url: '/api/campaigns/public'
+          name: 'public_campaigns'
+      - get:
+          url: '/api/stats/public'
+          name: 'public_stats'

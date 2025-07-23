@@ -1,3 +1,4 @@
+import React from 'react'
 import * as Sentry from '@sentry/react'
 // BrowserTracing is imported from Sentry package if needed
 
@@ -212,15 +213,8 @@ export function measureComponentPerformance(componentName: string) {
 /**
  * Track API call performance
  */
-export async function trackAPICall<T>(
-  endpoint: string,
-  operation: () => Promise<T>
-): Promise<T> {
+export async function trackAPICall<T>(endpoint: string, operation: () => Promise<T>): Promise<T> {
   const startTime = performance.now()
-  const transaction = Sentry.startTransaction({
-    name: `API: ${endpoint}`,
-    op: 'http.client',
-  })
 
   try {
     const result = await operation()
@@ -230,7 +224,6 @@ export async function trackAPICall<T>(
       endpoint,
     })
 
-    transaction.setStatus('ok')
     return result
   } catch (error) {
     const duration = performance.now() - startTime
@@ -240,10 +233,7 @@ export async function trackAPICall<T>(
       error: error instanceof Error ? error.message : 'Unknown error',
     })
 
-    transaction.setStatus('internal_error')
     throw error
-  } finally {
-    transaction.finish()
   }
 }
 
@@ -324,7 +314,7 @@ declare global {
   }
 
   interface PerformanceEventTiming extends PerformanceEntry {
-    processingStart: number
+    readonly processingStart: number
     duration: number
   }
 

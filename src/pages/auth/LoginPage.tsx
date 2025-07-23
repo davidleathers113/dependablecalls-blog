@@ -6,8 +6,9 @@ import { z } from 'zod'
 import { useAuthStore } from '../../store/authStore'
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  rememberMe: z.boolean().optional(),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -50,10 +51,7 @@ export default function LoginPage() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Or{' '}
-            <Link
-              to="/register"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
+            <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
               create a new account
             </Link>
           </p>
@@ -72,9 +70,7 @@ export default function LoginPage() {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
               />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
@@ -106,8 +102,8 @@ export default function LoginPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
+                {...register('rememberMe')}
                 id="remember-me"
-                name="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               />

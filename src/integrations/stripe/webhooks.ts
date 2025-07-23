@@ -1,4 +1,9 @@
 import crypto from 'crypto'
+import Stripe from 'stripe'
+import { stripeServerClient, stripeConfig } from './client'
+import { supabase } from '../../lib/supabase'
+import type { WebhookHandlerMap } from './types'
+
 interface Request {
   body: unknown
   headers: Record<string, string | string[] | undefined>
@@ -9,9 +14,6 @@ interface Response {
   json: (data: unknown) => Response
   send: (data: unknown) => Response
 }
-import Stripe from 'stripe'
-import { stripeServerClient, stripeConfig } from './client'
-import type { WebhookHandlerMap } from './types'
 
 export const verifyWebhookSignature = (
   payload: string | Buffer,
@@ -34,98 +36,284 @@ const webhookHandlers: WebhookHandlerMap = {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
     console.log('Payment succeeded:', paymentIntent.id)
 
-    // Update invoice status in database
-    // Send confirmation email
-    // Update buyer's balance
+    try {
+      // Update invoice status in database
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          payment_method: 'stripe',
+          stripe_payment_intent_id: paymentIntent.id,
+        })
+        .eq('stripe_payment_intent_id', paymentIntent.id)
+
+      if (updateError) {
+        console.error('Failed to update invoice status:', updateError)
+        return
+      }
+
+      // Get buyer information from metadata
+      const buyerId = paymentIntent.metadata.buyer_id
+      if (!buyerId) {
+        console.error('No buyer_id in payment intent metadata')
+        return
+      }
+
+      // Update buyer's current balance (add to credit)
+      const { error: balanceError } = await supabase
+        .from('buyers')
+        .update({
+          current_balance: supabase.raw(`current_balance + ${paymentIntent.amount / 100}`),
+        })
+        .eq('id', buyerId)
+
+      if (balanceError) {
+        console.error('Failed to update buyer balance:', balanceError)
+      }
+
+      console.log(`Payment processed successfully for buyer ${buyerId}`)
+    } catch (error) {
+      console.error('Error processing payment success:', error)
+    }
   },
 
   'payment_intent.payment_failed': async (event) => {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
     console.error('Payment failed:', paymentIntent.id)
 
-    // Mark invoice as failed
-    // Send failure notification
-    // Potentially pause campaigns if recurring failure
+    try {
+      // Mark invoice as failed
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          status: 'overdue',
+          metadata: {
+            ...paymentIntent.metadata,
+            failure_reason: paymentIntent.last_payment_error?.message,
+          },
+        })
+        .eq('stripe_payment_intent_id', paymentIntent.id)
+
+      if (error) {
+        console.error('Failed to update invoice status:', error)
+        return
+      }
+
+      // Get buyer information and check for recurring failures
+      const buyerId = paymentIntent.metadata.buyer_id
+      if (buyerId) {
+        const { data: recentFailures } = await supabase
+          .from('invoices')
+          .select('id')
+          .eq('buyer_id', buyerId)
+          .eq('status', 'overdue')
+          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+
+        // If 3+ failures in last week, pause campaigns
+        if (recentFailures && recentFailures.length >= 3) {
+          await supabase
+            .from('buyer_campaigns')
+            .update({ status: 'paused' })
+            .eq('buyer_id', buyerId)
+            .eq('status', 'active')
+
+          console.log(`Paused campaigns for buyer ${buyerId} due to recurring payment failures`)
+        }
+      }
+    } catch (error) {
+      console.error('Error processing payment failure:', error)
+    }
   },
 
   'charge.dispute.created': async (event) => {
     const dispute = event.data.object as Stripe.Dispute
     console.warn('Dispute created:', dispute.id)
 
-    // Create dispute record
-    // Notify admin team
-    // Gather evidence automatically
+    try {
+      // Create dispute record in database
+      const { error } = await supabase.from('disputes').insert({
+        call_id: dispute.metadata.call_id,
+        raised_by: dispute.metadata.buyer_id,
+        dispute_type: 'billing',
+        reason: `Stripe dispute: ${dispute.reason}`,
+        description: `Dispute created for charge ${dispute.charge}. Reason: ${dispute.reason}`,
+        amount_disputed: dispute.amount / 100,
+        status: 'open',
+        priority: 'high',
+        evidence: [
+          {
+            type: 'stripe_dispute',
+            dispute_id: dispute.id,
+            reason: dispute.reason,
+            evidence_details: dispute.evidence_details,
+          },
+        ],
+      })
+
+      if (error) {
+        console.error('Failed to create dispute record:', error)
+      }
+    } catch (error) {
+      console.error('Error processing dispute creation:', error)
+    }
   },
 
   'account.updated': async (event) => {
     const account = event.data.object as Stripe.Account
     console.log('Connected account updated:', account.id)
 
-    // Update supplier's account status
-    // Check if charges/payouts are enabled
-    // Notify supplier of any required actions
-  },
+    try {
+      // Find supplier with this Stripe account
+      const { data: supplier, error: findError } = await supabase
+        .from('suppliers')
+        .select('id, user_id')
+        .eq('metadata->stripe_account_id', account.id)
+        .single()
 
-  'account.application.authorized': async (event) => {
-    const account = event.data.object as Stripe.Account
-    console.log('Account authorized:', account.id)
+      if (findError || !supplier) {
+        console.error('Could not find supplier for account:', account.id)
+        return
+      }
 
-    // Mark supplier as active
-    // Enable campaign creation
-    // Send welcome email
-  },
+      // Update supplier status based on account capabilities
+      const canReceivePayouts = account.charges_enabled && account.payouts_enabled
+      const requiresAction =
+        account.requirements?.currently_due && account.requirements.currently_due.length > 0
 
-  'account.application.deauthorized': async (event) => {
-    const account = event.data.object as Stripe.Account
-    console.log('Account deauthorized:', account.id)
+      const { error: updateError } = await supabase
+        .from('suppliers')
+        .update({
+          status: canReceivePayouts && !requiresAction ? 'active' : 'pending',
+          settings: {
+            stripe_account_status: {
+              charges_enabled: account.charges_enabled,
+              payouts_enabled: account.payouts_enabled,
+              details_submitted: account.details_submitted,
+              requirements_due: account.requirements?.currently_due || [],
+            },
+          },
+        })
+        .eq('id', supplier.id)
 
-    // Pause all supplier campaigns
-    // Notify admin team
-    // Schedule final payout
+      if (updateError) {
+        console.error('Failed to update supplier status:', updateError)
+      }
+
+      console.log(`Updated supplier ${supplier.id} status based on Stripe account ${account.id}`)
+    } catch (error) {
+      console.error('Error processing account update:', error)
+    }
   },
 
   'payout.created': async (event) => {
     const payout = event.data.object as Stripe.Payout
     console.log('Payout created:', payout.id)
 
-    // Create payout record
-    // Update supplier balance
-    // Send notification
+    try {
+      // Create payout record in database
+      const { error } = await supabase.from('payouts').insert({
+        supplier_id: payout.metadata.supplier_id,
+        amount: payout.amount / 100,
+        fee_amount: 0, // Stripe fees are handled separately
+        net_amount: payout.amount / 100,
+        status: 'processing',
+        period_start: payout.metadata.period_start,
+        period_end: payout.metadata.period_end,
+        payment_method: 'stripe',
+        transaction_id: payout.id,
+        payment_details: {
+          stripe_payout_id: payout.id,
+          currency: payout.currency,
+          method: payout.method,
+          bank_account: payout.destination,
+        },
+      })
+
+      if (error) {
+        console.error('Failed to create payout record:', error)
+      }
+    } catch (error) {
+      console.error('Error processing payout creation:', error)
+    }
   },
 
   'payout.paid': async (event) => {
     const payout = event.data.object as Stripe.Payout
     console.log('Payout completed:', payout.id)
 
-    // Mark payout as completed
-    // Send confirmation
-    // Update ledger
+    try {
+      // Mark payout as completed
+      const { error } = await supabase
+        .from('payouts')
+        .update({
+          status: 'completed',
+          paid_at: new Date().toISOString(),
+          processed_at: new Date().toISOString(),
+        })
+        .eq('transaction_id', payout.id)
+
+      if (error) {
+        console.error('Failed to update payout status:', error)
+      }
+    } catch (error) {
+      console.error('Error processing payout completion:', error)
+    }
   },
 
   'payout.failed': async (event) => {
     const payout = event.data.object as Stripe.Payout
     console.error('Payout failed:', payout.id)
 
-    // Mark payout as failed
-    // Notify supplier and admin
-    // Schedule retry or manual intervention
+    try {
+      // Mark payout as failed
+      const { error } = await supabase
+        .from('payouts')
+        .update({
+          status: 'failed',
+          notes: `Payout failed: ${payout.failure_message || 'Unknown error'}`,
+        })
+        .eq('transaction_id', payout.id)
+
+      if (error) {
+        console.error('Failed to update payout status:', error)
+      }
+
+      // TODO: Send notification to supplier and admin
+      // TODO: Schedule retry or manual intervention
+    } catch (error) {
+      console.error('Error processing payout failure:', error)
+    }
   },
 
   'transfer.created': async (event) => {
     const transfer = event.data.object as Stripe.Transfer
     console.log('Transfer created:', transfer.id)
 
-    // Record transfer
-    // Update internal ledger
+    // Transfers are handled by payout events
+    // This is mainly for logging and audit trail
   },
 
   'transfer.reversed': async (event) => {
     const transfer = event.data.object as Stripe.Transfer
     console.warn('Transfer reversed:', transfer.id)
 
-    // Update ledger
-    // Investigate reason
-    // Notify affected parties
+    try {
+      // Find and update related payout
+      const { error } = await supabase
+        .from('payouts')
+        .update({
+          status: 'cancelled',
+          notes: `Transfer reversed: ${transfer.reversal_details?.reason || 'Unknown reason'}`,
+        })
+        .eq('transaction_id', transfer.id)
+
+      if (error) {
+        console.error('Failed to update payout for reversed transfer:', error)
+      }
+    } catch (error) {
+      console.error('Error processing transfer reversal:', error)
+    }
   },
 }
 

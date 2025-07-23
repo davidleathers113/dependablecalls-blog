@@ -12,3 +12,22 @@
   --color-primary-800: #1e40af;
   --color-primary-900: #1e3a8a;
 }
+
+/* Ensure proper scrolling behavior */
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Offset for fixed header navigation */
+.scroll-offset {
+  scroll-margin-top: 80px;
+}

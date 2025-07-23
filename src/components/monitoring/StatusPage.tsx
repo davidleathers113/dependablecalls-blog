@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/solid'
+import {
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/solid'
 import { healthChecker, type HealthCheckResult } from '../../lib/health-check'
 import { apm } from '../../lib/apm'
 
@@ -21,17 +26,17 @@ export const StatusPage: React.FC = () => {
   useEffect(() => {
     checkHealth()
     const interval = setInterval(checkHealth, 30000) // Refresh every 30 seconds
-    
+
     return () => clearInterval(interval)
   }, [])
 
   const checkHealth = async () => {
     setRefreshing(true)
-    
+
     try {
       const result = await healthChecker.performHealthCheck()
       setHealthData(result)
-      
+
       // Convert health checks to service status
       const serviceStatuses: ServiceStatus[] = [
         {
@@ -61,13 +66,12 @@ export const StatusPage: React.FC = () => {
           uptime: 99.99,
         },
       ]
-      
+
       setServices(serviceStatuses)
-      
+
       // Track metrics
       apm.trackMetric('health-check.duration', result.overall.duration)
       apm.trackMetric('health-check.failed', result.overall.failed)
-      
     } catch (error) {
       console.error('Failed to check health:', error)
     } finally {
@@ -137,11 +141,15 @@ export const StatusPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className={`${
-        overallStatus === 'healthy' ? 'bg-green-500' :
-        overallStatus === 'degraded' ? 'bg-yellow-500' :
-        'bg-red-500'
-      } text-white`}>
+      <div
+        className={`${
+          overallStatus === 'healthy'
+            ? 'bg-green-500'
+            : overallStatus === 'degraded'
+              ? 'bg-yellow-500'
+              : 'bg-red-500'
+        } text-white`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between">
             <div>
@@ -170,7 +178,10 @@ export const StatusPage: React.FC = () => {
           <h2 className="text-xl font-semibold mb-4">Current Status</h2>
           <div className="space-y-4">
             {services.map((service) => (
-              <div key={service.name} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+              <div
+                key={service.name}
+                className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
+              >
                 <div className="flex items-center gap-3">
                   {getStatusIcon(service.status)}
                   <div>
@@ -190,9 +201,7 @@ export const StatusPage: React.FC = () => {
                     </p>
                   )}
                   {service.uptime && (
-                    <p className="text-sm text-gray-500">
-                      Uptime: {service.uptime}%
-                    </p>
+                    <p className="text-sm text-gray-500">Uptime: {service.uptime}%</p>
                   )}
                 </div>
               </div>
@@ -204,7 +213,9 @@ export const StatusPage: React.FC = () => {
         {healthData && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Checks</h3>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                Total Checks
+              </h3>
               <p className="mt-2 text-3xl font-semibold">
                 {healthData.overall.healthy + healthData.overall.failed}
               </p>
@@ -212,28 +223,33 @@ export const StatusPage: React.FC = () => {
                 {healthData.overall.healthy} passing, {healthData.overall.failed} failing
               </p>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Check Duration</h3>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                Check Duration
+              </h3>
               <p className="mt-2 text-3xl font-semibold">
                 {formatResponseTime(healthData.overall.duration)}
               </p>
-              <p className="mt-1 text-sm text-gray-600">
-                Time to complete all checks
-              </p>
+              <p className="mt-1 text-sm text-gray-600">Time to complete all checks</p>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Overall Health</h3>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                Overall Health
+              </h3>
               <div className="mt-2 flex items-center gap-2">
                 {getStatusIcon(overallStatus)}
                 <p className={`text-3xl font-semibold ${getStatusColor(overallStatus)}`}>
-                  {Math.round((healthData.overall.healthy / (healthData.overall.healthy + healthData.overall.failed)) * 100)}%
+                  {Math.round(
+                    (healthData.overall.healthy /
+                      (healthData.overall.healthy + healthData.overall.failed)) *
+                      100
+                  )}
+                  %
                 </p>
               </div>
-              <p className="mt-1 text-sm text-gray-600">
-                System health score
-              </p>
+              <p className="mt-1 text-sm text-gray-600">System health score</p>
             </div>
           </div>
         )}
@@ -247,10 +263,10 @@ export const StatusPage: React.FC = () => {
             <div className="space-y-4">
               {incidents.map((incident, index) => (
                 <div key={index} className="border-l-4 border-yellow-400 pl-4 py-2">
-                  <h3 className="font-medium">{incident.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{incident.description}</p>
+                  <h3 className="font-medium">{String(incident.title)}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{String(incident.description)}</p>
                   <p className="text-xs text-gray-500 mt-2">
-                    {new Date(incident.timestamp).toLocaleString()}
+                    {new Date(String(incident.timestamp)).toLocaleString()}
                   </p>
                 </div>
               ))}

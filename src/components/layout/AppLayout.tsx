@@ -12,6 +12,8 @@ import {
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
+import ErrorBoundary from '../common/ErrorBoundary'
+import { AppLayoutSidebarFallbackUI, AppLayoutContentFallbackUI } from '../common/FallbackUI'
 
 const navigation = [
   { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },
@@ -39,66 +41,72 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100">
       {/* Mobile sidebar */}
-      <div className={classNames(
-        'fixed inset-0 flex z-40 lg:hidden',
-        sidebarOpen ? '' : 'pointer-events-none'
-      )}>
-        <div
-          className={classNames(
-            'fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity ease-linear duration-300',
-            sidebarOpen ? 'opacity-100' : 'opacity-0'
-          )}
-          onClick={() => setSidebarOpen(false)}
-        />
-        
-        <div className={classNames(
-          'relative flex-1 flex flex-col max-w-xs w-full pt-5 pb-4 bg-white transition ease-in-out duration-300 transform',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        )}>
-          <div className="absolute top-0 right-0 -mr-12 pt-2">
-            <button
-              className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <XMarkIcon className="h-6 w-6 text-white" />
-            </button>
-          </div>
-          
-          <div className="flex-shrink-0 flex items-center px-4">
-            <span className="text-2xl font-bold text-primary-600">DependableCalls</span>
-          </div>
-          
-          <div className="mt-5 flex-1 h-0 overflow-y-auto">
-            <nav className="px-2 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={classNames(
-                    location.pathname === item.href
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                    'group flex items-center px-2 py-2 text-base font-medium rounded-md'
-                  )}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <item.icon
-                    className={classNames(
-                      location.pathname === item.href
-                        ? 'text-gray-500'
-                        : 'text-gray-400 group-hover:text-gray-500',
-                      'mr-4 flex-shrink-0 h-6 w-6'
-                    )}
-                  />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
+      {sidebarOpen && (
+        <div className="fixed inset-0 flex z-40 lg:hidden">
+          <div
+            className={classNames(
+              'fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity ease-linear duration-300',
+              sidebarOpen ? 'opacity-100' : 'opacity-0'
+            )}
+            onClick={() => setSidebarOpen(false)}
+          />
+
+          <div
+            className={classNames(
+              'relative flex-1 flex flex-col max-w-xs w-full pt-5 pb-4 bg-white transition ease-in-out duration-300 transform',
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            )}
+          >
+            <div className="absolute top-0 right-0 -mr-12 pt-2">
+              <button
+                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <XMarkIcon className="h-6 w-6 text-white" />
+              </button>
+            </div>
+
+            <div className="flex-shrink-0 flex items-center px-4">
+              <span className="text-2xl font-bold text-primary-600">DependableCalls</span>
+            </div>
+
+            <div className="mt-5 flex-1 h-0 overflow-y-auto">
+              <ErrorBoundary
+                context="AppLayout - Mobile Sidebar Navigation"
+                fallback={<AppLayoutSidebarFallbackUI />}
+              >
+                <nav className="px-2 space-y-1">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={classNames(
+                        location.pathname === item.href
+                          ? 'bg-gray-100 text-gray-900'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                        'group flex items-center px-2 py-2 text-base font-medium rounded-md'
+                      )}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <item.icon
+                        className={classNames(
+                          location.pathname === item.href
+                            ? 'text-gray-500'
+                            : 'text-gray-400 group-hover:text-gray-500',
+                          'mr-4 flex-shrink-0 h-6 w-6'
+                        )}
+                      />
+                      {item.name}
+                    </Link>
+                  ))}
+                </nav>
+              </ErrorBoundary>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Desktop sidebar */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
@@ -106,32 +114,37 @@ export default function AppLayout() {
           <div className="flex items-center h-16 flex-shrink-0 px-4 bg-white border-b border-gray-200">
             <span className="text-2xl font-bold text-primary-600">DependableCalls</span>
           </div>
-          
+
           <div className="flex-1 flex flex-col overflow-y-auto">
-            <nav className="flex-1 px-2 py-4 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={classNames(
-                    location.pathname === item.href
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                    'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
-                  )}
-                >
-                  <item.icon
+            <ErrorBoundary
+              context="AppLayout - Desktop Sidebar Navigation"
+              fallback={<AppLayoutSidebarFallbackUI />}
+            >
+              <nav className="flex-1 px-2 py-4 space-y-1">
+                {navigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.href}
                     className={classNames(
                       location.pathname === item.href
-                        ? 'text-gray-500'
-                        : 'text-gray-400 group-hover:text-gray-500',
-                      'mr-3 flex-shrink-0 h-6 w-6'
+                        ? 'bg-gray-100 text-gray-900'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                      'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
                     )}
-                  />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
+                  >
+                    <item.icon
+                      className={classNames(
+                        location.pathname === item.href
+                          ? 'text-gray-500'
+                          : 'text-gray-400 group-hover:text-gray-500',
+                        'mr-3 flex-shrink-0 h-6 w-6'
+                      )}
+                    />
+                    {item.name}
+                  </Link>
+                ))}
+              </nav>
+            </ErrorBoundary>
           </div>
         </div>
       </div>
@@ -147,12 +160,10 @@ export default function AppLayout() {
           >
             <Bars3Icon className="h-6 w-6" />
           </button>
-          
+
           <div className="flex-1 px-4 flex justify-between">
-            <div className="flex-1 flex">
-              {/* Search can go here */}
-            </div>
-            
+            <div className="flex-1 flex">{/* Search can go here */}</div>
+
             <div className="ml-4 flex items-center md:ml-6">
               {/* User menu */}
               <div className="ml-3 relative">
@@ -162,12 +173,10 @@ export default function AppLayout() {
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                   >
                     <UserCircleIcon className="h-8 w-8 text-gray-400" />
-                    <span className="ml-3 text-gray-700 text-sm font-medium">
-                      {user?.email}
-                    </span>
+                    <span className="ml-3 text-gray-700 text-sm font-medium">{user?.email}</span>
                   </button>
                 </div>
-                
+
                 {userMenuOpen && (
                   <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
                     <div className="px-4 py-2 text-xs text-gray-500">
@@ -195,7 +204,12 @@ export default function AppLayout() {
 
         {/* Page content */}
         <main className="flex-1">
-          <Outlet />
+          <ErrorBoundary
+            context="AppLayout - Main Content"
+            fallback={<AppLayoutContentFallbackUI />}
+          >
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

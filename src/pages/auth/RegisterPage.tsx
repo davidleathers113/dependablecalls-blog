@@ -1,30 +1,43 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuthStore } from '../../store/authStore'
 
-const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  confirmPassword: z.string(),
-  userType: z.enum(['supplier', 'buyer']),
-  acceptTerms: z.boolean().refine((val) => val === true, {
-    message: 'You must accept the terms and conditions',
-  }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-})
+const registerSchema = z
+  .object({
+    email: z.string().email('Please enter a valid email address'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+    confirmPassword: z.string(),
+    userType: z.enum(['supplier', 'buyer'], {
+      message: 'Please select whether you are a supplier or buyer',
+    }),
+    acceptTerms: z.boolean().refine((val) => val === true, {
+      message: 'You must accept the terms and conditions',
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  })
 
 type RegisterFormData = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { signUp } = useAuthStore()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Get selected plan from location state
+  const selectedPlan = location.state?.selectedPlan
 
   const {
     register,
@@ -62,12 +75,17 @@ export default function RegisterPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Create your account
           </h2>
+          {selectedPlan && (
+            <div className="mt-2 text-center">
+              <span className="text-sm text-gray-600">Selected plan: </span>
+              <span className="text-sm font-medium text-primary-600 capitalize">
+                {selectedPlan}
+              </span>
+            </div>
+          )}
           <p className="mt-2 text-center text-sm text-gray-600">
             Or{' '}
-            <Link
-              to="/login"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
+            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
               sign in to existing account
             </Link>
           </p>
@@ -76,9 +94,7 @@ export default function RegisterPage() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           {/* Account Type Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              I am a...
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">I am a...</label>
             <div className="grid grid-cols-2 gap-3">
               <label className="relative">
                 <input
@@ -87,37 +103,35 @@ export default function RegisterPage() {
                   value="supplier"
                   className="sr-only"
                 />
-                <div className={`border rounded-lg p-4 cursor-pointer text-center ${
-                  userType === 'supplier' 
-                    ? 'border-primary-500 bg-primary-50 text-primary-700' 
-                    : 'border-gray-300'
-                }`}>
+                <div
+                  className={`border rounded-lg p-4 cursor-pointer text-center ${
+                    userType === 'supplier'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-300'
+                  }`}
+                >
                   <span className="block font-medium">Supplier</span>
-                  <span className="block text-sm mt-1 text-gray-500">
-                    I have traffic to send
-                  </span>
+                  <span className="block text-sm mt-1 text-gray-500">I have traffic to send</span>
                 </div>
               </label>
               <label className="relative">
-                <input
-                  {...register('userType')}
-                  type="radio"
-                  value="buyer"
-                  className="sr-only"
-                />
-                <div className={`border rounded-lg p-4 cursor-pointer text-center ${
-                  userType === 'buyer' 
-                    ? 'border-primary-500 bg-primary-50 text-primary-700' 
-                    : 'border-gray-300'
-                }`}>
+                <input {...register('userType')} type="radio" value="buyer" className="sr-only" />
+                <div
+                  className={`border rounded-lg p-4 cursor-pointer text-center ${
+                    userType === 'buyer'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-300'
+                  }`}
+                >
                   <span className="block font-medium">Buyer</span>
-                  <span className="block text-sm mt-1 text-gray-500">
-                    I need quality calls
-                  </span>
+                  <span className="block text-sm mt-1 text-gray-500">I need quality calls</span>
                 </div>
               </label>
             </div>
           </div>
+          {errors.userType && (
+            <p className="mt-1 text-sm text-red-600">{errors.userType.message}</p>
+          )}
 
           <div className="space-y-4">
             <div>
@@ -131,9 +145,7 @@ export default function RegisterPage() {
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder="Enter your email"
               />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>

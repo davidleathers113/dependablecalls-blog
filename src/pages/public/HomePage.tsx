@@ -1,8 +1,10 @@
-import { Link } from 'react-router-dom'
-import { 
-  PhoneIcon, 
-  ChartBarIcon, 
-  ShieldCheckIcon, 
+import { Link, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { handleHashChange } from '../../utils/navigation'
+import {
+  PhoneIcon,
+  ChartBarIcon,
+  ShieldCheckIcon,
   CurrencyDollarIcon,
   BoltIcon,
   GlobeAltIcon,
@@ -11,17 +13,20 @@ import {
 const features = [
   {
     name: 'Real-Time Call Tracking',
-    description: 'Monitor your calls as they happen with our advanced real-time dashboard and analytics.',
+    description:
+      'Monitor your calls as they happen with our advanced real-time dashboard and analytics.',
     icon: PhoneIcon,
   },
   {
     name: 'Fraud Prevention',
-    description: 'Industry-leading fraud detection powered by machine learning protects your campaigns.',
+    description:
+      'Industry-leading fraud detection powered by machine learning protects your campaigns.',
     icon: ShieldCheckIcon,
   },
   {
     name: 'Quality Scoring',
-    description: 'Automatic call quality scoring ensures you only pay for high-intent, qualified leads.',
+    description:
+      'Automatic call quality scoring ensures you only pay for high-intent, qualified leads.',
     icon: ChartBarIcon,
   },
   {
@@ -49,10 +54,35 @@ const stats = [
 ]
 
 export default function HomePage() {
+  const navigate = useNavigate()
+
+  const handlePricingClick = (plan: string) => {
+    // Track the pricing plan selection and navigate to registration
+    console.log(`Selected pricing plan: ${plan}`)
+    navigate('/register', { state: { selectedPlan: plan } })
+  }
+
+  const handleContactSales = () => {
+    navigate('/contact', { state: { inquiry: 'enterprise-pricing' } })
+  }
+
+  useEffect(() => {
+    // Handle hash navigation on page load
+    handleHashChange()
+
+    // Listen for hash changes
+    const handleHashChangeEvent = () => handleHashChange()
+    window.addEventListener('hashchange', handleHashChangeEvent)
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChangeEvent)
+    }
+  }, [])
+
   return (
     <div>
       {/* Hero Section */}
-      <div className="relative bg-white overflow-hidden">
+      <div className="relative bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="relative z-10 pb-8 bg-white sm:pb-16 md:pb-20 lg:max-w-2xl lg:w-full lg:pb-28 xl:pb-32">
             <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
@@ -62,7 +92,9 @@ export default function HomePage() {
                   <span className="block text-primary-600">Pay-Per-Call Network</span>
                 </h1>
                 <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
-                  Connect quality callers with businesses that need them. Real-time tracking, fraud prevention, and instant payouts make DependableCalls the platform of choice for performance marketers.
+                  Connect quality callers with businesses that need them. Real-time tracking, fraud
+                  prevention, and instant payouts make DependableCalls the platform of choice for
+                  performance marketers.
                 </p>
                 <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                   <div className="rounded-md shadow">
@@ -105,9 +137,7 @@ export default function HomePage() {
                 <dt className="order-2 mt-2 text-lg leading-6 font-medium text-primary-200">
                   {stat.label}
                 </dt>
-                <dd className="order-1 text-5xl font-extrabold text-white">
-                  {stat.value}
-                </dd>
+                <dd className="order-1 text-5xl font-extrabold text-white">{stat.value}</dd>
               </div>
             ))}
           </dl>
@@ -115,15 +145,18 @@ export default function HomePage() {
       </div>
 
       {/* Features Section */}
-      <div id="features" className="py-12 bg-white">
+      <div id="features" className="py-12 bg-white scroll-offset">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:text-center">
-            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">Features</h2>
+            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">
+              Features
+            </h2>
             <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Everything you need to succeed
             </p>
             <p className="mt-4 max-w-2xl text-xl text-gray-500 lg:mx-auto">
-              Our platform provides all the tools and features you need to run successful pay-per-call campaigns.
+              Our platform provides all the tools and features you need to run successful
+              pay-per-call campaigns.
             </p>
           </div>
 
@@ -139,9 +172,7 @@ export default function HomePage() {
                       {feature.name}
                     </p>
                   </dt>
-                  <dd className="mt-2 ml-16 text-base text-gray-500">
-                    {feature.description}
-                  </dd>
+                  <dd className="mt-2 ml-16 text-base text-gray-500">{feature.description}</dd>
                 </div>
               ))}
             </dl>
@@ -150,10 +181,12 @@ export default function HomePage() {
       </div>
 
       {/* Pricing Section */}
-      <div id="pricing" className="py-12 bg-gray-50">
+      <div id="pricing" className="py-12 bg-gray-50 scroll-offset">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:text-center">
-            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">Pricing</h2>
+            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">
+              Pricing
+            </h2>
             <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Simple, transparent pricing
             </p>
@@ -173,15 +206,17 @@ export default function HomePage() {
                     <span className="text-4xl font-extrabold text-gray-900">$0</span>
                     <span className="text-base font-medium text-gray-500">/month</span>
                   </p>
-                  <Link
-                    to="/register"
-                    className="mt-8 block w-full bg-gray-800 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-gray-900"
+                  <button
+                    onClick={() => handlePricingClick('basic')}
+                    className="mt-8 block w-full bg-gray-800 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-gray-900 transition-colors duration-200"
                   >
                     Get started
-                  </Link>
+                  </button>
                 </div>
                 <div className="pt-6 pb-8 px-6">
-                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h4>
+                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">
+                    What's included
+                  </h4>
                   <ul className="mt-6 space-y-4">
                     <li className="flex space-x-3">
                       <span className="text-green-500">✓</span>
@@ -208,15 +243,17 @@ export default function HomePage() {
                     <span className="text-4xl font-extrabold text-gray-900">$299</span>
                     <span className="text-base font-medium text-gray-500">/month</span>
                   </p>
-                  <Link
-                    to="/register"
-                    className="mt-8 block w-full bg-primary-600 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-primary-700"
+                  <button
+                    onClick={() => handlePricingClick('professional')}
+                    className="mt-8 block w-full bg-primary-600 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-primary-700 transition-colors duration-200"
                   >
                     Start free trial
-                  </Link>
+                  </button>
                 </div>
                 <div className="pt-6 pb-8 px-6">
-                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h4>
+                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">
+                    What's included
+                  </h4>
                   <ul className="mt-6 space-y-4">
                     <li className="flex space-x-3">
                       <span className="text-green-500">✓</span>
@@ -246,15 +283,17 @@ export default function HomePage() {
                   <p className="mt-8">
                     <span className="text-4xl font-extrabold text-gray-900">Custom</span>
                   </p>
-                  <Link
-                    to="/contact"
-                    className="mt-8 block w-full bg-gray-800 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-gray-900"
+                  <button
+                    onClick={handleContactSales}
+                    className="mt-8 block w-full bg-gray-800 py-2 text-center text-sm font-semibold text-white rounded-md hover:bg-gray-900 transition-colors duration-200"
                   >
                     Contact sales
-                  </Link>
+                  </button>
                 </div>
                 <div className="pt-6 pb-8 px-6">
-                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h4>
+                  <h4 className="text-xs font-medium text-gray-900 tracking-wide uppercase">
+                    What's included
+                  </h4>
                   <ul className="mt-6 space-y-4">
                     <li className="flex space-x-3">
                       <span className="text-green-500">✓</span>
@@ -281,15 +320,17 @@ export default function HomePage() {
       </div>
 
       {/* About Section */}
-      <div id="about" className="py-12 bg-white">
+      <div id="about" className="py-12 bg-white scroll-offset">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:text-center">
-            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">About Us</h2>
+            <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">
+              About Us
+            </h2>
             <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               The trusted pay-per-call network
             </p>
             <p className="mt-4 max-w-2xl text-xl text-gray-500 lg:mx-auto">
-              We've been connecting quality traffic providers with serious advertisers since 2020, 
+              We've been connecting quality traffic providers with serious advertisers since 2020,
               building a reputation for transparency, reliability, and exceptional results.
             </p>
           </div>
@@ -299,14 +340,15 @@ export default function HomePage() {
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900">Our Mission</h3>
                 <p className="mt-2 text-base text-gray-500">
-                  To create a transparent, fraud-free marketplace where traffic suppliers and advertisers 
-                  can build mutually beneficial relationships based on quality and performance.
+                  To create a transparent, fraud-free marketplace where traffic suppliers and
+                  advertisers can build mutually beneficial relationships based on quality and
+                  performance.
                 </p>
               </div>
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900">Why Choose Us</h3>
                 <p className="mt-2 text-base text-gray-500">
-                  With industry-leading fraud detection, real-time analytics, and a commitment to 
+                  With industry-leading fraud detection, real-time analytics, and a commitment to
                   partner success, we're the platform of choice for serious performance marketers.
                 </p>
               </div>
@@ -345,7 +387,7 @@ export default function HomePage() {
             <div className="inline-flex rounded-md shadow">
               <Link
                 to="/register"
-                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 transition-colors duration-200"
               >
                 Get started
               </Link>
@@ -353,7 +395,7 @@ export default function HomePage() {
             <div className="ml-3 inline-flex rounded-md shadow">
               <Link
                 to="/contact"
-                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-primary-600 bg-white hover:bg-primary-50"
+                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-primary-600 bg-white hover:bg-primary-50 transition-colors duration-200"
               >
                 Contact sales
               </Link>

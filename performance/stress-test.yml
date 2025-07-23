@@ -1,0 +1,53 @@
+config:
+  target: 'https://staging.dependablecalls.com'
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: 'Baseline'
+    - duration: 120
+      arrivalRate: 50
+      name: 'Stress ramp'
+    - duration: 180
+      arrivalRate: 100
+      name: 'High stress'
+    - duration: 60
+      arrivalRate: 200
+      name: 'Peak stress'
+    - duration: 120
+      arrivalRate: 50
+      name: 'Cool down'
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+
+scenarios:
+  - name: 'Homepage stress test'
+    weight: 40
+    flow:
+      - get:
+          url: '/'
+          name: 'homepage_stress'
+      - think: 1
+      - get:
+          url: '/features'
+          name: 'features_stress'
+
+  - name: 'API stress test'
+    weight: 30
+    flow:
+      - get:
+          url: '/api/health'
+          name: 'health_stress'
+      - get:
+          url: '/api/campaigns/public'
+          name: 'campaigns_stress'
+
+  - name: 'Static assets stress'
+    weight: 30
+    flow:
+      - get:
+          url: '/assets/logo.png'
+          name: 'logo_stress'
+      - get:
+          url: '/favicon.ico'
+          name: 'favicon_stress'

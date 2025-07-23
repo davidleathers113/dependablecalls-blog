@@ -1,23 +1,41 @@
-import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useLocation } from 'react-router-dom'
 import { EnvelopeIcon, PhoneIcon, MapPinIcon } from '@heroicons/react/24/outline'
+import { useFormSubmission } from '../../hooks/useFormSubmission'
 
 const contactSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
-  company: z.string().optional(),
+  firstName: z
+    .string()
+    .min(1, 'First name is required')
+    .max(50, 'First name must be less than 50 characters'),
+  lastName: z
+    .string()
+    .min(1, 'Last name is required')
+    .max(50, 'Last name must be less than 50 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  company: z.string().max(100, 'Company name must be less than 100 characters').optional(),
   phone: z.string().optional(),
-  subject: z.string().min(1, 'Subject is required'),
-  message: z.string().min(10, 'Message must be at least 10 characters'),
+  subject: z
+    .string()
+    .min(1, 'Subject is required')
+    .max(200, 'Subject must be less than 200 characters'),
+  message: z
+    .string()
+    .min(10, 'Message must be at least 10 characters')
+    .max(2000, 'Message must be less than 2000 characters'),
 })
 
 type ContactFormData = z.infer<typeof contactSchema>
 
 export default function ContactPage() {
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const location = useLocation()
+  const { isLoading, error, isSuccess, handleSubmit: handleFormSubmit } = useFormSubmission()
+
+  // Get inquiry type from location state
+  const inquiryType = location.state?.inquiry
+  const isEnterpriseInquiry = inquiryType === 'enterprise-pricing'
 
   const {
     register,
@@ -26,25 +44,35 @@ export default function ContactPage() {
     formState: { errors },
   } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
+    defaultValues: {
+      subject: isEnterpriseInquiry ? 'Enterprise Pricing Inquiry' : '',
+    },
   })
 
-  const onSubmit = async (data: ContactFormData) => {
-    setSubmitStatus('loading')
-    
-    // Simulate form submission
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('Form submitted:', data)
-      setSubmitStatus('success')
-      reset()
-      
-      // Reset success message after 5 seconds
-      setTimeout(() => {
-        setSubmitStatus('idle')
-      }, 5000)
-    } catch {
-      setSubmitStatus('error')
-    }
+  const submitContactForm = async (data: ContactFormData) => {
+    // Here you would normally send to your backend API
+    // For now, we'll simulate the submission
+    console.log('Contact form submitted:', data)
+
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // In a real app, you might want to send to an API endpoint:
+    // const response = await fetch('/api/contact', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(data),
+    // })
+    // if (!response.ok) throw new Error('Failed to send message')
+  }
+
+  const onSubmit = (data: ContactFormData) => {
+    handleFormSubmit(data, submitContactForm, {
+      onSuccess: () => {
+        reset()
+      },
+      resetSuccessAfter: 5000,
+    })
   }
 
   return (
@@ -54,10 +82,12 @@ export default function ContactPage() {
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl">
-              Contact Us
+              {isEnterpriseInquiry ? 'Enterprise Sales' : 'Contact Us'}
             </h1>
             <p className="mt-4 text-xl text-gray-500 max-w-2xl mx-auto">
-              Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+              {isEnterpriseInquiry
+                ? "Ready to scale your business? Let's discuss a custom enterprise solution tailored to your needs."
+                : "Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible."}
             </p>
           </div>
         </div>
@@ -70,7 +100,7 @@ export default function ContactPage() {
           <div className="lg:col-span-1">
             <div className="bg-gray-50 rounded-lg p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Get in Touch</h2>
-              
+
               <div className="space-y-6">
                 <div className="flex items-start">
                   <PhoneIcon className="h-6 w-6 text-primary-600 mt-1" />
@@ -95,8 +125,10 @@ export default function ContactPage() {
                   <div className="ml-4">
                     <h3 className="text-lg font-medium text-gray-900">Office</h3>
                     <p className="mt-1 text-gray-600">
-                      123 Business Center<br />
-                      Suite 400<br />
+                      123 Business Center
+                      <br />
+                      Suite 400
+                      <br />
                       San Francisco, CA 94105
                     </p>
                   </div>
@@ -117,17 +149,30 @@ export default function ContactPage() {
           {/* Contact Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-lg rounded-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Send us a Message</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {isEnterpriseInquiry ? 'Request Enterprise Pricing' : 'Send us a Message'}
+              </h2>
 
-              {submitStatus === 'success' && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
-                  <p className="text-green-800">Thank you for your message! We'll get back to you soon.</p>
+              {isEnterpriseInquiry && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-blue-800 text-sm">
+                    Interested in our Enterprise plan? We'll provide you with custom pricing and
+                    dedicated support options.
+                  </p>
                 </div>
               )}
 
-              {submitStatus === 'error' && (
+              {isSuccess && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-green-800">
+                    Thank you for your message! We'll get back to you soon.
+                  </p>
+                </div>
+              )}
+
+              {error && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-red-800">Sorry, there was an error sending your message. Please try again.</p>
+                  <p className="text-red-800">{error}</p>
                 </div>
               )}
 
@@ -228,10 +273,10 @@ export default function ContactPage() {
               <div className="mt-6">
                 <button
                   type="submit"
-                  disabled={submitStatus === 'loading'}
+                  disabled={isLoading}
                   className="w-full sm:w-auto px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitStatus === 'loading' ? 'Sending...' : 'Send Message'}
+                  {isLoading ? 'Sending...' : 'Send Message'}
                 </button>
               </div>
             </form>

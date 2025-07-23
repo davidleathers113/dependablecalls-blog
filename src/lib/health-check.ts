@@ -1,6 +1,6 @@
 import { logger } from './logger'
 
-export interface HealthCheckResult {
+export interface HealthCheckResult extends Record<string, unknown> {
   status: 'healthy' | 'degraded' | 'unhealthy'
   timestamp: string
   checks: {
@@ -43,33 +43,33 @@ class HealthChecker {
 
   async checkSupabase(): Promise<{ status: 'pass' | 'fail'; message?: string; duration: number }> {
     const start = performance.now()
-    
+
     try {
       const response = await fetch(`${this.config.supabase.url}/rest/v1/`, {
         method: 'GET',
         headers: {
-          'apikey': this.config.supabase.anonKey,
-          'Authorization': `Bearer ${this.config.supabase.anonKey}`,
+          apikey: this.config.supabase.anonKey,
+          Authorization: `Bearer ${this.config.supabase.anonKey}`,
         },
       })
-      
+
       const duration = performance.now() - start
-      
+
       if (response.ok) {
         return { status: 'pass', duration }
       } else {
-        return { 
-          status: 'fail', 
+        return {
+          status: 'fail',
           message: `HTTP ${response.status}`,
-          duration 
+          duration,
         }
       }
     } catch (error) {
       const duration = performance.now() - start
-      return { 
-        status: 'fail', 
+      return {
+        status: 'fail',
         message: error instanceof Error ? error.message : 'Unknown error',
-        duration 
+        duration,
       }
     }
   }
@@ -87,9 +87,9 @@ class HealthChecker {
         return { status: 'fail', message: 'Stripe.js not loaded' }
       }
     } catch (error) {
-      return { 
-        status: 'fail', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        status: 'fail',
+        message: error instanceof Error ? error.message : 'Unknown error',
       }
     }
   }
@@ -103,45 +103,45 @@ class HealthChecker {
       // Check if Sentry is initialized
       const Sentry = await import('@sentry/react')
       const client = Sentry.getCurrentHub().getClient()
-      
+
       if (client) {
         return { status: 'pass' }
       } else {
         return { status: 'fail', message: 'Sentry not initialized' }
       }
     } catch (error) {
-      return { 
-        status: 'fail', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        status: 'fail',
+        message: error instanceof Error ? error.message : 'Unknown error',
       }
     }
   }
 
   async checkAPI(): Promise<{ status: 'pass' | 'fail'; message?: string; duration: number }> {
     const start = performance.now()
-    
+
     try {
       const response = await fetch('/api/health', {
         method: 'GET',
       })
-      
+
       const duration = performance.now() - start
-      
+
       if (response.ok) {
         return { status: 'pass', duration }
       } else {
-        return { 
-          status: 'fail', 
+        return {
+          status: 'fail',
           message: `HTTP ${response.status}`,
-          duration 
+          duration,
         }
       }
     } catch (error) {
       const duration = performance.now() - start
-      return { 
-        status: 'fail', 
+      return {
+        status: 'fail',
         message: error instanceof Error ? error.message : 'Network error',
-        duration 
+        duration,
       }
     }
   }
@@ -154,7 +154,7 @@ class HealthChecker {
     this.isChecking = true
     const startTime = performance.now()
     const timestamp = new Date().toISOString()
-    
+
     try {
       // Run all checks in parallel
       const [supabase, stripe, sentry, api] = await Promise.all([
@@ -172,8 +172,8 @@ class HealthChecker {
       }
 
       // Calculate overall status
-      const failed = Object.values(checks).filter(check => check.status === 'fail').length
-      const healthy = Object.values(checks).filter(check => check.status === 'pass').length
+      const failed = Object.values(checks).filter((check) => check.status === 'fail').length
+      const healthy = Object.values(checks).filter((check) => check.status === 'pass').length
       const duration = performance.now() - startTime
 
       let status: 'healthy' | 'degraded' | 'unhealthy'
@@ -197,7 +197,7 @@ class HealthChecker {
       }
 
       this.lastCheck = result
-      
+
       // Log health status
       if (status === 'unhealthy') {
         logger.error('Health check failed', undefined, {
@@ -223,13 +223,13 @@ class HealthChecker {
     }
 
     // Initial check
-    this.performHealthCheck().catch(error => {
+    this.performHealthCheck().catch((error) => {
       logger.error('Initial health check failed', error)
     })
 
     // Set up periodic checks
     this.checkInterval = setInterval(() => {
-      this.performHealthCheck().catch(error => {
+      this.performHealthCheck().catch((error) => {
         logger.error('Periodic health check failed', error)
       })
     }, intervalMs)
@@ -249,17 +249,20 @@ class HealthChecker {
   // Create health endpoint response
   createHealthResponse(): Response {
     if (!this.lastCheck) {
-      return new Response(JSON.stringify({ 
-        status: 'unknown',
-        message: 'No health check performed yet' 
-      }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({
+          status: 'unknown',
+          message: 'No health check performed yet',
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
     }
 
-    const statusCode = this.lastCheck.status === 'healthy' ? 200 : 
-                       this.lastCheck.status === 'degraded' ? 200 : 503
+    const statusCode =
+      this.lastCheck.status === 'healthy' ? 200 : this.lastCheck.status === 'degraded' ? 200 : 503
 
     return new Response(JSON.stringify(this.lastCheck), {
       status: statusCode,
