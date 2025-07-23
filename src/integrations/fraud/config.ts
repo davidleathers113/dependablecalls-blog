@@ -16,6 +16,16 @@ export const fraudConfig: FraudConfig = {
     baseUrl: 'https://api.fraudlabspro.com/v1',
     timeout: 5000,
   },
+  sift: {
+    apiKey: import.meta.env.VITE_SIFT_API_KEY || '',
+    baseUrl: 'https://api.sift.com/v205',
+    timeout: 10000,
+  },
+  maxmind: {
+    apiKey: import.meta.env.VITE_MAXMIND_API_KEY || '',
+    baseUrl: 'https://geoip.maxmind.com/geoip/v2.1',
+    timeout: 5000,
+  },
   thresholds: {
     autoReject: 85, // Fraud score >= 85: automatic rejection
     manualReview: 50, // Fraud score 50-84: manual review required
@@ -27,7 +37,9 @@ export const isFraudDetectionConfigured = (): boolean => {
   return !!(
     fraudConfig.truecaller.apiKey &&
     fraudConfig.ipquality.apiKey &&
-    fraudConfig.fraudlabs.apiKey
+    fraudConfig.fraudlabs.apiKey &&
+    fraudConfig.sift.apiKey &&
+    fraudConfig.maxmind.apiKey
   )
 }
 

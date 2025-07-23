@@ -1,34 +1,32 @@
-import { stripeServerClient } from './client';
-import type Stripe from 'stripe';
+import { stripeServerClient } from './client'
+import type Stripe from 'stripe'
 
 export interface CreateInvoiceParams {
-  customerId: string;
-  description: string;
+  customerId: string
+  description: string
   metadata: {
-    buyerId: string;
-    billingPeriod: string;
-    callCount: string;
-  };
-  dueDate?: number;
-  collectionMethod?: 'charge_automatically' | 'send_invoice';
+    buyerId: string
+    billingPeriod: string
+    callCount: string
+  }
+  dueDate?: number
+  collectionMethod?: 'charge_automatically' | 'send_invoice'
 }
 
 export interface CreateInvoiceItemParams {
-  customerId: string;
-  amount: number;
-  currency: string;
-  description: string;
+  customerId: string
+  amount: number
+  currency: string
+  description: string
   metadata: {
-    callId?: string;
-    campaignId?: string;
-    duration?: string;
-  };
-  invoiceId?: string;
+    callId?: string
+    campaignId?: string
+    duration?: string
+  }
+  invoiceId?: string
 }
 
-export const createInvoice = async (
-  params: CreateInvoiceParams
-): Promise<Stripe.Invoice> => {
+export const createInvoice = async (params: CreateInvoiceParams): Promise<Stripe.Invoice> => {
   try {
     const invoice = await stripeServerClient.invoices.create({
       customer: params.customerId,
@@ -40,15 +38,15 @@ export const createInvoice = async (
       due_date: params.dueDate,
       collection_method: params.collectionMethod || 'charge_automatically',
       auto_advance: false, // We'll finalize manually
-    });
-    
-    return invoice;
+    })
+
+    return invoice
   } catch (error) {
-    console.error('Error creating invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create invoice: ${errorMessage}`);
+    console.error('Error creating invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create invoice: ${errorMessage}`)
   }
-};
+}
 
 export const createInvoiceItem = async (
   params: CreateInvoiceItemParams
@@ -64,46 +62,43 @@ export const createInvoiceItem = async (
         platform: 'dependablecalls',
       },
       ...(params.invoiceId && { invoice: params.invoiceId }),
-    });
-    
-    return invoiceItem;
+    })
+
+    return invoiceItem
   } catch (error) {
-    console.error('Error creating invoice item:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create invoice item: ${errorMessage}`);
+    console.error('Error creating invoice item:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create invoice item: ${errorMessage}`)
   }
-};
+}
 
 export const finalizeInvoice = async (
   invoiceId: string,
   autoAdvance: boolean = true
 ): Promise<Stripe.Invoice> => {
   try {
-    const invoice = await stripeServerClient.invoices.finalizeInvoice(
-      invoiceId,
-      { auto_advance: autoAdvance }
-    );
-    
-    return invoice;
-  } catch (error) {
-    console.error('Error finalizing invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to finalize invoice: ${errorMessage}`);
-  }
-};
+    const invoice = await stripeServerClient.invoices.finalizeInvoice(invoiceId, {
+      auto_advance: autoAdvance,
+    })
 
-export const sendInvoice = async (
-  invoiceId: string
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.sendInvoice(invoiceId);
-    return invoice;
+    return invoice
   } catch (error) {
-    console.error('Error sending invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to send invoice: ${errorMessage}`);
+    console.error('Error finalizing invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to finalize invoice: ${errorMessage}`)
   }
-};
+}
+
+export const sendInvoice = async (invoiceId: string): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.sendInvoice(invoiceId)
+    return invoice
+  } catch (error) {
+    console.error('Error sending invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to send invoice: ${errorMessage}`)
+  }
+}
 
 export const payInvoice = async (
   invoiceId: string,
@@ -112,62 +107,60 @@ export const payInvoice = async (
   try {
     const invoice = await stripeServerClient.invoices.pay(invoiceId, {
       ...(paymentMethodId && { payment_method: paymentMethodId }),
-    });
-    
-    return invoice;
-  } catch (error) {
-    console.error('Error paying invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to pay invoice: ${errorMessage}`);
-  }
-};
+    })
 
-export const voidInvoice = async (
-  invoiceId: string
-): Promise<Stripe.Invoice> => {
-  try {
-    const invoice = await stripeServerClient.invoices.voidInvoice(invoiceId);
-    return invoice;
+    return invoice
   } catch (error) {
-    console.error('Error voiding invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to void invoice: ${errorMessage}`);
+    console.error('Error paying invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to pay invoice: ${errorMessage}`)
   }
-};
+}
+
+export const voidInvoice = async (invoiceId: string): Promise<Stripe.Invoice> => {
+  try {
+    const invoice = await stripeServerClient.invoices.voidInvoice(invoiceId)
+    return invoice
+  } catch (error) {
+    console.error('Error voiding invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to void invoice: ${errorMessage}`)
+  }
+}
 
 export const updateInvoice = async (
   invoiceId: string,
   updates: Stripe.InvoiceUpdateParams
 ): Promise<Stripe.Invoice> => {
   try {
-    const invoice = await stripeServerClient.invoices.update(
-      invoiceId,
-      updates
-    );
-    
-    return invoice;
-  } catch (error) {
-    console.error('Error updating invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to update invoice: ${errorMessage}`);
-  }
-};
+    const invoice = await stripeServerClient.invoices.update(invoiceId, updates)
 
-export const getInvoice = async (
-  invoiceId: string
-): Promise<Stripe.Invoice | null> => {
-  try {
-    const invoice = await stripeServerClient.invoices.retrieve(invoiceId);
-    return invoice;
+    return invoice
   } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing') {
-      return null;
-    }
-    console.error('Error retrieving invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to retrieve invoice: ${errorMessage}`);
+    console.error('Error updating invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to update invoice: ${errorMessage}`)
   }
-};
+}
+
+export const getInvoice = async (invoiceId: string): Promise<Stripe.Invoice | null> => {
+  try {
+    const invoice = await stripeServerClient.invoices.retrieve(invoiceId)
+    return invoice
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'resource_missing'
+    ) {
+      return null
+    }
+    console.error('Error retrieving invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to retrieve invoice: ${errorMessage}`)
+  }
+}
 
 export const listCustomerInvoices = async (
   customerId: string,
@@ -179,15 +172,15 @@ export const listCustomerInvoices = async (
       customer: customerId,
       status,
       limit,
-    });
-    
-    return invoices.data;
+    })
+
+    return invoices.data
   } catch (error) {
-    console.error('Error listing invoices:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to list invoices: ${errorMessage}`);
+    console.error('Error listing invoices:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to list invoices: ${errorMessage}`)
   }
-};
+}
 
 export const createCreditNote = async (
   invoiceId: string,
@@ -204,23 +197,23 @@ export const createCreditNote = async (
       metadata: {
         platform: 'dependablecalls',
       },
-    });
-    
-    return creditNote;
+    })
+
+    return creditNote
   } catch (error) {
-    console.error('Error creating credit note:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create credit note: ${errorMessage}`);
+    console.error('Error creating credit note:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create credit note: ${errorMessage}`)
   }
-};
+}
 
 export const createUsageBasedInvoice = async (
   customerId: string,
   billingPeriod: { start: Date; end: Date },
   usageRecords: Array<{
-    amount: number;
-    description: string;
-    metadata: Record<string, string>;
+    amount: number
+    description: string
+    metadata: Record<string, string>
   }>
 ): Promise<Stripe.Invoice> => {
   try {
@@ -233,8 +226,8 @@ export const createUsageBasedInvoice = async (
         billingPeriod: `${billingPeriod.start.toISOString()}_${billingPeriod.end.toISOString()}`,
         callCount: usageRecords.length.toString(),
       },
-    });
-    
+    })
+
     // Add line items for each usage record
     for (const record of usageRecords) {
       await createInvoiceItem({
@@ -244,16 +237,19 @@ export const createUsageBasedInvoice = async (
         description: record.description,
         metadata: record.metadata,
         invoiceId: invoice.id,
-      });
+      })
     }
-    
+
     // Finalize and send the invoice
-    const finalizedInvoice = await finalizeInvoice(invoice.id);
-    
-    return finalizedInvoice;
+    if (!invoice.id) {
+      throw new Error('Invoice creation failed - no invoice ID returned')
+    }
+    const finalizedInvoice = await finalizeInvoice(invoice.id)
+
+    return finalizedInvoice
   } catch (error) {
-    console.error('Error creating usage-based invoice:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to create usage-based invoice: ${errorMessage}`);
+    console.error('Error creating usage-based invoice:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(`Failed to create usage-based invoice: ${errorMessage}`)
   }
-};
+}

@@ -1,6 +1,8 @@
 import { truecallerClient } from './truecaller'
 import { ipQualityClient } from './ipquality'
 import { fraudLabsClient } from './fraudlabs'
+import { siftClient } from './sift'
+import { maxMindClient } from './maxmind'
 import { getFraudDecision } from './config'
 import type {
   FraudCheckRequest,
@@ -8,6 +10,8 @@ import type {
   PhoneVerificationResult,
   IPReputationResult,
   TransactionScreeningResult,
+  SiftFraudResult,
+  MaxMindGeoResult,
 } from './types'
 
 export class FraudScoringService {
@@ -17,6 +21,8 @@ export class FraudScoringService {
       request.phone ? truecallerClient.verifyPhone(request.phone) : Promise.resolve(null),
       request.ip ? ipQualityClient.checkIPReputation(request.ip) : Promise.resolve(null),
       fraudLabsClient.screenTransaction(request),
+      siftClient.screenTransaction(request),
+      request.ip ? maxMindClient.checkIPLocation(request.ip) : Promise.resolve(null),
     ])
 
     // Extract results
@@ -28,17 +34,25 @@ export class FraudScoringService {
       results[1].status === 'fulfilled' ? (results[1].value as IPReputationResult | null) : null
     const transactionResult =
       results[2].status === 'fulfilled' ? (results[2].value as TransactionScreeningResult) : null
+    const siftResult =
+      results[3].status === 'fulfilled' ? (results[3].value as SiftFraudResult) : null
+    const maxMindResult =
+      results[4].status === 'fulfilled' ? (results[4].value as MaxMindGeoResult | null) : null
 
     // Calculate individual scores
     const phoneScore = this.calculatePhoneScore(phoneResult)
     const ipScore = ipResult?.fraudScore || 0
     const transactionScore = transactionResult?.fraudScore || 0
+    const siftScore = siftResult?.fraudScore || 0
+    const maxmindScore = maxMindResult?.fraudScore || 0
 
     // Calculate weighted overall score
     const overallScore = this.calculateOverallScore({
       phoneScore,
       ipScore,
       transactionScore,
+      siftScore,
+      maxmindScore,
     })
 
     // Collect reasons for the score
@@ -46,6 +60,8 @@ export class FraudScoringService {
       phoneResult,
       ipResult,
       transactionResult,
+      siftResult,
+      maxMindResult,
     })
 
     // Make final decision
@@ -56,6 +72,8 @@ export class FraudScoringService {
       phoneScore,
       ipScore,
       transactionScore,
+      siftScore,
+      maxmindScore,
       decision,
       reasons,
       timestamp,
@@ -94,18 +112,24 @@ export class FraudScoringService {
     phoneScore: number
     ipScore: number
     transactionScore: number
+    siftScore: number
+    maxmindScore: number
   }): number {
-    // Weighted average with transaction screening having the highest weight
+    // Weighted average with Sift and transaction screening having the highest weights
     const weights = {
-      phone: 0.25,
-      ip: 0.35,
-      transaction: 0.4,
+      phone: 0.15,
+      ip: 0.2,
+      transaction: 0.25,
+      sift: 0.25,
+      maxmind: 0.15,
     }
 
     const weightedScore =
       scores.phoneScore * weights.phone +
       scores.ipScore * weights.ip +
-      scores.transactionScore * weights.transaction
+      scores.transactionScore * weights.transaction +
+      scores.siftScore * weights.sift +
+      scores.maxmindScore * weights.maxmind
 
     return Math.round(weightedScore)
   }
@@ -114,6 +138,8 @@ export class FraudScoringService {
     phoneResult: PhoneVerificationResult | null
     ipResult: IPReputationResult | null
     transactionResult: TransactionScreeningResult | null
+    siftResult: SiftFraudResult | null
+    maxMindResult: MaxMindGeoResult | null
   }): string[] {
     const reasons: string[] = []
 
@@ -155,6 +181,27 @@ export class FraudScoringService {
     // Transaction-related reasons
     if (data.transactionResult) {
       reasons.push(...data.transactionResult.rules)
+    }
+
+    // Sift-related reasons
+    if (data.siftResult) {
+      reasons.push(...data.siftResult.reasons)
+      if (data.siftResult.status === 'reject') {
+        reasons.push('Sift AI flagged as high-risk transaction')
+      }
+    }
+
+    // MaxMind-related reasons
+    if (data.maxMindResult) {
+      if (data.maxMindResult.isVpn) {
+        reasons.push('VPN detected by MaxMind')
+      }
+      if (data.maxMindResult.isProxy) {
+        reasons.push('Proxy detected by MaxMind')
+      }
+      if (data.maxMindResult.riskLevel === 'high') {
+        reasons.push('High-risk location detected')
+      }
     }
 
     return [...new Set(reasons)] // Remove duplicates

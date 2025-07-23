@@ -3,6 +3,8 @@ export * from './config'
 export { truecallerClient } from './truecaller'
 export { ipQualityClient } from './ipquality'
 export { fraudLabsClient } from './fraudlabs'
+export { siftClient } from './sift'
+export { maxMindClient } from './maxmind'
 export { fraudScoringService } from './scoring'
 export { autoBlockingService } from './blocking'
 

@@ -37,11 +37,36 @@ export interface TransactionScreeningResult {
   error?: string
 }
 
+export interface SiftFraudResult {
+  fraudScore: number
+  status: 'approve' | 'review' | 'reject'
+  workflowStatus?: string
+  reasons: string[]
+  paymentAbuseScore?: number
+  accountAbuseScore?: number
+  error?: string
+}
+
+export interface MaxMindGeoResult {
+  fraudScore: number
+  countryCode?: string
+  region?: string
+  city?: string
+  riskLevel: 'low' | 'medium' | 'high'
+  isVpn?: boolean
+  isProxy?: boolean
+  isp?: string
+  accuracyRadius?: number
+  error?: string
+}
+
 export interface UnifiedFraudScore {
   overallScore: number
   phoneScore?: number
   ipScore?: number
   transactionScore?: number
+  siftScore?: number
+  maxmindScore?: number
   decision: 'approve' | 'review' | 'reject'
   reasons: string[]
   timestamp: Date
@@ -80,6 +105,16 @@ export interface FraudConfig {
     timeout: number
   }
   fraudlabs: {
+    apiKey: string
+    baseUrl: string
+    timeout: number
+  }
+  sift: {
+    apiKey: string
+    baseUrl: string
+    timeout: number
+  }
+  maxmind: {
     apiKey: string
     baseUrl: string
     timeout: number
