@@ -5,6 +5,7 @@ import { CreditCardIcon, LockClosedIcon, CheckCircleIcon } from '@heroicons/reac
 import { createPaymentIntent } from '@/integrations/stripe/payments'
 import { useAuth } from '@/hooks/useAuth'
 import type { CreatePaymentIntentParams } from '@/integrations/stripe/types'
+import { PaymentErrorBoundary } from './PaymentErrorBoundary'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '')
 
@@ -161,7 +162,39 @@ const PaymentFormInner: React.FC<PaymentFormInnerProps> = ({
   )
 }
 
-export const PaymentForm: React.FC<PaymentFormProps> = (props) => {
+// Wrapped version with error boundary
+export const PaymentFormWithErrorBoundary: React.FC<PaymentFormProps> = (props) => {
+  const [retryKey, setRetryKey] = useState(0)
+
+  const handleRetry = () => {
+    // Force re-render by changing key
+    setRetryKey((prev) => prev + 1)
+  }
+
+  const handleUpdatePaymentMethod = () => {
+    // Navigate to payment methods page
+    window.location.href = '/app/settings/payment-methods'
+  }
+
+  const handleContactSupport = () => {
+    // Navigate to support with payment context
+    window.location.href = '/support?type=payment-error'
+  }
+
+  return (
+    <PaymentErrorBoundary
+      onRetry={handleRetry}
+      onUpdatePaymentMethod={handleUpdatePaymentMethod}
+      onContactSupport={handleContactSupport}
+      preserveFormData={true}
+    >
+      <PaymentFormInner key={retryKey} {...props} />
+    </PaymentErrorBoundary>
+  )
+}
+
+// Inner form component (original PaymentForm)
+const PaymentFormInner: React.FC<PaymentFormProps> = (props) => {
   const { user } = useAuth()
   const [clientSecret, setClientSecret] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
@@ -265,4 +298,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = (props) => {
   )
 }
 
-export default PaymentForm
+// Export both versions
+export const PaymentForm = PaymentFormInner
+export default PaymentFormWithErrorBoundary

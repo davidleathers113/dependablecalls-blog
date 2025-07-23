@@ -166,7 +166,7 @@ INSERT INTO calls (
   status, quality_score, caller_location, metadata
 ) VALUES
 (
-  'call1111-1111-1111-1111-111111111111',
+  'cccc1111-1111-1111-1111-111111111111',
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
   '8005551234',
@@ -184,7 +184,7 @@ INSERT INTO calls (
   '{"intent_confirmed": true, "lead_quality": "high", "notes": "Interested in auto insurance quote"}'
 ),
 (
-  'call2222-2222-2222-2222-222222222222',
+  'cccc2222-2222-2222-2222-222222222222',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
   'dddddddd-dddd-dddd-dddd-dddddddddddd',
   '8005556789',
@@ -202,7 +202,7 @@ INSERT INTO calls (
   '{"intent_confirmed": true, "injury_type": "car_accident", "lead_quality": "premium", "attorney_needed": true}'
 ),
 (
-  'call3333-3333-3333-3333-333333333333',
+  'cccc3333-3333-3333-3333-333333333333',
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
   '8005551235',
@@ -233,15 +233,15 @@ INSERT INTO call_quality_scores (
   technical_score, overall_score, scoring_model, flags
 ) VALUES
 (
-  'call1111-1111-1111-1111-111111111111',
+  'cccc1111-1111-1111-1111-111111111111',
   90, 85, 80, 85, 85, 'v1.0', '[]'
 ),
 (
-  'call2222-2222-2222-2222-222222222222',
+  'cccc2222-2222-2222-2222-222222222222',
   95, 95, 90, 88, 92, 'v1.0', '[]'
 ),
 (
-  'call3333-3333-3333-3333-333333333333',
+  'cccc3333-3333-3333-3333-333333333333',
   45, 50, 65, 75, 65, 'v1.0', '["short_duration", "low_intent"]'
 )
 ON CONFLICT (call_id) DO UPDATE SET
@@ -331,7 +331,7 @@ INSERT INTO invoice_line_items (
   1,
   20.0000,
   20.00,
-  'call1111-1111-1111-1111-111111111111'
+  'cccc1111-1111-1111-1111-111111111111'
 ),
 (
   (SELECT id FROM invoices WHERE invoice_number = 'INV-2024-000001'),
@@ -339,7 +339,7 @@ INSERT INTO invoice_line_items (
   1,
   10.0000,
   10.00,
-  'call3333-3333-3333-3333-333333333333'
+  'cccc3333-3333-3333-3333-333333333333'
 )
 ON CONFLICT DO NOTHING;
 

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/lib/logger'
 import type Stripe from 'stripe'
+import { RealtimeErrorBoundary } from '../realtime/RealtimeErrorBoundary'
 
 interface WebhookPayload {
   id: string
@@ -16,7 +17,8 @@ interface WebhookHandlerProps {
   onWebhookReceived?: (event: WebhookPayload) => void
 }
 
-export const WebhookHandler: React.FC<WebhookHandlerProps> = ({ onWebhookReceived }) => {
+// Inner component without error boundary
+const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived }) => {
   const handledEvents = useRef<Set<string>>(new Set())
 
   const handleWebhookEvent = useCallback(
@@ -44,8 +46,8 @@ export const WebhookHandler: React.FC<WebhookHandlerProps> = ({ onWebhookReceive
           error: error instanceof Error ? error.message : 'Unknown error',
         })
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onWebhookReceived]
   )
 
@@ -62,7 +64,15 @@ export const WebhookHandler: React.FC<WebhookHandlerProps> = ({ onWebhookReceive
         },
         handleWebhookEvent
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          logger.info('Webhook handler connected to real-time events')
+        } else if (status === 'CLOSED') {
+          logger.warn('Webhook handler disconnected from real-time events')
+        } else if (status === 'CHANNEL_ERROR') {
+          logger.error('Webhook handler channel error')
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
@@ -497,6 +507,39 @@ export const WebhookHandler: React.FC<WebhookHandlerProps> = ({ onWebhookReceive
 
   // This component doesn't render anything visible
   return null
+}
+
+// Wrapped version with error boundary
+export const WebhookHandler: React.FC<WebhookHandlerProps> = ({ onWebhookReceived }) => {
+  const [retryKey, setRetryKey] = useState(0)
+
+  const handleReconnect = async () => {
+    // Force component re-mount to reconnect
+    setRetryKey((prev) => prev + 1)
+    logger.info('Attempting to reconnect webhook handler')
+  }
+
+  const handleFallbackToPolling = () => {
+    // In a real implementation, this would switch to polling mode
+    logger.info('Falling back to polling mode for webhook events')
+    // You could implement a polling mechanism here
+  }
+
+  return (
+    <RealtimeErrorBoundary
+      featureName="Webhook Processing"
+      enableAutoReconnect={true}
+      maxReconnectAttempts={5}
+      reconnectDelay={2000}
+      onReconnect={handleReconnect}
+      onFallbackToPolling={handleFallbackToPolling}
+      onError={(error) => {
+        logger.error('Webhook handler error boundary caught error', error)
+      }}
+    >
+      <WebhookHandlerInner key={retryKey} onWebhookReceived={onWebhookReceived} />
+    </RealtimeErrorBoundary>
+  )
 }
 
 export default WebhookHandler
