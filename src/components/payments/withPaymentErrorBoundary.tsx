@@ -1,4 +1,3 @@
-import React from 'react'
 import { PaymentErrorBoundary } from './PaymentErrorBoundary'
 import type { ComponentType } from 'react'
 

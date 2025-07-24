@@ -1,9 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query'
+import { QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query'
+import { queryClient } from './lib/queryClient'
 import { ErrorBoundary } from 'react-error-boundary'
+import { ErrorBoundary as CustomErrorBoundary } from './components/common/ErrorBoundary'
+import { UnauthorizedError } from './components/common/FallbackUI'
 import React, { useEffect, Suspense } from 'react'
 import { useAuthStore } from './store/authStore'
-import { captureError, addBreadcrumb } from './lib/monitoring'
+import { captureError } from './lib/monitoring'
 import { QueryErrorFallback } from './components/ui/QueryErrorFallback'
 
 // Layouts
@@ -60,7 +63,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (
     <CustomErrorBoundary
       context="ProtectedRoute - Authentication"
-      fallback={<AuthProtectedFallbackUI />}
+      fallback={<UnauthorizedError onGoHome={() => (window.location.href = '/')} />}
       onError={(error, errorInfo) => {
         // Log authentication-related errors
         captureError(error, {
@@ -75,109 +78,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     </CustomErrorBoundary>
   )
 }
-
-// Create QueryClient instance with error boundary integration
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: (failureCount, error) => {
-        // Don't retry on 4xx errors (client errors)
-        if (error instanceof Error && 'status' in error && typeof error.status === 'number') {
-          if (error.status >= 400 && error.status < 500) {
-            return false
-          }
-        }
-
-        // Retry up to 2 times for other errors
-        return failureCount < 2
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      useErrorBoundary: (error) => {
-        // Use error boundary for critical errors that should crash the component
-        if (error instanceof Error) {
-          // Network errors that indicate complete connectivity loss
-          if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
-            return false // Handle gracefully, don't crash
-          }
-
-          // Authentication errors
-          if ('status' in error && error.status === 401) {
-            return false // Handle with auth redirect
-          }
-
-          // Server errors that might be temporary
-          if ('status' in error && typeof error.status === 'number' && error.status >= 500) {
-            return true // These should trigger error boundary
-          }
-        }
-
-        return false
-      },
-    },
-    mutations: {
-      retry: 1,
-      useErrorBoundary: (error) => {
-        // Critical mutations that should crash on error
-        if (error instanceof Error) {
-          // Payment processing errors
-          if (error.message.includes('payment') || error.message.includes('stripe')) {
-            return true
-          }
-
-          // Data corruption errors
-          if (error.message.includes('constraint') || error.message.includes('integrity')) {
-            return true
-          }
-        }
-
-        return false
-      },
-    },
-  },
-  queryCache: {
-    onError: (error, query) => {
-      // Log query errors for monitoring
-      addBreadcrumb(`Query error: ${query.queryKey.join(', ')}`, 'query', 'error', {
-        queryKey: query.queryKey,
-        errorMessage: error.message,
-      })
-
-      // Capture non-boundary errors for tracking
-      if (error instanceof Error && !query.meta?.useErrorBoundary) {
-        captureError(error, {
-          context: 'react-query',
-          queryKey: query.queryKey,
-          type: 'query_error',
-        })
-      }
-    },
-  },
-  mutationCache: {
-    onError: (error, variables, context, mutation) => {
-      // Log mutation errors
-      addBreadcrumb(
-        `Mutation error: ${mutation.options.mutationKey?.join(', ') || 'unknown'}`,
-        'mutation',
-        'error',
-        {
-          mutationKey: mutation.options.mutationKey,
-          errorMessage: error.message,
-        }
-      )
-
-      // Capture non-boundary errors
-      if (error instanceof Error && !mutation.meta?.useErrorBoundary) {
-        captureError(error, {
-          context: 'react-query',
-          mutationKey: mutation.options.mutationKey,
-          variables,
-          type: 'mutation_error',
-        })
-      }
-    },
-  },
-})
 
 function App() {
   const { checkSession } = useAuthStore()

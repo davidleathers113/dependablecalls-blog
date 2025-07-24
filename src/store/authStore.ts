@@ -45,16 +45,23 @@ export const useAuthStore = create<AuthState>()(
         if (data.user && data.session) {
           set({ user: data.user, session: data.session })
 
-          // Fetch user type from users table
-          const { data: userData } = await supabase
-            .from('users')
-            .select('user_type')
-            .eq('id', data.user.id)
-            .single()
+          // Determine user type by checking related tables
+          const [supplierCheck, buyerCheck, adminCheck] = await Promise.all([
+            supabase.from('suppliers').select('id').eq('user_id', data.user.id).single(),
+            supabase.from('buyers').select('id').eq('user_id', data.user.id).single(),
+            supabase.from('admins').select('id').eq('user_id', data.user.id).single(),
+          ])
 
-          if (userData) {
-            set({ userType: userData.user_type })
+          let userType: 'supplier' | 'buyer' | 'admin' | null = null
+          if (adminCheck.data) {
+            userType = 'admin'
+          } else if (buyerCheck.data) {
+            userType = 'buyer'
+          } else if (supplierCheck.data) {
+            userType = 'supplier'
           }
+
+          set({ userType })
         }
       },
 
@@ -89,16 +96,23 @@ export const useAuthStore = create<AuthState>()(
         if (session) {
           set({ user: session.user, session })
 
-          // Fetch user type
-          const { data: userData } = await supabase
-            .from('users')
-            .select('user_type')
-            .eq('id', session.user.id)
-            .single()
+          // Determine user type by checking related tables
+          const [supplierCheck, buyerCheck, adminCheck] = await Promise.all([
+            supabase.from('suppliers').select('id').eq('user_id', session.user.id).single(),
+            supabase.from('buyers').select('id').eq('user_id', session.user.id).single(),
+            supabase.from('admins').select('id').eq('user_id', session.user.id).single(),
+          ])
 
-          if (userData) {
-            set({ userType: userData.user_type })
+          let userType: 'supplier' | 'buyer' | 'admin' | null = null
+          if (adminCheck.data) {
+            userType = 'admin'
+          } else if (buyerCheck.data) {
+            userType = 'buyer'
+          } else if (supplierCheck.data) {
+            userType = 'supplier'
           }
+
+          set({ userType })
         }
 
         set({ loading: false })

@@ -1,4 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react'
+import React, { Component } from 'react'
+import type { ErrorInfo, ReactNode } from 'react'
 import { TimeoutError, ErrorFallback } from '../common/FallbackUI'
 import { captureException } from '@sentry/react'
 import { WifiIcon, ArrowPathIcon } from '@heroicons/react/24/outline'

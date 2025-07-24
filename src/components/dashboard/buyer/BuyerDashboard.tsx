@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../../hooks/useAuth'
-import { 
-  CurrencyDollarIcon, 
-  PhoneIcon, 
+import {
+  CurrencyDollarIcon,
+  PhoneIcon,
   ChartBarIcon,
   ArrowTrendingUpIcon,
   ClockIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline'
+import { PaymentModal } from '../../payments/PaymentModal'
+import { useBuyerStore } from '../../../store/buyerStore'
+import { formatCurrency } from '../../../utils/format'
 
 interface BuyerStats {
   totalSpent: number
@@ -92,6 +96,14 @@ function StatCard({
 export function BuyerDashboard() {
   const { user } = useAuth()
   const [selectedTimeRange, setSelectedTimeRange] = useState<'24h' | '7d' | '30d'>('7d')
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const { currentBalance, fetchBalance } = useBuyerStore()
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchBalance(user.id)
+    }
+  }, [user?.id, fetchBalance])
 
   if (!user || user.user_metadata?.userType !== 'buyer') {
     return (
@@ -125,20 +137,38 @@ export function BuyerDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Buyer Dashboard</h1>
           <p className="text-gray-600">Monitor your campaigns and lead quality</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <label htmlFor="timeRange" className="text-sm text-gray-700">
-            Time Range:
-          </label>
-          <select
-            id="timeRange"
-            value={selectedTimeRange}
-            onChange={(e) => setSelectedTimeRange(e.target.value as '24h' | '7d' | '30d')}
-            className="rounded-md border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500"
+        <div className="flex items-center space-x-4">
+          {/* Balance Display */}
+          <div className="bg-gray-100 rounded-lg px-4 py-2">
+            <div className="text-xs text-gray-600">Account Balance</div>
+            <div className="text-lg font-bold text-gray-900">{formatCurrency(currentBalance)}</div>
+          </div>
+
+          {/* Add Funds Button */}
+          <button
+            onClick={() => setIsPaymentModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-          </select>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add Funds
+          </button>
+
+          {/* Time Range Selector */}
+          <div className="flex items-center space-x-2">
+            <label htmlFor="timeRange" className="text-sm text-gray-700">
+              Time Range:
+            </label>
+            <select
+              id="timeRange"
+              value={selectedTimeRange}
+              onChange={(e) => setSelectedTimeRange(e.target.value as '24h' | '7d' | '30d')}
+              className="rounded-md border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500"
+            >
+              <option value="24h">Last 24 Hours</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -301,6 +331,20 @@ export function BuyerDashboard() {
           </li>
         </ul>
       </div>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        type="topup"
+        onSuccess={(paymentIntentId, amount) => {
+          console.log('Payment successful:', paymentIntentId, amount)
+          // Refresh balance after successful payment
+          if (user?.id) {
+            fetchBalance(user.id)
+          }
+        }}
+      />
     </div>
   )
 }

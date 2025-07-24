@@ -1,7 +1,6 @@
 // Example usage file for FallbackUI components
 // This file demonstrates how to use the various error fallback components
 
-import React from 'react'
 import {
   ErrorFallback,
   NotFoundError,

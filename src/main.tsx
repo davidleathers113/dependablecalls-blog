@@ -1,6 +1,5 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ErrorBoundary } from 'react-error-boundary'
 import './index.css'
 import App from './App.tsx'
 import { initSentry, SentryErrorBoundary, captureError } from './lib/monitoring'
@@ -19,56 +18,73 @@ apm.init({
   sampleRate: import.meta.env.PROD ? 0.1 : 1.0,
 })
 
-// Track initial bundle size
-apm.trackBundleSize()
-
-// Track memory usage periodically
-if (import.meta.env.DEV) {
-  setInterval(() => apm.trackMemoryUsage(), 30000)
+// Track initial bundle size (skip in StrictMode double-invocation)
+if (!import.meta.env.DEV) {
+  apm.trackBundleSize()
 }
 
-// Global error handlers for unhandled errors
-window.addEventListener('error', (event) => {
-  captureError(event.error || new Error(event.message), {
-    filename: event.filename,
-    lineno: event.lineno,
-    colno: event.colno,
-    type: 'global_error',
-  })
-})
+// Track memory usage periodically with proper disposal
+let memInterval: number | undefined
+if (import.meta.env.DEV) {
+  memInterval = window.setInterval(() => apm.trackMemoryUsage(), 30_000)
+}
 
-window.addEventListener('unhandledrejection', (event) => {
-  const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason))
-  captureError(error, {
-    type: 'unhandled_promise_rejection',
-  })
-})
+// Attach global handlers with cleanup function
+function attachGlobalHandlers() {
+  const onError = (event: ErrorEvent) => {
+    // Sentry SDK already captures these, but we add custom context
+    captureError(event.error || new Error(event.message), {
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+      type: 'global_error',
+    })
+  }
 
-createRoot(document.getElementById('root')!).render(
+  const onRejection = (event: PromiseRejectionEvent) => {
+    // Sentry SDK already captures these, but we add custom context
+    captureError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)), {
+      type: 'unhandled_promise_rejection',
+    })
+  }
+
+  window.addEventListener('error', onError)
+  window.addEventListener('unhandledrejection', onRejection)
+
+  return () => {
+    window.removeEventListener('error', onError)
+    window.removeEventListener('unhandledrejection', onRejection)
+    if (memInterval) clearInterval(memInterval)
+  }
+}
+
+const detach = attachGlobalHandlers()
+
+// Hot-module reload cleanup
+if (import.meta.hot) {
+  import.meta.hot.dispose(detach)
+}
+
+// Prevent multiple React roots on HMR
+const container = document.getElementById('root')!
+const root =
+  (container as unknown as { _reactRoot?: ReturnType<typeof createRoot> })._reactRoot ??
+  ((container as unknown as { _reactRoot?: ReturnType<typeof createRoot> })._reactRoot =
+    createRoot(container))
+
+root.render(
   <StrictMode>
-    <SentryErrorBoundary fallback={AppErrorFallback}>
-      <ErrorBoundary
-        FallbackComponent={AppErrorFallback}
-        onError={(error, errorInfo) => {
-          // Capture error with additional context
-          captureError(error, {
-            errorBoundary: 'app-level',
-            componentStack: errorInfo.componentStack,
-            errorBoundaryStack: errorInfo.errorBoundaryStack,
-          })
-        }}
-        onReset={() => {
-          // Clear any persisted error state
-          sessionStorage.removeItem('error-boundary-reset-count')
-
-          // Track app recovery
-          apm.trackEvent('app_error_boundary_reset', {
-            timestamp: Date.now(),
-          })
-        }}
-      >
-        <App />
-      </ErrorBoundary>
+    <SentryErrorBoundary
+      showDialog={false} // Prevent duplicate error dialogs
+      fallback={({ error, resetError, eventId }) => (
+        <AppErrorFallback
+          error={error instanceof Error ? error : new Error(String(error))}
+          resetErrorBoundary={resetError}
+          errorInfo={{ eventId }}
+        />
+      )}
+    >
+      <App />
     </SentryErrorBoundary>
   </StrictMode>
 )

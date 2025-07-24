@@ -1,4 +1,3 @@
-import React from 'react'
 import { ProtectedRoute } from './ProtectedRoute'
 import type { ComponentType } from 'react'
 

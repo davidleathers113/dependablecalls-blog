@@ -259,15 +259,32 @@ export function trackBundleSize(): void {
 }
 
 /**
- * Memory usage tracking
+ * Memory usage tracking with modern API support
  */
-export function trackMemoryUsage(): void {
+export async function trackMemoryUsage(): Promise<void> {
+  // Try modern API first (Chrome 115+)
+  if ('measureUserAgentSpecificMemory' in performance) {
+    try {
+      const result = await (
+        performance as unknown as {
+          measureUserAgentSpecificMemory: () => Promise<{ bytes: number }>
+        }
+      ).measureUserAgentSpecificMemory()
+      trackMetric('memory.used', result.bytes)
+      return
+    } catch {
+      // Fall through to legacy API
+    }
+  }
+
+  // Fall back to deprecated API for older browsers
   if ('memory' in performance) {
     const memory = (performance as Performance & { memory: MemoryInfo }).memory
     trackMetric('memory.used', memory.usedJSHeapSize)
     trackMetric('memory.total', memory.totalJSHeapSize)
     trackMetric('memory.limit', memory.jsHeapSizeLimit)
   }
+  // Gracefully degrade - no error if neither API is available
 }
 
 /**

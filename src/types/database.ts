@@ -19,7 +19,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
-          id?: string
+          id: string
           email: string
           phone?: string | null
           first_name?: string | null
@@ -50,8 +50,8 @@ export interface Database {
       admins: {
         Row: {
           id: string
-          user_id: string
-          role: string
+          user_id: string | null
+          role: string | null
           permissions: Json
           is_active: boolean
           appointed_by: string | null
@@ -59,8 +59,8 @@ export interface Database {
         }
         Insert: {
           id?: string
-          user_id: string
-          role?: string
+          user_id?: string | null
+          role?: string | null
           permissions?: Json
           is_active?: boolean
           appointed_by?: string | null
@@ -68,8 +68,8 @@ export interface Database {
         }
         Update: {
           id?: string
-          user_id?: string
-          role?: string
+          user_id?: string | null
+          role?: string | null
           permissions?: Json
           is_active?: boolean
           appointed_by?: string | null
@@ -79,7 +79,7 @@ export interface Database {
       suppliers: {
         Row: {
           id: string
-          user_id: string
+          user_id: string | null
           company_name: string
           business_type: string | null
           tax_id: string | null
@@ -94,10 +94,14 @@ export interface Database {
           approved_by: string | null
           created_at: string
           updated_at: string
+          stripe_account_id: string | null
+          stripe_onboarding_completed: boolean
+          stripe_charges_enabled: boolean
+          stripe_payouts_enabled: boolean
         }
         Insert: {
           id?: string
-          user_id: string
+          user_id?: string | null
           company_name: string
           business_type?: string | null
           tax_id?: string | null
@@ -112,10 +116,14 @@ export interface Database {
           approved_by?: string | null
           created_at?: string
           updated_at?: string
+          stripe_account_id?: string | null
+          stripe_onboarding_completed?: boolean
+          stripe_charges_enabled?: boolean
+          stripe_payouts_enabled?: boolean
         }
         Update: {
           id?: string
-          user_id?: string
+          user_id?: string | null
           company_name?: string
           business_type?: string | null
           tax_id?: string | null
@@ -130,12 +138,16 @@ export interface Database {
           approved_by?: string | null
           created_at?: string
           updated_at?: string
+          stripe_account_id?: string | null
+          stripe_onboarding_completed?: boolean
+          stripe_charges_enabled?: boolean
+          stripe_payouts_enabled?: boolean
         }
       }
       buyers: {
         Row: {
           id: string
-          user_id: string
+          user_id: string | null
           company_name: string
           business_type: string | null
           tax_id: string | null
@@ -152,10 +164,12 @@ export interface Database {
           approved_by: string | null
           created_at: string
           updated_at: string
+          stripe_customer_id: string | null
+          stripe_payment_method_id: string | null
         }
         Insert: {
           id?: string
-          user_id: string
+          user_id?: string | null
           company_name: string
           business_type?: string | null
           tax_id?: string | null
@@ -172,10 +186,12 @@ export interface Database {
           approved_by?: string | null
           created_at?: string
           updated_at?: string
+          stripe_customer_id?: string | null
+          stripe_payment_method_id?: string | null
         }
         Update: {
           id?: string
-          user_id?: string
+          user_id?: string | null
           company_name?: string
           business_type?: string | null
           tax_id?: string | null
@@ -192,12 +208,14 @@ export interface Database {
           approved_by?: string | null
           created_at?: string
           updated_at?: string
+          stripe_customer_id?: string | null
+          stripe_payment_method_id?: string | null
         }
       }
       campaigns: {
         Row: {
           id: string
-          supplier_id: string
+          supplier_id: string | null
           name: string
           description: string | null
           category: string | null
@@ -205,22 +223,20 @@ export interface Database {
           targeting: Json
           routing_rules: Json
           bid_floor: number
-          max_concurrent_calls: number
+          max_concurrent_calls: number | null
           daily_cap: number | null
-          monthly_cap: number | null
-          tracking_numbers: Json
-          schedule: Json
+          total_cap: number | null
+          start_date: string | null
+          end_date: string | null
           status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
-          quality_threshold: number
-          fraud_detection_enabled: boolean
-          recording_enabled: boolean
-          call_timeout_seconds: number
+          is_active: boolean
+          stats: Json
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          supplier_id: string
+          supplier_id?: string | null
           name: string
           description?: string | null
           category?: string | null
@@ -228,22 +244,20 @@ export interface Database {
           targeting?: Json
           routing_rules?: Json
           bid_floor?: number
-          max_concurrent_calls?: number
+          max_concurrent_calls?: number | null
           daily_cap?: number | null
-          monthly_cap?: number | null
-          tracking_numbers?: Json
-          schedule?: Json
+          total_cap?: number | null
+          start_date?: string | null
+          end_date?: string | null
           status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
-          quality_threshold?: number
-          fraud_detection_enabled?: boolean
-          recording_enabled?: boolean
-          call_timeout_seconds?: number
+          is_active?: boolean
+          stats?: Json
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          supplier_id?: string
+          supplier_id?: string | null
           name?: string
           description?: string | null
           category?: string | null
@@ -251,78 +265,14 @@ export interface Database {
           targeting?: Json
           routing_rules?: Json
           bid_floor?: number
-          max_concurrent_calls?: number
+          max_concurrent_calls?: number | null
           daily_cap?: number | null
-          monthly_cap?: number | null
-          tracking_numbers?: Json
-          schedule?: Json
+          total_cap?: number | null
+          start_date?: string | null
+          end_date?: string | null
           status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
-          quality_threshold?: number
-          fraud_detection_enabled?: boolean
-          recording_enabled?: boolean
-          call_timeout_seconds?: number
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      buyer_campaigns: {
-        Row: {
-          id: string
-          buyer_id: string
-          name: string
-          description: string | null
-          targeting_criteria: Json
-          max_bid: number
-          daily_budget: number | null
-          monthly_budget: number | null
-          daily_cap: number | null
-          monthly_cap: number | null
-          schedule: Json
-          quality_requirements: Json
-          exclude_suppliers: string[]
-          preferred_suppliers: string[]
-          status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
-          auto_approval_enabled: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          buyer_id: string
-          name: string
-          description?: string | null
-          targeting_criteria?: Json
-          max_bid: number
-          daily_budget?: number | null
-          monthly_budget?: number | null
-          daily_cap?: number | null
-          monthly_cap?: number | null
-          schedule?: Json
-          quality_requirements?: Json
-          exclude_suppliers?: string[]
-          preferred_suppliers?: string[]
-          status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
-          auto_approval_enabled?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          buyer_id?: string
-          name?: string
-          description?: string | null
-          targeting_criteria?: Json
-          max_bid?: number
-          daily_budget?: number | null
-          monthly_budget?: number | null
-          daily_cap?: number | null
-          monthly_cap?: number | null
-          schedule?: Json
-          quality_requirements?: Json
-          exclude_suppliers?: string[]
-          preferred_suppliers?: string[]
-          status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
-          auto_approval_enabled?: boolean
+          is_active?: boolean
+          stats?: Json
           created_at?: string
           updated_at?: string
         }
@@ -331,145 +281,112 @@ export interface Database {
         Row: {
           id: string
           campaign_id: string | null
-          buyer_campaign_id: string | null
-          tracking_number: string
-          caller_number: string
+          buyer_id: string | null
+          supplier_id: string | null
+          tracking_number: string | null
+          caller_number: string | null
           destination_number: string | null
-          caller_location: Json | null
-          started_at: string
-          answered_at: string | null
-          ended_at: string | null
-          duration_seconds: number
-          billable_seconds: number
-          payout_amount: number
-          charge_amount: number
-          margin_amount: number
+          call_sid: string | null
+          start_time: string | null
+          end_time: string | null
+          duration: number | null
           status: 'initiated' | 'ringing' | 'connected' | 'completed' | 'failed' | 'rejected'
-          disposition: string | null
+          recording_url: string | null
+          transcription: string | null
           quality_score: number | null
           fraud_score: number | null
           metadata: Json
-          recording_url: string | null
-          recording_duration: number | null
-          call_flow: Json
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           campaign_id?: string | null
-          buyer_campaign_id?: string | null
-          tracking_number: string
-          caller_number: string
+          buyer_id?: string | null
+          supplier_id?: string | null
+          tracking_number?: string | null
+          caller_number?: string | null
           destination_number?: string | null
-          caller_location?: Json | null
-          started_at?: string
-          answered_at?: string | null
-          ended_at?: string | null
-          duration_seconds?: number
-          billable_seconds?: number
-          payout_amount?: number
-          charge_amount?: number
-          margin_amount?: number
+          call_sid?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          duration?: number | null
           status?: 'initiated' | 'ringing' | 'connected' | 'completed' | 'failed' | 'rejected'
-          disposition?: string | null
+          recording_url?: string | null
+          transcription?: string | null
           quality_score?: number | null
           fraud_score?: number | null
           metadata?: Json
-          recording_url?: string | null
-          recording_duration?: number | null
-          call_flow?: Json
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           campaign_id?: string | null
-          buyer_campaign_id?: string | null
-          tracking_number?: string
-          caller_number?: string
+          buyer_id?: string | null
+          supplier_id?: string | null
+          tracking_number?: string | null
+          caller_number?: string | null
           destination_number?: string | null
-          caller_location?: Json | null
-          started_at?: string
-          answered_at?: string | null
-          ended_at?: string | null
-          duration_seconds?: number
-          billable_seconds?: number
-          payout_amount?: number
-          charge_amount?: number
-          margin_amount?: number
+          call_sid?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          duration?: number | null
           status?: 'initiated' | 'ringing' | 'connected' | 'completed' | 'failed' | 'rejected'
-          disposition?: string | null
+          recording_url?: string | null
+          transcription?: string | null
           quality_score?: number | null
           fraud_score?: number | null
           metadata?: Json
-          recording_url?: string | null
-          recording_duration?: number | null
-          call_flow?: Json
           created_at?: string
           updated_at?: string
         }
       }
-      invoices: {
+      transactions: {
         Row: {
           id: string
-          buyer_id: string
-          invoice_number: string
+          supplier_id: string | null
+          buyer_id: string | null
+          call_id: string | null
           amount: number
-          tax_amount: number
-          total_amount: number
-          status: 'draft' | 'open' | 'paid' | 'overdue' | 'cancelled'
-          period_start: string
-          period_end: string
-          due_date: string
-          payment_terms: number
-          stripe_invoice_id: string | null
-          stripe_payment_intent_id: string | null
+          type: string
+          status: string
           payment_method: string | null
-          paid_at: string | null
-          notes: string | null
+          stripe_payment_intent_id: string | null
+          stripe_charge_id: string | null
+          stripe_transfer_id: string | null
           metadata: Json
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          buyer_id: string
-          invoice_number?: string
+          supplier_id?: string | null
+          buyer_id?: string | null
+          call_id?: string | null
           amount: number
-          tax_amount?: number
-          total_amount: number
-          status?: 'draft' | 'open' | 'paid' | 'overdue' | 'cancelled'
-          period_start: string
-          period_end: string
-          due_date: string
-          payment_terms?: number
-          stripe_invoice_id?: string | null
-          stripe_payment_intent_id?: string | null
+          type: string
+          status: string
           payment_method?: string | null
-          paid_at?: string | null
-          notes?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_charge_id?: string | null
+          stripe_transfer_id?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          buyer_id?: string
-          invoice_number?: string
+          supplier_id?: string | null
+          buyer_id?: string | null
+          call_id?: string | null
           amount?: number
-          tax_amount?: number
-          total_amount?: number
-          status?: 'draft' | 'open' | 'paid' | 'overdue' | 'cancelled'
-          period_start?: string
-          period_end?: string
-          due_date?: string
-          payment_terms?: number
-          stripe_invoice_id?: string | null
-          stripe_payment_intent_id?: string | null
+          type?: string
+          status?: string
           payment_method?: string | null
-          paid_at?: string | null
-          notes?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_charge_id?: string | null
+          stripe_transfer_id?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string
@@ -478,136 +395,136 @@ export interface Database {
       payouts: {
         Row: {
           id: string
-          supplier_id: string
+          supplier_id: string | null
           amount: number
-          fee_amount: number
-          net_amount: number
+          currency: string
           status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
-          period_start: string
-          period_end: string
-          payment_method: string | null
-          payment_details: Json
-          transaction_id: string | null
-          reference_number: string | null
-          notes: string | null
-          processed_at: string | null
+          stripe_payout_id: string | null
+          stripe_transfer_id: string | null
+          batch_id: string | null
           paid_at: string | null
+          failed_at: string | null
+          failure_reason: string | null
+          metadata: Json
           created_at: string
-          created_by: string | null
+          updated_at: string
         }
         Insert: {
           id?: string
-          supplier_id: string
+          supplier_id?: string | null
           amount: number
-          fee_amount?: number
-          net_amount: number
+          currency?: string
           status?: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
-          period_start: string
-          period_end: string
-          payment_method?: string | null
-          payment_details?: Json
-          transaction_id?: string | null
-          reference_number?: string | null
-          notes?: string | null
-          processed_at?: string | null
+          stripe_payout_id?: string | null
+          stripe_transfer_id?: string | null
+          batch_id?: string | null
           paid_at?: string | null
+          failed_at?: string | null
+          failure_reason?: string | null
+          metadata?: Json
           created_at?: string
-          created_by?: string | null
+          updated_at?: string
         }
         Update: {
           id?: string
-          supplier_id?: string
+          supplier_id?: string | null
           amount?: number
-          fee_amount?: number
-          net_amount?: number
+          currency?: string
           status?: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
-          period_start?: string
-          period_end?: string
-          payment_method?: string | null
-          payment_details?: Json
-          transaction_id?: string | null
-          reference_number?: string | null
-          notes?: string | null
-          processed_at?: string | null
+          stripe_payout_id?: string | null
+          stripe_transfer_id?: string | null
+          batch_id?: string | null
           paid_at?: string | null
+          failed_at?: string | null
+          failure_reason?: string | null
+          metadata?: Json
           created_at?: string
-          created_by?: string | null
+          updated_at?: string
         }
       }
     }
     Views: {
-      [_ in never]: never
+      supplier_stats_view: {
+        Row: {
+          supplier_id: string | null
+          total_calls: number | null
+          total_minutes: number | null
+          total_earnings: number | null
+          average_call_duration: number | null
+          conversion_rate: number | null
+          quality_score: number | null
+        }
+      }
+      buyer_stats_view: {
+        Row: {
+          buyer_id: string | null
+          total_campaigns: number | null
+          total_calls: number | null
+          total_spent: number | null
+          average_cost_per_call: number | null
+          conversion_rate: number | null
+        }
+      }
+      campaign_performance_view: {
+        Row: {
+          campaign_id: string | null
+          campaign_name: string | null
+          supplier_id: string | null
+          status: string | null
+          total_calls: number | null
+          connected_calls: number | null
+          total_minutes: number | null
+          total_revenue: number | null
+          average_call_duration: number | null
+          connection_rate: number | null
+        }
+      }
     }
     Functions: {
-      calculate_supplier_balance: {
+      get_user_stats: {
         Args: {
-          supplier_uuid: string
-        }
-        Returns: number
-      }
-      calculate_buyer_balance: {
-        Args: {
-          buyer_uuid: string
-        }
-        Returns: number
-      }
-      calculate_quality_score: {
-        Args: {
-          call_duration: number
-          call_metadata?: Json
-        }
-        Returns: number
-      }
-      detect_fraud_indicators: {
-        Args: {
-          caller_number: string
-          call_duration: number
-          caller_location?: Json
-          call_metadata?: Json
-        }
-        Returns: Json
-      }
-      find_matching_buyer_campaigns: {
-        Args: {
-          supplier_campaign_id: string
-          caller_location?: Json
-          call_time?: string
+          user_id: string
         }
         Returns: {
-          buyer_campaign_id: string
+          total_calls: number
+          total_minutes: number
+          total_revenue: number
+          average_call_duration: number
+        }
+      }
+      calculate_supplier_payout: {
+        Args: {
+          supplier_id: string
+          start_date: string
+          end_date: string
+        }
+        Returns: {
+          total_amount: number
+          call_count: number
+          calls: Json
+        }
+      }
+      add_buyer_credits: {
+        Args: {
           buyer_id: string
-          max_bid: number
-          match_score: number
-        }[]
-      }
-      calculate_call_billing: {
-        Args: {
-          campaign_id: string
-          buyer_campaign_id: string
-          call_duration: number
-          quality_score: number
+          amount: number
+          payment_intent_id: string
         }
-        Returns: Json
-      }
-      get_campaign_performance: {
-        Args: {
-          campaign_uuid: string
-          start_date?: string
-          end_date?: string
+        Returns: {
+          new_balance: number
+          transaction_id: string
         }
-        Returns: Json
       }
-      validate_phone_number: {
+      deduct_buyer_balance: {
         Args: {
-          phone_number: string
+          buyer_id: string
+          amount: number
+          call_id: string
         }
-        Returns: boolean
-      }
-      validate_campaign_targeting: {
-        Args: {
-          targeting: Json
+        Returns: {
+          new_balance: number
+          transaction_id: string
         }
-        Returns: boolean
       }
     }
     Enums: {

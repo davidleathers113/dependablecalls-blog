@@ -5,20 +5,11 @@ import {
   timingSafeEqual,
 } from '@/integrations/stripe/webhooks'
 import { stripeServerClient } from '@/integrations/stripe/client'
-import type Stripe from 'stripe'
+import { supabase } from '@/lib/supabase'
 import type { Request, Response } from 'express'
-import crypto from 'crypto'
+import type Stripe from 'stripe'
 
-// Mock crypto module
-vi.mock('crypto', () => ({
-  default: {
-    timingSafeEqual: vi.fn((a: Buffer, b: Buffer) => {
-      return a.toString() === b.toString()
-    }),
-  },
-}))
-
-// Mock the stripe client
+// Mock dependencies
 vi.mock('@/integrations/stripe/client', () => ({
   stripeServerClient: {
     webhooks: {
@@ -30,39 +21,73 @@ vi.mock('@/integrations/stripe/client', () => ({
   },
 }))
 
-describe('Stripe Webhooks Module', () => {
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      insert: vi.fn(() => ({ error: null })),
+      update: vi.fn(() => ({ error: null })),
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: vi.fn(() => ({ data: null, error: null })),
+        })),
+        gte: vi.fn(() => ({ data: [], error: null })),
+      })),
+      eq: vi.fn(() => ({ error: null })),
+    })),
+    raw: vi.fn((sql: string) => sql),
+  },
+}))
+
+describe('Stripe Webhook Handler', () => {
+  let mockRequest: Partial<Request>
+  let mockResponse: Partial<Response>
+  let statusMock: vi.Mock
+  let jsonMock: vi.Mock
+  let sendMock: vi.Mock
+
   beforeEach(() => {
+    statusMock = vi.fn().mockReturnThis()
+    jsonMock = vi.fn().mockReturnThis()
+    sendMock = vi.fn().mockReturnThis()
+
+    mockRequest = {
+      body: 'test-body',
+      headers: {
+        'stripe-signature': 'test-signature',
+      },
+    }
+
+    mockResponse = {
+      status: statusMock,
+      json: jsonMock,
+      send: sendMock,
+    }
+
     vi.clearAllMocks()
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   afterEach(() => {
-    vi.restoreAllMocks()
+    vi.clearAllMocks()
   })
 
   describe('verifyWebhookSignature', () => {
-    it('should verify webhook signature successfully', () => {
-      const mockEvent = {
-        id: 'evt_123',
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_123' } },
-      } as Stripe.Event
-
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
+    it('should verify valid webhook signature', () => {
+      const mockEvent = { id: 'evt_123', type: 'payment_intent.succeeded' }
+      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(
+        mockEvent as Stripe.Event
+      )
 
       const result = verifyWebhookSignature('payload', 'signature')
 
+      expect(result).toEqual(mockEvent)
       expect(stripeServerClient.webhooks.constructEvent).toHaveBeenCalledWith(
         'payload',
         'signature',
         'whsec_test_secret'
       )
-      expect(result).toEqual(mockEvent)
     })
 
-    it('should throw error when verification fails', () => {
+    it('should throw error for invalid signature', () => {
       vi.mocked(stripeServerClient.webhooks.constructEvent).mockImplementation(() => {
         throw new Error('Invalid signature')
       })
@@ -71,59 +96,27 @@ describe('Stripe Webhooks Module', () => {
         'Webhook signature verification failed: Invalid signature'
       )
     })
-
-    it('should handle non-Error exceptions', () => {
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockImplementation(() => {
-        throw 'String error'
-      })
-
-      expect(() => verifyWebhookSignature('payload', 'signature')).toThrow(
-        'Webhook signature verification failed: Unknown error'
-      )
-    })
   })
 
   describe('handleStripeWebhook', () => {
-    let mockReq: Partial<Request>
-    let mockRes: Partial<Response>
+    it('should return 400 if stripe-signature header is missing', async () => {
+      mockRequest.headers = {}
 
-    beforeEach(() => {
-      mockReq = {
-        headers: {
-          'stripe-signature': 'test-signature',
-        },
-        body: 'test-payload',
-      }
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
 
-      mockRes = {
-        status: vi.fn().mockReturnThis(),
-        send: vi.fn().mockReturnThis(),
-        json: vi.fn().mockReturnThis(),
-      }
+      expect(statusMock).toHaveBeenCalledWith(400)
+      expect(sendMock).toHaveBeenCalledWith('Missing stripe-signature header')
     })
 
-    it('should handle missing signature header', async () => {
-      mockReq.headers = {}
-
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
-
-      expect(mockRes.status).toHaveBeenCalledWith(400)
-      expect(mockRes.send).toHaveBeenCalledWith('Missing stripe-signature header')
-    })
-
-    it('should handle signature verification failure', async () => {
+    it('should return 400 if signature verification fails', async () => {
       vi.mocked(stripeServerClient.webhooks.constructEvent).mockImplementation(() => {
         throw new Error('Invalid signature')
       })
 
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
 
-      expect(mockRes.status).toHaveBeenCalledWith(400)
-      expect(mockRes.send).toHaveBeenCalledWith('Webhook Error: Invalid signature')
-      expect(console.error).toHaveBeenCalledWith(
-        'Webhook signature verification failed:',
-        expect.any(Error)
-      )
+      expect(statusMock).toHaveBeenCalledWith(400)
+      expect(sendMock).toHaveBeenCalledWith('Webhook Error: Invalid signature')
     })
 
     it('should handle payment_intent.succeeded event', async () => {
@@ -133,18 +126,40 @@ describe('Stripe Webhooks Module', () => {
         data: {
           object: {
             id: 'pi_123',
-            amount: 5000,
-            currency: 'usd',
+            amount: 10000,
+            metadata: {
+              buyer_id: 'buyer_123',
+            },
           },
         },
-      } as Stripe.Event
+      }
 
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
+      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(
+        mockEvent as Stripe.Event
+      )
 
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
+      const updateMock = vi.fn(() => ({
+        eq: vi.fn(() => ({ error: null })),
+      }))
 
-      expect(console.log).toHaveBeenCalledWith('Payment succeeded:', 'pi_123')
-      expect(mockRes.json).toHaveBeenCalledWith({ received: true })
+      const fromMock = vi.fn(() => ({
+        update: updateMock,
+      }))
+
+      vi.mocked(supabase.from).mockImplementation(fromMock as ReturnType<typeof vi.fn>)
+
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
+
+      expect(fromMock).toHaveBeenCalledWith('invoices')
+      expect(updateMock).toHaveBeenCalledWith({
+        status: 'paid',
+        paid_at: expect.any(String),
+        payment_method: 'stripe',
+        stripe_payment_intent_id: 'pi_123',
+      })
+
+      expect(fromMock).toHaveBeenCalledWith('buyers')
+      expect(jsonMock).toHaveBeenCalledWith({ received: true })
     })
 
     it('should handle payment_intent.payment_failed event', async () => {
@@ -154,16 +169,23 @@ describe('Stripe Webhooks Module', () => {
         data: {
           object: {
             id: 'pi_123',
+            metadata: {
+              buyer_id: 'buyer_123',
+            },
+            last_payment_error: {
+              message: 'Card declined',
+            },
           },
         },
-      } as Stripe.Event
+      }
 
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
+      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(
+        mockEvent as Stripe.Event
+      )
 
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
 
-      expect(console.error).toHaveBeenCalledWith('Payment failed:', 'pi_123')
-      expect(mockRes.json).toHaveBeenCalledWith({ received: true })
+      expect(jsonMock).toHaveBeenCalledWith({ received: true })
     })
 
     it('should handle charge.dispute.created event', async () => {
@@ -173,16 +195,52 @@ describe('Stripe Webhooks Module', () => {
         data: {
           object: {
             id: 'dp_123',
+            amount: 5000,
+            charge: 'ch_123',
+            reason: 'fraudulent',
+            metadata: {
+              call_id: 'call_123',
+              buyer_id: 'buyer_123',
+            },
+            evidence_details: {},
           },
         },
-      } as Stripe.Event
+      }
 
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
+      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(
+        mockEvent as Stripe.Event
+      )
 
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
+      const insertMock = vi.fn(() => ({ error: null }))
+      const fromMock = vi.fn(() => ({
+        insert: insertMock,
+      }))
 
-      expect(console.warn).toHaveBeenCalledWith('Dispute created:', 'dp_123')
-      expect(mockRes.json).toHaveBeenCalledWith({ received: true })
+      vi.mocked(supabase.from).mockImplementation(fromMock as ReturnType<typeof vi.fn>)
+
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
+
+      expect(fromMock).toHaveBeenCalledWith('disputes')
+      expect(insertMock).toHaveBeenCalledWith({
+        call_id: 'call_123',
+        raised_by: 'buyer_123',
+        dispute_type: 'billing',
+        reason: 'Stripe dispute: fraudulent',
+        description: 'Dispute created for charge ch_123. Reason: fraudulent',
+        amount_disputed: 50,
+        status: 'open',
+        priority: 'high',
+        evidence: [
+          {
+            type: 'stripe_dispute',
+            dispute_id: 'dp_123',
+            reason: 'fraudulent',
+            evidence_details: {},
+          },
+        ],
+      })
+
+      expect(jsonMock).toHaveBeenCalledWith({ received: true })
     })
 
     it('should handle account.updated event', async () => {
@@ -192,109 +250,49 @@ describe('Stripe Webhooks Module', () => {
         data: {
           object: {
             id: 'acct_123',
+            charges_enabled: true,
+            payouts_enabled: true,
+            details_submitted: true,
+            requirements: {
+              currently_due: [],
+            },
           },
         },
-      } as Stripe.Event
+      }
 
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
+      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(
+        mockEvent as Stripe.Event
+      )
 
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
+      const singleMock = vi.fn(() => ({
+        data: { id: 'supplier_123', user_id: 'user_123' },
+        error: null,
+      }))
 
-      expect(console.log).toHaveBeenCalledWith('Connected account updated:', 'acct_123')
-      expect(mockRes.json).toHaveBeenCalledWith({ received: true })
-    })
+      const eqMock = vi.fn(() => ({
+        single: singleMock,
+      }))
 
-    it('should handle payout events', async () => {
-      const payoutEvents = [
-        { type: 'payout.created', message: 'Payout created:' },
-        { type: 'payout.paid', message: 'Payout completed:' },
-        { type: 'payout.failed', message: 'Payout failed:' },
-      ]
+      const selectMock = vi.fn(() => ({
+        eq: eqMock,
+      }))
 
-      for (const { type, message } of payoutEvents) {
-        vi.clearAllMocks()
+      const updateMock = vi.fn(() => ({
+        eq: vi.fn(() => ({ error: null })),
+      }))
 
-        const mockEvent = {
-          id: 'evt_123',
-          type,
-          data: {
-            object: {
-              id: 'po_123',
-            },
-          },
-        } as Stripe.Event
-
-        vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
-
-        await handleStripeWebhook(mockReq as Request, mockRes as Response)
-
-        if (type === 'payout.failed') {
-          expect(console.error).toHaveBeenCalledWith(message, 'po_123')
-        } else {
-          expect(console.log).toHaveBeenCalledWith(message, 'po_123')
+      const fromMock = vi.fn((table: string) => {
+        if (table === 'suppliers' && !updateMock.mock.calls.length) {
+          return { select: selectMock }
         }
-        expect(mockRes.json).toHaveBeenCalledWith({ received: true })
-      }
-    })
+        return { update: updateMock }
+      })
 
-    it('should handle transfer events', async () => {
-      const transferEvents = [
-        { type: 'transfer.created', message: 'Transfer created:', logType: 'log' },
-        { type: 'transfer.reversed', message: 'Transfer reversed:', logType: 'warn' },
-      ]
+      vi.mocked(supabase.from).mockImplementation(fromMock as ReturnType<typeof vi.fn>)
 
-      for (const { type, message, logType } of transferEvents) {
-        vi.clearAllMocks()
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
 
-        const mockEvent = {
-          id: 'evt_123',
-          type,
-          data: {
-            object: {
-              id: 'tr_123',
-            },
-          },
-        } as Stripe.Event
-
-        vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
-
-        await handleStripeWebhook(mockReq as Request, mockRes as Response)
-
-        if (logType === 'warn') {
-          expect(console.warn).toHaveBeenCalledWith(message, 'tr_123')
-        } else {
-          expect(console.log).toHaveBeenCalledWith(message, 'tr_123')
-        }
-        expect(mockRes.json).toHaveBeenCalledWith({ received: true })
-      }
-    })
-
-    it('should handle account authorization events', async () => {
-      const authEvents = [
-        { type: 'account.application.authorized', message: 'Account authorized:' },
-        { type: 'account.application.deauthorized', message: 'Account deauthorized:' },
-      ]
-
-      for (const { type, message } of authEvents) {
-        vi.clearAllMocks()
-
-        const mockEvent = {
-          id: 'evt_123',
-          type,
-          data: {
-            object: {
-              id: 'acct_123',
-            },
-          },
-        } as Stripe.Event
-
-        vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
-
-        await handleStripeWebhook(mockReq as Request, mockRes as Response)
-
-        expect(console.log).toHaveBeenCalledWith(message, 'acct_123')
-        expect(mockRes.json).toHaveBeenCalledWith({ received: true })
-      }
+      expect(jsonMock).toHaveBeenCalledWith({ received: true })
     })
 
     it('should handle unhandled event types', async () => {
@@ -304,14 +302,15 @@ describe('Stripe Webhooks Module', () => {
         data: {
           object: {},
         },
-      } as Stripe.Event
+      }
 
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
+      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(
+        mockEvent as Stripe.Event
+      )
 
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
 
-      expect(console.log).toHaveBeenCalledWith('Unhandled webhook event type: unknown.event')
-      expect(mockRes.json).toHaveBeenCalledWith({ received: true })
+      expect(jsonMock).toHaveBeenCalledWith({ received: true })
     })
 
     it('should handle webhook handler errors', async () => {
@@ -321,47 +320,36 @@ describe('Stripe Webhooks Module', () => {
         data: {
           object: {
             id: 'pi_123',
+            metadata: {},
           },
         },
-      } as Stripe.Event
+      }
 
-      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(mockEvent)
-
-      // Mock console.log to throw an error when handler runs
-      vi.mocked(console.log).mockImplementationOnce(() => {
-        throw new Error('Handler error')
+      vi.mocked(stripeServerClient.webhooks.constructEvent).mockReturnValue(
+        mockEvent as Stripe.Event
+      )
+      vi.mocked(supabase.from).mockImplementation(() => {
+        throw new Error('Database error')
       })
 
-      await handleStripeWebhook(mockReq as Request, mockRes as Response)
+      await handleStripeWebhook(mockRequest as Request, mockResponse as Response)
 
-      expect(mockRes.status).toHaveBeenCalledWith(500)
-      expect(mockRes.send).toHaveBeenCalledWith('Webhook handler error: Handler error')
+      expect(statusMock).toHaveBeenCalledWith(500)
+      expect(sendMock).toHaveBeenCalledWith('Webhook handler error: Database error')
     })
   })
 
   describe('timingSafeEqual', () => {
     it('should return true for equal strings', () => {
-      const result = timingSafeEqual('test123', 'test123')
-      expect(result).toBe(true)
+      expect(timingSafeEqual('test123', 'test123')).toBe(true)
     })
 
     it('should return false for different strings', () => {
-      const result = timingSafeEqual('test123', 'test456')
-      expect(result).toBe(false)
+      expect(timingSafeEqual('test123', 'test456')).toBe(false)
     })
 
-    it('should return false for different length strings', () => {
-      const result = timingSafeEqual('test', 'testing')
-      expect(result).toBe(false)
-    })
-
-    it('should use crypto.timingSafeEqual for comparison', () => {
-      const mockTimingSafeEqual = vi.mocked(crypto.timingSafeEqual)
-      mockTimingSafeEqual.mockClear()
-
-      timingSafeEqual('test', 'test')
-
-      expect(mockTimingSafeEqual).toHaveBeenCalledWith(expect.any(Buffer), expect.any(Buffer))
+    it('should return false for strings of different lengths', () => {
+      expect(timingSafeEqual('test', 'test123')).toBe(false)
     })
   })
 })

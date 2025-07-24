@@ -61,15 +61,18 @@ const webhookHandlers: WebhookHandlerMap = {
       }
 
       // Update buyer's current balance (add to credit)
-      const { error: balanceError } = await supabase
-        .from('buyers')
-        .update({
-          current_balance: supabase.raw(`current_balance + ${paymentIntent.amount / 100}`),
-        })
-        .eq('id', buyerId)
+      const { data: balanceResult, error: balanceError } = await supabase.rpc('add_buyer_credits', {
+        buyer_id: buyerId,
+        amount: paymentIntent.amount / 100,
+        payment_intent_id: paymentIntent.id,
+      })
 
       if (balanceError) {
         console.error('Failed to update buyer balance:', balanceError)
+      } else if (balanceResult) {
+        console.log(
+          `Updated buyer ${buyerId} balance to ${balanceResult.new_balance} (transaction: ${balanceResult.transaction_id})`
+        )
       }
 
       console.log(`Payment processed successfully for buyer ${buyerId}`)

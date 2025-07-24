@@ -1,4 +1,5 @@
-import { forwardRef, HTMLAttributes } from 'react'
+import { forwardRef } from 'react'
+import type { HTMLAttributes } from 'react'
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'bordered' | 'elevated'

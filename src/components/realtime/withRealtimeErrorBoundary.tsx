@@ -1,4 +1,3 @@
-import React from 'react'
 import { RealtimeErrorBoundary } from './RealtimeErrorBoundary'
 import type { ComponentType } from 'react'
 

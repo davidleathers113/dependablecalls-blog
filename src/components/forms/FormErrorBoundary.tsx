@@ -1,4 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react'
+import React, { Component } from 'react'
+import type { ErrorInfo, ReactNode } from 'react'
 import { FormSubmissionError, FormValidationError } from '../common/FallbackUI'
 import { captureException } from '@sentry/react'
 import { z } from 'zod'
