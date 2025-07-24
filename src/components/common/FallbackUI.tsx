@@ -143,7 +143,7 @@ export function ErrorFallback({
           )}
         </div>
 
-        {shouldShowDetails && (details || error) && (
+        {!!(shouldShowDetails && (details || error)) && (
           <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={() => setShowDetails(!showDetails)}
@@ -171,7 +171,7 @@ export function ErrorFallback({
                 </div>
 
                 {/* Error Details */}
-                {details && details.length > 0 && (
+                {details !== undefined && details !== null && details !== '' && (
                   <div>
                     <h4 className="text-xs font-semibold text-gray-700 mb-1">Error Details:</h4>
                     <pre className="text-xs text-gray-600 whitespace-pre-wrap overflow-auto bg-white p-2 rounded border border-gray-200">
