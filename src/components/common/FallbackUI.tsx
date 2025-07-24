@@ -143,7 +143,7 @@ export function ErrorFallback({
           )}
         </div>
 
-        {shouldShowDetails && (details || error) && (
+        {shouldShowDetails && (Boolean(details) || Boolean(error)) && (
           <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={() => setShowDetails(!showDetails)}
@@ -171,7 +171,7 @@ export function ErrorFallback({
                 </div>
 
                 {/* Error Details */}
-                {details && (
+                {Boolean(details) && (
                   <div>
                     <h4 className="text-xs font-semibold text-gray-700 mb-1">Error Details:</h4>
                     <pre className="text-xs text-gray-600 whitespace-pre-wrap overflow-auto bg-white p-2 rounded border border-gray-200">
@@ -937,7 +937,7 @@ export type {
   LoadingErrorProps,
   EmptyStateErrorProps,
   TimeoutErrorProps,
-  SuccessStateProps
+  SuccessStateProps,
 }
 
 // Export all components as default

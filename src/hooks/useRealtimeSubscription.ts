@@ -93,7 +93,7 @@ export function useRealtimeSubscription<T extends TableName>({
             handleRealtimeEvent(payload)
           }
         )
-        .subscribe((status) => {
+        .subscribe((status, error) => {
           if (status === 'SUBSCRIBED') {
             setState((prev) => ({
               ...prev,
@@ -105,7 +105,7 @@ export function useRealtimeSubscription<T extends TableName>({
               ...prev,
               isConnected: false,
               isConnecting: false,
-              error: new Error('Failed to subscribe to channel'),
+              error: error || new Error('Failed to subscribe to channel'),
             }))
           } else if (status === 'TIMED_OUT') {
             setState((prev) => ({

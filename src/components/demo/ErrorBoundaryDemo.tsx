@@ -25,7 +25,8 @@ function ErrorTrigger({ errorType }: { errorType: string }) {
     // This will cause a TypeError
     const obj: unknown = null
     // @ts-expect-error - Intentional error for demo
-    return <div>{(obj as { nonExistent: { property: string } }).nonExistent.property}</div>
+    const typedObj = obj as { nonExistent: { property: string } }
+    return <div>{typedObj.nonExistent.property}</div>
   }
 
   if (errorType === 'reference') {
