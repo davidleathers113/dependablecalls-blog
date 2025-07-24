@@ -17,12 +17,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
   const [, setCallData] = useState<
     Array<{ id: string; created_at: string; payout_amount: number; [key: string]: unknown }>
   >([])
-  const [, setStats] = useState({
-    totalCalls: 0,
-    activeCampaigns: 0,
-    revenue: 0,
-    conversion: 0,
-  })
+  // Note: Stats are handled by QuickStatsBar component
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>(
     'connected'
   )
@@ -40,35 +35,14 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
       if (callsError) throw callsError
       setCallData(calls || [])
 
-      // Load stats
-      const { data: statsData, error: statsError } = await supabase.rpc('get_user_stats', {
-        user_id: userId,
-        user_type: userType,
-      })
-
-      if (statsError) throw statsError
-      if (statsData) {
-        setStats({
-          totalCalls: statsData.total_calls || 0,
-          activeCampaigns: statsData.active_campaigns || 0,
-          revenue: statsData.revenue || 0,
-          conversion: statsData.conversion_rate || 0,
-        })
-      }
+      // Stats data is handled by QuickStatsBar component
     } catch (error) {
       logger.error('Error loading initial dashboard data', error as Error)
       throw error
     }
   }, [userId, userType])
 
-  const updateStats = (newCall: { payout_amount?: number }) => {
-    // Update stats based on new call data
-    setStats((prev) => ({
-      ...prev,
-      totalCalls: prev.totalCalls + 1,
-      revenue: prev.revenue + (newCall.payout_amount || 0),
-    }))
-  }
+  // Note: Stats updates are handled by QuickStatsBar component via real-time subscriptions
 
   useEffect(() => {
     // Subscribe to real-time call updates
@@ -87,14 +61,14 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
 
           if (payload.eventType === 'INSERT') {
             setCallData((prev) => [payload.new as (typeof prev)[0], ...prev].slice(0, 50)) // Keep last 50 calls
-            updateStats(payload.new as { payout_amount?: number })
+            // Stats are updated via QuickStatsBar real-time subscription
           } else if (payload.eventType === 'UPDATE') {
             setCallData((prev) =>
               prev.map((call) =>
                 call.id === (payload.new as typeof call).id ? (payload.new as typeof call) : call
               )
             )
-            updateStats(payload.new as { payout_amount?: number })
+            // Stats are updated via QuickStatsBar real-time subscription
           }
         }
       )
