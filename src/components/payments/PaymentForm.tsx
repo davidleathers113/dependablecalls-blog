@@ -188,13 +188,13 @@ export const PaymentFormWithErrorBoundary: React.FC<PaymentFormProps> = (props) 
       onContactSupport={handleContactSupport}
       preserveFormData={true}
     >
-      <PaymentFormInner key={retryKey} {...props} />
+      <PaymentFormWithClientSecret key={retryKey} {...props} />
     </PaymentErrorBoundary>
   )
 }
 
 // Inner form component (original PaymentForm)
-const PaymentFormInner: React.FC<PaymentFormProps> = (props) => {
+const PaymentFormWithClientSecret: React.FC<PaymentFormProps> = (props) => {
   const { user } = useAuth()
   const [clientSecret, setClientSecret] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)

@@ -298,7 +298,7 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
       })
 
       logger.info('Dispute created', {
-        chargeId: dispute.charge,
+        chargeId: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge.id,
         amount: dispute.amount / 100,
         reason: dispute.reason,
       })
@@ -579,7 +579,10 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
       logger.info('Transfer created', {
         transferId: transfer.id,
         amount: transfer.amount / 100,
-        destination: transfer.destination,
+        destination:
+          typeof transfer.destination === 'string'
+            ? transfer.destination
+            : transfer.destination?.id || 'unknown',
       })
     } catch (error) {
       const errorDetails = toError(error)

@@ -63,7 +63,7 @@ export default function PublicLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="bg-gray-50">
       {/* Navigation */}
       <nav className="bg-white shadow-sm flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -207,14 +207,14 @@ export default function PublicLayout() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1">
+      <main>
         <ErrorBoundary context="PublicLayout - Main Content" fallback={<PublicLayoutFallbackUI />}>
           <Outlet />
         </ErrorBoundary>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white mt-20 flex-shrink-0">
+      <footer className="bg-gray-800 text-white flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>

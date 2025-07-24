@@ -1,19 +1,24 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { User, Session } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { type User, createExtendedUser } from '../types/auth'
 
 interface AuthState {
   user: User | null
   session: Session | null
-  userType: 'supplier' | 'buyer' | 'admin' | null
+  userType: 'supplier' | 'buyer' | 'admin' | 'network' | null
   loading: boolean
   isAuthenticated: boolean
   setUser: (user: User | null) => void
   setSession: (session: Session | null) => void
-  setUserType: (userType: 'supplier' | 'buyer' | 'admin' | null) => void
+  setUserType: (userType: 'supplier' | 'buyer' | 'admin' | 'network' | null) => void
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, userType: 'supplier' | 'buyer') => Promise<void>
+  signUp: (
+    email: string,
+    password: string,
+    userType: 'supplier' | 'buyer' | 'network'
+  ) => Promise<void>
   signOut: () => Promise<void>
   checkSession: () => Promise<void>
 }
@@ -43,25 +48,34 @@ export const useAuthStore = create<AuthState>()(
         if (error) throw error
 
         if (data.user && data.session) {
-          set({ user: data.user, session: data.session })
-
           // Determine user type by checking related tables
-          const [supplierCheck, buyerCheck, adminCheck] = await Promise.all([
-            supabase.from('suppliers').select('id').eq('user_id', data.user.id).single(),
-            supabase.from('buyers').select('id').eq('user_id', data.user.id).single(),
-            supabase.from('admins').select('id').eq('user_id', data.user.id).single(),
+          const [supplierCheck, buyerCheck, adminCheck, networkCheck] = await Promise.all([
+            supabase.from('suppliers').select('*').eq('user_id', data.user.id).single(),
+            supabase.from('buyers').select('*').eq('user_id', data.user.id).single(),
+            supabase.from('admins').select('*').eq('user_id', data.user.id).single(),
+            supabase.from('networks').select('*').eq('user_id', data.user.id).single(),
           ])
 
-          let userType: 'supplier' | 'buyer' | 'admin' | null = null
+          const extendedUser = createExtendedUser(
+            data.user,
+            supplierCheck.data,
+            buyerCheck.data,
+            adminCheck.data,
+            networkCheck.data
+          )
+
+          let userType: 'supplier' | 'buyer' | 'admin' | 'network' | null = null
           if (adminCheck.data) {
             userType = 'admin'
+          } else if (networkCheck.data) {
+            userType = 'network'
           } else if (buyerCheck.data) {
             userType = 'buyer'
           } else if (supplierCheck.data) {
             userType = 'supplier'
           }
 
-          set({ userType })
+          set({ user: extendedUser, session: data.session, userType })
         }
       },
 
@@ -77,7 +91,10 @@ export const useAuthStore = create<AuthState>()(
         if (error) throw error
 
         if (data.user && data.session) {
-          set({ user: data.user, session: data.session, userType })
+          // For signup, create a basic extended user (additional data will be added later)
+          const extendedUser = createExtendedUser(data.user)
+          extendedUser.userType = userType
+          set({ user: extendedUser, session: data.session, userType })
         }
       },
 
@@ -94,25 +111,34 @@ export const useAuthStore = create<AuthState>()(
         } = await supabase.auth.getSession()
 
         if (session) {
-          set({ user: session.user, session })
-
           // Determine user type by checking related tables
-          const [supplierCheck, buyerCheck, adminCheck] = await Promise.all([
-            supabase.from('suppliers').select('id').eq('user_id', session.user.id).single(),
-            supabase.from('buyers').select('id').eq('user_id', session.user.id).single(),
-            supabase.from('admins').select('id').eq('user_id', session.user.id).single(),
+          const [supplierCheck, buyerCheck, adminCheck, networkCheck] = await Promise.all([
+            supabase.from('suppliers').select('*').eq('user_id', session.user.id).single(),
+            supabase.from('buyers').select('*').eq('user_id', session.user.id).single(),
+            supabase.from('admins').select('*').eq('user_id', session.user.id).single(),
+            supabase.from('networks').select('*').eq('user_id', session.user.id).single(),
           ])
 
-          let userType: 'supplier' | 'buyer' | 'admin' | null = null
+          const extendedUser = createExtendedUser(
+            session.user,
+            supplierCheck.data,
+            buyerCheck.data,
+            adminCheck.data,
+            networkCheck.data
+          )
+
+          let userType: 'supplier' | 'buyer' | 'admin' | 'network' | null = null
           if (adminCheck.data) {
             userType = 'admin'
+          } else if (networkCheck.data) {
+            userType = 'network'
           } else if (buyerCheck.data) {
             userType = 'buyer'
           } else if (supplierCheck.data) {
             userType = 'supplier'
           }
 
-          set({ userType })
+          set({ user: extendedUser, session, userType })
         }
 
         set({ loading: false })

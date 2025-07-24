@@ -14,20 +14,32 @@
 }
 
 /* Ensure proper scrolling behavior */
-html, body {
-  height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
+html {
   scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
 /* Offset for fixed header navigation */
 .scroll-offset {
   scroll-margin-top: 80px;
+}
+
+/* Ensure pricing section has proper height */
+#pricing {
+  min-height: fit-content;
+  overflow: visible;
+}
+
+/* Ensure main content expands properly */
+main {
+  overflow: visible;
 }

@@ -58,12 +58,26 @@ export const PayoutDashboard: React.FC = () => {
 
       const [balanceData, payoutHistory] = await Promise.all([
         getPayoutBalance(user.stripe_account_id),
-        getPayoutHistory(user.stripe_account_id, { limit: 50 }),
+        getPayoutHistory(user.stripe_account_id, 50),
       ])
 
       setBalance(balanceData)
-      setPayouts(payoutHistory)
-      setStats(calculateStats(payoutHistory))
+
+      // Transform Stripe payouts to PayoutData format
+      const transformedPayouts: PayoutData[] = payoutHistory.payouts.map((payout) => ({
+        id: payout.id,
+        amount: payout.amount,
+        currency: payout.currency,
+        status: payout.status as PayoutData['status'],
+        created: payout.created,
+        arrival_date: payout.arrival_date || payout.created,
+        description: payout.description || undefined,
+        failure_code: payout.failure_code || undefined,
+        failure_message: payout.failure_message || undefined,
+      }))
+
+      setPayouts(transformedPayouts)
+      setStats(calculateStats(transformedPayouts))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load payout data'
       setError(message)

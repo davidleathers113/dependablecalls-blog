@@ -1,5 +1,4 @@
 import Stripe from 'stripe'
-import { loadStripe } from '@stripe/stripe-js'
 
 const STRIPE_API_VERSION = '2025-06-30.basil' as const
 
@@ -10,8 +9,9 @@ export const stripeServerClient = new Stripe(import.meta.env.VITE_STRIPE_SECRET_
 
 let stripePromise: Promise<import('@stripe/stripe-js').Stripe | null> | null = null
 
-export const getStripeClient = () => {
+export const getStripeClient = async () => {
   if (!stripePromise) {
+    const { loadStripe } = await import('@stripe/stripe-js')
     stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '')
   }
   return stripePromise

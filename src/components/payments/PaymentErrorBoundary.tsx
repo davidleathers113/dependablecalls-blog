@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { PaymentError } from '../common/FallbackUI'
 import { captureException } from '@sentry/react'
@@ -38,8 +38,6 @@ export class PaymentErrorBoundary extends Component<
   PaymentErrorBoundaryProps,
   PaymentErrorBoundaryState
 > {
-  private formDataRef = React.createRef<HTMLFormElement>()
-
   constructor(props: PaymentErrorBoundaryProps) {
     super(props)
     this.state = {

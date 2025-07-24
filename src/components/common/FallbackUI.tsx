@@ -171,7 +171,7 @@ export function ErrorFallback({
                 </div>
 
                 {/* Error Details */}
-                {details !== undefined && details !== null && details !== '' && (
+                {details && typeof details === 'string' && details.trim() !== '' && (
                   <div>
                     <h4 className="text-xs font-semibold text-gray-700 mb-1">Error Details:</h4>
                     <pre className="text-xs text-gray-600 whitespace-pre-wrap overflow-auto bg-white p-2 rounded border border-gray-200">
@@ -181,7 +181,7 @@ export function ErrorFallback({
                 )}
 
                 {/* Error Object */}
-                {error && error instanceof Error && (
+                {!!error && error instanceof Error && (
                   <>
                     <div>
                       <h4 className="text-xs font-semibold text-gray-700 mb-1">Error Message:</h4>
@@ -212,17 +212,22 @@ export function ErrorFallback({
                 )}
 
                 {/* Additional Error Info */}
-                {errorInfo && Object.keys(errorInfo).length > 1 && (
+                {!!errorInfo && Object.keys(errorInfo).length > 1 && (
                   <div>
                     <h4 className="text-xs font-semibold text-gray-700 mb-1">Additional Info:</h4>
                     <pre className="text-xs text-gray-600 whitespace-pre-wrap overflow-auto bg-white p-2 rounded border border-gray-200">
-                      {JSON.stringify(
-                        Object.fromEntries(
-                          Object.entries(errorInfo).filter(([key]) => key !== 'componentStack')
-                        ),
-                        null,
-                        2
-                      )}
+                      {(() => {
+                        try {
+                          const filteredInfo = Object.fromEntries(
+                            Object.entries(errorInfo).filter(([key]) => key !== 'componentStack')
+                          )
+                          return (
+                            JSON.stringify(filteredInfo, null, 2) || 'No additional info available'
+                          )
+                        } catch {
+                          return 'Error serializing additional info'
+                        }
+                      })()}
                     </pre>
                   </div>
                 )}
@@ -411,7 +416,7 @@ export function FormValidationError({
                   <span className="font-medium capitalize">
                     {field.replace(/([A-Z])/g, ' $1').trim()}:
                   </span>{' '}
-                  {error}
+                  {typeof error === 'string' ? error : String(error)}
                 </li>
               ))}
             </ul>

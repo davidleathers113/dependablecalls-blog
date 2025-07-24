@@ -1,25 +1,34 @@
-import { ShieldCheckIcon, LockClosedIcon, CheckCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
+import {
+  ShieldCheckIcon,
+  LockClosedIcon,
+  CheckCircleIcon,
+  DocumentTextIcon,
+} from '@/components/icons'
 
 const certifications = [
   {
     icon: ShieldCheckIcon,
     title: 'SOC 2 Type II Certified',
-    description: 'Our systems and processes are audited annually to ensure the highest standards of security and availability.',
+    description:
+      'Our systems and processes are audited annually to ensure the highest standards of security and availability.',
   },
   {
     icon: LockClosedIcon,
     title: 'PCI DSS Compliant',
-    description: 'We maintain PCI compliance for secure payment processing and protection of financial data.',
+    description:
+      'We maintain PCI compliance for secure payment processing and protection of financial data.',
   },
   {
     icon: CheckCircleIcon,
     title: 'TCPA Compliant',
-    description: 'Our platform helps ensure compliance with Telephone Consumer Protection Act regulations.',
+    description:
+      'Our platform helps ensure compliance with Telephone Consumer Protection Act regulations.',
   },
   {
     icon: DocumentTextIcon,
     title: 'GDPR & CCPA Ready',
-    description: 'We support data privacy requirements under GDPR and California Consumer Privacy Act.',
+    description:
+      'We support data privacy requirements under GDPR and California Consumer Privacy Act.',
   },
 ]
 
@@ -60,8 +69,8 @@ export default function CompliancePage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-gray-900 mb-4">Compliance & Security</h1>
           <p className="text-xl text-gray-500 max-w-3xl mx-auto">
-            DependableCalls maintains the highest standards of compliance and security to protect our partners and ensure 
-            regulatory adherence across all operations.
+            DependableCalls maintains the highest standards of compliance and security to protect
+            our partners and ensure regulatory adherence across all operations.
           </p>
         </div>
 
@@ -83,7 +92,9 @@ export default function CompliancePage() {
 
         {/* Regulatory Compliance */}
         <section className="mb-16">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Regulatory Compliance</h2>
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">
+            Regulatory Compliance
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {regulations.map((reg, index) => (
               <div key={index} className="bg-white border border-gray-200 rounded-lg p-6">
@@ -135,7 +146,8 @@ export default function CompliancePage() {
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Fraud Prevention</h2>
           <div className="bg-white border border-gray-200 rounded-lg p-8">
             <p className="text-lg text-gray-600 mb-6">
-              Our advanced fraud detection system uses machine learning and real-time analysis to protect all parties:
+              Our advanced fraud detection system uses machine learning and real-time analysis to
+              protect all parties:
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ul className="space-y-3">
@@ -183,7 +195,8 @@ export default function CompliancePage() {
           <div className="bg-gray-50 rounded-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Questions About Compliance?</h2>
             <p className="text-lg text-gray-600 mb-6">
-              Our compliance team is here to help with any questions about our security measures, certifications, or regulatory adherence.
+              Our compliance team is here to help with any questions about our security measures,
+              certifications, or regulatory adherence.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a

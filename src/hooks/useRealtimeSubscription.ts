@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { throttle } from 'lodash'
 import { useSupabase } from './useSupabase'
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
@@ -24,6 +25,9 @@ interface RealtimeState {
   lastEvent: Date | null
 }
 
+/**
+ * useRealtimeSubscription – safe & resilient (Supabase v2.42+)
+ */
 export function useRealtimeSubscription<T extends TableName>({
   table,
   filter,
@@ -36,6 +40,7 @@ export function useRealtimeSubscription<T extends TableName>({
 }: UseRealtimeSubscriptionOptions<T>) {
   const supabase = useSupabase()
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const [state, setState] = useState<RealtimeState>({
     isConnected: false,
     isConnecting: false,
@@ -43,11 +48,20 @@ export function useRealtimeSubscription<T extends TableName>({
     lastEvent: null,
   })
 
-  const handleRealtimeEvent = useCallback(
-    (payload: RealtimePostgresChangesPayload<Tables[T]['Row']>) => {
-      setState((prev) => ({ ...prev, lastEvent: new Date() }))
+  /** 1️⃣ Single throttled state update to avoid render-storm */
+  const commitLastEvent = useCallback(() => {
+    setState((p) => ({ ...p, lastEvent: new Date() }))
+  }, [])
 
-      // Call specific event handlers
+  const throttledLastEvent = useMemo(
+    () => throttle(commitLastEvent, 100, { leading: true, trailing: true }),
+    [commitLastEvent]
+  )
+
+  /** 2️⃣ Unified event router */
+  const routeEvent = useCallback(
+    (payload: RealtimePostgresChangesPayload<Tables[T]['Row']>) => {
+      throttledLastEvent()
       switch (payload.eventType) {
         case 'INSERT':
           onInsert?.(payload)
@@ -59,115 +73,90 @@ export function useRealtimeSubscription<T extends TableName>({
           onDelete?.(payload)
           break
       }
-
-      // Call general change handler
       onChange?.(payload)
     },
-    [onInsert, onUpdate, onDelete, onChange]
+    [onInsert, onUpdate, onDelete, onChange, throttledLastEvent]
   )
 
-  const subscribe = useCallback(async () => {
+  /** 3️⃣ (Async) subscribe with guaranteed cleanup */
+  const openChannel = useCallback(async () => {
     if (!enabled || channelRef.current) return
 
-    setState((prev) => ({ ...prev, isConnecting: true, error: null }))
+    setState((p) => ({ ...p, isConnecting: true, error: null }))
 
-    try {
-      // Generate unique channel name
-      const channelName = `realtime:${table}:${filter || 'all'}:${Date.now()}`
+    // Sanitize filter to prevent log injection
+    const sanitizedFilter = filter?.replace(/[^\w.=(),]/g, '')
+    const name = `rt:${table}:${sanitizedFilter ?? 'all'}:${Date.now()}`
 
-      // Create subscription configuration
-      const config = {
-        event,
-        schema: 'public',
-        table,
-        filter,
+    const config = {
+      event,
+      schema: 'public',
+      table,
+      ...(sanitizedFilter && { filter: sanitizedFilter }),
+    }
+
+    channelRef.current = supabase
+      .channel(name)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on('postgres_changes' as any, config, routeEvent)
+
+    channelRef.current.subscribe((status) => {
+      switch (status) {
+        case 'SUBSCRIBED':
+          setState((p) => ({ ...p, isConnected: true, isConnecting: false }))
+          break
+        case 'CHANNEL_ERROR':
+        case 'TIMED_OUT':
+        case 'CLOSED':
+          setState((p) => ({
+            ...p,
+            isConnected: false,
+            isConnecting: false,
+            error: new Error(`Channel ${status}`),
+          }))
+          break
       }
+    })
+  }, [enabled, table, filter, event, routeEvent, supabase])
 
-      // Create and subscribe to channel
-      const channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes' as const,
-          config,
-          (payload: RealtimePostgresChangesPayload<Tables[T]['Row']>) => {
-            handleRealtimeEvent(payload)
-          }
-        )
-        .subscribe((status, error) => {
-          if (status === 'SUBSCRIBED') {
-            setState((prev) => ({
-              ...prev,
-              isConnected: true,
-              isConnecting: false,
-            }))
-          } else if (status === 'CHANNEL_ERROR') {
-            setState((prev) => ({
-              ...prev,
-              isConnected: false,
-              isConnecting: false,
-              error: error || new Error('Failed to subscribe to channel'),
-            }))
-          } else if (status === 'TIMED_OUT') {
-            setState((prev) => ({
-              ...prev,
-              isConnected: false,
-              isConnecting: false,
-              error: new Error('Subscription timed out'),
-            }))
-          }
-        })
-
-      channelRef.current = channel
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        isConnecting: false,
-        error: error instanceof Error ? error : new Error('Unknown error'),
-      }))
-    }
-  }, [enabled, table, filter, event, supabase, handleRealtimeEvent])
-
-  const unsubscribe = useCallback(async () => {
+  /** 4️⃣ Reliable unsubscribe */
+  const closeChannel = useCallback(async () => {
     if (!channelRef.current) return
-
-    try {
-      await supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-      setState((prev) => ({
-        ...prev,
-        isConnected: false,
-        error: null,
-      }))
-    } catch (error) {
-      console.error('Error unsubscribing:', error)
-    }
+    await supabase.removeChannel(channelRef.current) // await avoids race
+    channelRef.current = null
   }, [supabase])
 
-  // Auto-subscribe on mount and config changes
+  /** 5️⃣ Lifecycle */
   useEffect(() => {
-    subscribe()
-
+    openChannel()
     return () => {
-      unsubscribe()
+      closeChannel()
     }
-  }, [subscribe, unsubscribe])
+  }, [openChannel, closeChannel])
 
-  // Reconnect on connection loss
+  /** 6️⃣ Exponential back-off reconnect */
+  const backoff = useRef(1000)
+
   useEffect(() => {
-    const checkConnection = setInterval(() => {
-      if (channelRef.current && !state.isConnected && !state.isConnecting) {
-        console.log('Attempting to reconnect...')
-        unsubscribe().then(subscribe)
-      }
-    }, 5000) // Check every 5 seconds
+    if (state.isConnected) {
+      backoff.current = 1000
+      return
+    }
+    if (state.isConnecting) return
 
-    return () => clearInterval(checkConnection)
-  }, [state.isConnected, state.isConnecting, subscribe, unsubscribe])
+    reconnectRef.current = setTimeout(async () => {
+      await closeChannel()
+      await openChannel()
+      backoff.current = Math.min(backoff.current * 2, 30_000) // cap 30s
+    }, backoff.current)
+
+    return () => clearTimeout(reconnectRef.current)
+  }, [state.isConnected, state.isConnecting, openChannel, closeChannel])
 
   return {
     ...state,
-    subscribe,
-    unsubscribe,
+    subscribe: openChannel,
+    unsubscribe: closeChannel,
     channel: channelRef.current,
   }
 }
@@ -199,8 +188,9 @@ export function useCallSubscription(
   }
 
   if (filters?.status && filters.status.length > 0) {
-    const statusFilter = filters.status.map((s) => `status=eq.${s}`).join(',')
-    filterStrings.push(`(${statusFilter})`)
+    // Fix: Use proper IN syntax for multiple values
+    const statusFilter = `status=in.(${filters.status.join(',')})`
+    filterStrings.push(statusFilter)
   }
 
   return useRealtimeSubscription({
@@ -218,7 +208,7 @@ export function useStatsSubscription<T extends TableName>(
 ) {
   const [stats, setStats] = useState<Tables[T]['Row'] | null>(null)
   const aggregationBuffer = useRef<Array<RealtimePostgresChangesPayload<Tables[T]['Row']>>>([])
-  const aggregationTimer = useRef<NodeJS.Timeout | undefined>()
+  const aggregationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const processAggregation = useCallback(() => {
     if (aggregationBuffer.current.length === 0) return
@@ -242,6 +232,7 @@ export function useStatsSubscription<T extends TableName>(
         // Reset timer
         if (aggregationTimer.current) {
           clearTimeout(aggregationTimer.current)
+          aggregationTimer.current = undefined
         }
 
         // Set new timer
@@ -267,6 +258,7 @@ export function useStatsSubscription<T extends TableName>(
     return () => {
       if (aggregationTimer.current) {
         clearTimeout(aggregationTimer.current)
+        aggregationTimer.current = undefined
       }
     }
   }, [])

@@ -30,13 +30,25 @@ export const StripeConnectOnboarding: React.FC<StripeConnectOnboardingProps> = (
     try {
       setStatus('loading')
       const account = await getConnectedAccount(user.stripe_account_id)
-      setAccountData(account)
 
-      if (account.chargesEnabled && account.payoutsEnabled) {
-        setStatus('complete')
-        onComplete?.(account.id)
+      if (account) {
+        const accountStatus: ConnectedAccountStatus = {
+          id: account.id,
+          chargesEnabled: account.charges_enabled || false,
+          payoutsEnabled: account.payouts_enabled || false,
+          detailsSubmitted: account.details_submitted || false,
+          requirementsCurrentlyDue: account.requirements?.currently_due || [],
+        }
+        setAccountData(accountStatus)
+
+        if (accountStatus.chargesEnabled && accountStatus.payoutsEnabled) {
+          setStatus('complete')
+          onComplete?.(accountStatus.id)
+        } else {
+          setStatus('onboarding')
+        }
       } else {
-        setStatus('onboarding')
+        setStatus('idle')
       }
     } catch (err) {
       console.error('Error checking existing account:', err)
@@ -49,8 +61,8 @@ export const StripeConnectOnboarding: React.FC<StripeConnectOnboardingProps> = (
   }, [checkExistingAccount])
 
   const startOnboarding = async () => {
-    if (!user) {
-      setError('User not authenticated')
+    if (!user || !user.email) {
+      setError('User not authenticated or email missing')
       setStatus('error')
       return
     }

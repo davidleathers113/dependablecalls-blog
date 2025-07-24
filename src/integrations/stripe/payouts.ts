@@ -524,3 +524,57 @@ export const scheduleWeeklyPayouts = async (
     handleStripeError(error, 'schedule weekly payouts')
   }
 }
+
+/**
+ * Get payout history for an account
+ */
+export const getPayoutHistory = async (
+  accountId: string,
+  limit: number = 20,
+  starting_after?: string
+): Promise<{
+  payouts: Stripe.Payout[]
+  has_more: boolean
+}> => {
+  try {
+    const response = await stripeServerClient.payouts.list(
+      {
+        limit,
+        starting_after,
+      },
+      {
+        stripeAccount: accountId,
+      }
+    )
+
+    return {
+      payouts: response.data,
+      has_more: response.has_more,
+    }
+  } catch (error: unknown) {
+    handleStripeError(error, 'get payout history')
+  }
+}
+
+/**
+ * Get account balance
+ */
+export const getPayoutBalance = async (
+  accountId: string
+): Promise<{
+  available: Stripe.Balance.Available[]
+  pending: Stripe.Balance.Pending[]
+}> => {
+  try {
+    const balance = await stripeServerClient.balance.retrieve({
+      stripeAccount: accountId,
+    })
+
+    return {
+      available: balance.available,
+      pending: balance.pending,
+    }
+  } catch (error: unknown) {
+    handleStripeError(error, 'get payout balance')
+  }
+}

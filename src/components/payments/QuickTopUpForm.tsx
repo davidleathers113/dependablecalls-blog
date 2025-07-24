@@ -37,6 +37,8 @@ const QuickTopUpInner: React.FC<QuickTopUpInnerProps> = ({
   const stripe = useStripe()
   const elements = useElements()
   const { updateBalance } = useBuyerStore()
+  const { user } = useAuth()
+  const currentBalance = user?.current_balance || 0
 
   const [selectedAmount, setSelectedAmount] = useState(defaultAmount)
   const [customAmount, setCustomAmount] = useState('')

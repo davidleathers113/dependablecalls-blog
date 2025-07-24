@@ -181,7 +181,7 @@ export default function HomePage() {
       </div>
 
       {/* Pricing Section */}
-      <div id="pricing" className="py-12 bg-gray-50 scroll-offset">
+      <div id="pricing" className="py-16 sm:py-20 bg-gray-50 scroll-offset">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:text-center">
             <h2 className="text-base text-primary-600 font-semibold tracking-wide uppercase">
@@ -195,7 +195,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="mt-10">
+          <div className="mt-10 pb-8">
             <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:gap-8">
               {/* Basic Plan */}
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm divide-y divide-gray-200">

@@ -15,14 +15,56 @@ import {
 import ErrorBoundary from '../common/ErrorBoundary'
 import { AppLayoutSidebarFallbackUI, AppLayoutContentFallbackUI } from '../common/FallbackUI'
 
-const navigation = [
-  { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },
-  { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
-  { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
-  { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
-  { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
-  { name: 'Settings', href: '/app/settings', icon: CogIcon },
-]
+// Dynamic navigation based on user type
+const getNavigation = (userType: string | null) => {
+  const baseNav = [
+    { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },
+    { name: 'Settings', href: '/app/settings', icon: CogIcon },
+  ]
+
+  switch (userType) {
+    case 'supplier':
+      return [
+        baseNav[0], // Dashboard
+        { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
+        { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
+        { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
+        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
+        baseNav[1], // Settings
+      ]
+    case 'buyer':
+      return [
+        baseNav[0], // Dashboard
+        { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
+        { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
+        { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
+        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
+        baseNav[1], // Settings
+      ]
+    case 'network':
+      return [
+        baseNav[0], // Dashboard
+        { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
+        { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
+        { name: 'Partners', href: '/app/partners', icon: UserCircleIcon },
+        { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
+        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
+        baseNav[1], // Settings
+      ]
+    case 'admin':
+      return [
+        baseNav[0], // Dashboard
+        { name: 'Users', href: '/app/admin/users', icon: UserCircleIcon },
+        { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
+        { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
+        { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
+        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
+        baseNav[1], // Settings
+      ]
+    default:
+      return baseNav
+  }
+}
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ')
@@ -34,6 +76,9 @@ export default function AppLayout() {
   const { user, userType, signOut } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+
+  // Get navigation items based on user type
+  const navigation = getNavigation(userType)
 
   const handleSignOut = async () => {
     await signOut()

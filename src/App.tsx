@@ -9,38 +9,51 @@ import { useAuthStore } from './store/authStore'
 import { captureError } from './lib/monitoring'
 import { QueryErrorFallback } from './components/ui/QueryErrorFallback'
 
-// Layouts
+// Layouts - Keep these eager as they're used on every route
 import PublicLayout from './components/layout/PublicLayout'
 import AppLayout from './components/layout/AppLayout'
 
+// Lazy load all pages for code splitting
 // Public Pages
-import HomePage from './pages/public/HomePage'
-import BlogPage from './pages/public/BlogPage'
-import BlogPostPage from './pages/public/BlogPostPage'
-import ContactPage from './pages/public/ContactPage'
-import CareersPage from './pages/public/CareersPage'
-import AboutPage from './pages/public/AboutPage'
-import LoginPage from './pages/auth/LoginPage'
-import RegisterPage from './pages/auth/RegisterPage'
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+const HomePage = React.lazy(() => import('./pages/public/HomePage'))
+const BlogPage = React.lazy(() => import('./pages/public/BlogPage'))
+const BlogPostPage = React.lazy(() => import('./pages/public/BlogPostPage'))
+const ContactPage = React.lazy(() => import('./pages/public/ContactPage'))
+const CareersPage = React.lazy(() => import('./pages/public/CareersPage'))
+const AboutPage = React.lazy(() => import('./pages/public/AboutPage'))
+const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
+const RegisterPage = React.lazy(() => import('./pages/auth/RegisterPage'))
+const ForgotPasswordPage = React.lazy(() => import('./pages/auth/ForgotPasswordPage'))
 
 // Legal Pages
-import PrivacyPage from './pages/legal/PrivacyPage'
-import TermsPage from './pages/legal/TermsPage'
-import CompliancePage from './pages/legal/CompliancePage'
+const PrivacyPage = React.lazy(() => import('./pages/legal/PrivacyPage'))
+const TermsPage = React.lazy(() => import('./pages/legal/TermsPage'))
+const CompliancePage = React.lazy(() => import('./pages/legal/CompliancePage'))
 
 // Demo Pages (Development Only)
 const ErrorDemoPage = import.meta.env.DEV ? React.lazy(() => import('./pages/ErrorDemo')) : null
 
 // Authenticated Pages
-import DashboardPage from './pages/dashboard/DashboardPage'
-import CampaignsPage from './pages/campaigns/CampaignsPage'
-import CreateCampaignPage from './pages/campaigns/CreateCampaignPage'
-import EditCampaignPage from './pages/campaigns/EditCampaignPage'
-import CallsPage from './pages/calls/CallsPage'
-import ReportsPage from './pages/reports/ReportsPage'
-import BillingPage from './pages/billing/BillingPage'
-import SettingsPage from './pages/settings/SettingsPage'
+const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
+const CampaignsPage = React.lazy(() => import('./pages/campaigns/CampaignsPage'))
+const CreateCampaignPage = React.lazy(() => import('./pages/campaigns/CreateCampaignPage'))
+const EditCampaignPage = React.lazy(() => import('./pages/campaigns/EditCampaignPage'))
+const CallsPage = React.lazy(() => import('./pages/calls/CallsPage'))
+const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'))
+const BillingPage = React.lazy(() => import('./pages/billing/BillingPage'))
+const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
+
+// Loading component for lazy-loaded routes
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-gray-600">Loading...</p>
+      </div>
+    </div>
+  )
+}
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -108,18 +121,102 @@ function App() {
                 <Routes>
                   {/* Public routes */}
                   <Route path="/" element={<PublicLayout />}>
-                    <Route index element={<HomePage />} />
-                    <Route path="login" element={<LoginPage />} />
-                    <Route path="register" element={<RegisterPage />} />
-                    <Route path="forgot-password" element={<ForgotPasswordPage />} />
-                    <Route path="about" element={<AboutPage />} />
-                    <Route path="blog" element={<BlogPage />} />
-                    <Route path="blog/:slug" element={<BlogPostPage />} />
-                    <Route path="contact" element={<ContactPage />} />
-                    <Route path="careers" element={<CareersPage />} />
-                    <Route path="privacy" element={<PrivacyPage />} />
-                    <Route path="terms" element={<TermsPage />} />
-                    <Route path="compliance" element={<CompliancePage />} />
+                    <Route
+                      index
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <HomePage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="login"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <LoginPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="register"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <RegisterPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="forgot-password"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <ForgotPasswordPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="about"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <AboutPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="blog"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <BlogPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="blog/:slug"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <BlogPostPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="contact"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <ContactPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="careers"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <CareersPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="privacy"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <PrivacyPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="terms"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <TermsPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="compliance"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <CompliancePage />
+                        </Suspense>
+                      }
+                    />
                     {/* Development-only demo routes */}
                     {import.meta.env.DEV && ErrorDemoPage && (
                       <Route
@@ -143,14 +240,70 @@ function App() {
                     }
                   >
                     <Route index element={<Navigate to="/app/dashboard" replace />} />
-                    <Route path="dashboard" element={<DashboardPage />} />
-                    <Route path="campaigns" element={<CampaignsPage />} />
-                    <Route path="campaigns/create" element={<CreateCampaignPage />} />
-                    <Route path="campaigns/:id/edit" element={<EditCampaignPage />} />
-                    <Route path="calls" element={<CallsPage />} />
-                    <Route path="reports" element={<ReportsPage />} />
-                    <Route path="billing" element={<BillingPage />} />
-                    <Route path="settings" element={<SettingsPage />} />
+                    <Route
+                      path="dashboard"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <DashboardPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="campaigns"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <CampaignsPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="campaigns/create"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <CreateCampaignPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="campaigns/:id/edit"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <EditCampaignPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="calls"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <CallsPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="reports"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <ReportsPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="billing"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <BillingPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="settings"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <SettingsPage />
+                        </Suspense>
+                      }
+                    />
                   </Route>
 
                   {/* Catch all */}

@@ -77,7 +77,7 @@ export const createQueryClient = () => {
         staleTime: 5 * 60 * 1000, // 5 minutes
 
         // Error handling
-        throwOnError: (error, query) => {
+        throwOnError: (_, query) => {
           // Allow error boundaries to catch errors for critical operations
           if (query.meta?.critical) {
             return true
