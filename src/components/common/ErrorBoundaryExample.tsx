@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
-import ErrorBoundary, { ErrorFallbackProps, withErrorBoundary } from './ErrorBoundary'
+import ErrorBoundary from './ErrorBoundary'
+import type { ErrorFallbackProps } from './ErrorBoundary'
+import { withErrorBoundary } from './withErrorBoundary'
 
 /**
  * Custom error fallback component example

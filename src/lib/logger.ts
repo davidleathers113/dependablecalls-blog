@@ -13,6 +13,21 @@ export interface LogContext {
   accountId?: string
   payoutId?: string
   transferId?: string
+  // Additional properties for webhook handler
+  type?: string
+  id?: string
+  eventId?: string
+  eventType?: string
+  error?: string
+  amount?: number
+  buyerId?: string
+  reason?: string
+  chargesEnabled?: boolean
+  payoutsEnabled?: boolean
+  arrivalDate?: number
+  failureCode?: string | null
+  failureMessage?: string | null
+  destination?: string
   metadata?: Record<string, unknown>
 }
 
@@ -39,7 +54,7 @@ class Logger {
     // Flush logs on page unload
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => this.flush())
-      
+
       // Also handle visibility change for mobile
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
@@ -76,11 +91,13 @@ class Logger {
           height: window.innerHeight,
         },
       },
-      error: error ? {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      } : undefined,
+      error: error
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          }
+        : undefined,
     } as LogEntry
   }
 
@@ -89,13 +106,13 @@ class Logger {
     const currentLevel = import.meta.env.VITE_LOG_LEVEL || 'info'
     const currentLevelIndex = levels.indexOf(currentLevel)
     const messageLevelIndex = levels.indexOf(level)
-    
+
     return messageLevelIndex >= currentLevelIndex
   }
 
   private addToBuffer(entry: LogEntry) {
     this.logBuffer.push(entry)
-    
+
     // Flush if buffer is full
     if (this.logBuffer.length >= this.maxBufferSize) {
       this.flush()
@@ -143,7 +160,7 @@ class Logger {
     const entry = this.createLogEntry('info', message, context)
     console.info(message, context)
     this.addToBuffer(entry)
-    
+
     // Add breadcrumb to Sentry
     Sentry.addBreadcrumb({
       message,
@@ -159,7 +176,7 @@ class Logger {
     const entry = this.createLogEntry('warn', message, context)
     console.warn(message, context)
     this.addToBuffer(entry)
-    
+
     // Add breadcrumb to Sentry
     Sentry.addBreadcrumb({
       message,
@@ -175,7 +192,7 @@ class Logger {
     const entry = this.createLogEntry('error', message, context, error)
     console.error(message, error, context)
     this.addToBuffer(entry)
-    
+
     // Send to Sentry
     if (error) {
       Sentry.captureException(error, {
@@ -192,10 +209,10 @@ class Logger {
     const entry = this.createLogEntry('fatal', message, context, error)
     console.error('FATAL:', message, error, context)
     this.addToBuffer(entry)
-    
+
     // Immediately flush on fatal errors
     this.flush()
-    
+
     // Send to Sentry with high priority
     if (error) {
       Sentry.captureException(error, {
@@ -256,7 +273,11 @@ class Logger {
     }
   }
 
-  logSecurityEvent(event: string, severity: 'low' | 'medium' | 'high', details?: Record<string, unknown>) {
+  logSecurityEvent(
+    event: string,
+    severity: 'low' | 'medium' | 'high',
+    details?: Record<string, unknown>
+  ) {
     const context: LogContext = {
       component: 'security',
       action: event,
@@ -311,7 +332,7 @@ export function logUnhandledRejection(event: PromiseRejectionEvent) {
 // Set up global error handlers
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', logUnhandledRejection)
-  
+
   window.addEventListener('error', (event) => {
     logger.error('Global error', event.error || new Error(event.message), {
       component: 'global-error-handler',

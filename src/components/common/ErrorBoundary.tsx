@@ -50,13 +50,13 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidUpdate(prevProps: Props) {
     const { resetKeys } = this.props
     const prevResetKeys = prevProps.resetKeys
-    
+
     if (
       this.state.hasError &&
       resetKeys &&
       prevResetKeys &&
-      resetKeys.length !== prevResetKeys.length ||
-      resetKeys.some((resetKey, idx) => resetKey !== prevResetKeys[idx])
+      (resetKeys.length !== prevResetKeys.length ||
+        resetKeys.some((resetKey, idx) => resetKey !== prevResetKeys[idx]))
     ) {
       this.resetErrorBoundary()
     }
@@ -72,12 +72,12 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.resetTimeoutId) {
       clearTimeout(this.resetTimeoutId)
     }
-    
+
     this.setState({
       hasError: false,
       error: undefined,
       errorInfo: undefined,
-      errorId: this.state.errorId + 1
+      errorId: this.state.errorId + 1,
     })
   }
 
@@ -105,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
       // Use custom fallback if provided, otherwise use default
       if (this.props.fallback) {
         const { fallback: FallbackComponent } = this.props
-        
+
         if (typeof FallbackComponent === 'function') {
           return (
             <FallbackComponent
@@ -116,7 +116,7 @@ export class ErrorBoundary extends Component<Props, State> {
             />
           )
         }
-        
+
         return FallbackComponent
       }
 
@@ -198,36 +198,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children
   }
-}
-
-// Higher-Order Component for wrapping components with ErrorBoundary
-export interface WithErrorBoundaryOptions {
-  level?: 'page' | 'section' | 'component'
-  onError?: (error: Error, errorInfo: ErrorInfo) => void
-  fallback?: ReactNode | React.ComponentType<ErrorFallbackProps>
-  context?: string
-  showTechnicalDetails?: boolean
-}
-
-export function withErrorBoundary<T extends Record<string, unknown>>(
-  Component: React.ComponentType<T>,
-  options: WithErrorBoundaryOptions = {}
-) {
-  const WrappedComponent = React.forwardRef<unknown, T>((props, ref) => (
-    <ErrorBoundary
-      level={options.level || 'component'}
-      onError={options.onError}
-      fallback={options.fallback}
-      context={options.context || Component.displayName || Component.name}
-      showTechnicalDetails={options.showTechnicalDetails}
-    >
-      <Component {...props} ref={ref} />
-    </ErrorBoundary>
-  ))
-
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`
-
-  return WrappedComponent
 }
 
 export default ErrorBoundary

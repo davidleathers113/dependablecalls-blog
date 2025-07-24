@@ -15,4 +15,21 @@ export { Badge, StatusBadge, NumberBadge } from './Badge'
 export type { BadgeProps, StatusBadgeProps, NumberBadgeProps } from './Badge'
 
 export { ErrorBoundary } from './ErrorBoundary'
-export { FallbackUI } from './FallbackUI'
+export type { ErrorFallbackProps } from './ErrorBoundary'
+
+export { withErrorBoundary } from './withErrorBoundary'
+export type { WithErrorBoundaryOptions } from './withErrorBoundary'
+
+export { FallbackUI, ErrorFallback } from './FallbackUI'
+export type {
+  BaseErrorProps,
+  ErrorActionProps,
+  ErrorDetailsProps,
+  RouteErrorProps,
+  FormErrorProps,
+  PaymentErrorProps,
+  LoadingErrorProps,
+  EmptyStateErrorProps,
+  TimeoutErrorProps,
+  SuccessStateProps,
+} from './FallbackUI'

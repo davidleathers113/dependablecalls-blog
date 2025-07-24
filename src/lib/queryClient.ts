@@ -7,17 +7,12 @@ import { captureError, addBreadcrumb } from './monitoring'
  */
 const handleQueryError = (error: Error, query?: unknown) => {
   // Add breadcrumb for debugging
-  addBreadcrumb({
-    message: 'React Query error occurred',
-    category: 'query',
-    level: 'error',
-    data: {
-      queryKey:
-        query && typeof query === 'object' && 'queryKey' in query
-          ? (query as { queryKey: unknown }).queryKey
-          : 'unknown',
-      errorMessage: error.message,
-    },
+  addBreadcrumb('React Query error occurred', 'query', 'error', {
+    queryKey:
+      query && typeof query === 'object' && 'queryKey' in query
+        ? (query as { queryKey: unknown }).queryKey
+        : 'unknown',
+    errorMessage: error.message,
   })
 
   // Capture error with context
@@ -34,18 +29,13 @@ const handleMutationError = (
   mutation?: unknown
 ) => {
   // Add breadcrumb for debugging
-  addBreadcrumb({
-    message: 'React Query mutation error occurred',
-    category: 'mutation',
-    level: 'error',
-    data: {
-      mutationKey:
-        mutation && typeof mutation === 'object' && 'mutationKey' in mutation
-          ? (mutation as { mutationKey: unknown }).mutationKey
-          : 'unknown',
-      errorMessage: error.message,
-      variables: typeof variables === 'object' ? variables : 'non-object',
-    },
+  addBreadcrumb('React Query mutation error occurred', 'mutation', 'error', {
+    mutationKey:
+      mutation && typeof mutation === 'object' && 'mutationKey' in mutation
+        ? (mutation as { mutationKey: unknown }).mutationKey
+        : 'unknown',
+    errorMessage: error.message,
+    variables: typeof variables === 'object' ? variables : 'non-object',
   })
 
   // Capture error with context
