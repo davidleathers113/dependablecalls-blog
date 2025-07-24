@@ -25,7 +25,7 @@ describe('BuyerStore', () => {
 
   it('should have initial state', () => {
     const state = useBuyerStore.getState()
-    
+
     expect(state.currentBalance).toBe(0)
     expect(state.creditLimit).toBe(0)
     expect(state.campaigns).toEqual([])
@@ -36,8 +36,8 @@ describe('BuyerStore', () => {
   describe('fetchBalance', () => {
     it('should fetch and update balance successfully', async () => {
       const mockBalance = {
-        current_balance: 1500.50,
-        credit_limit: 5000.00,
+        current_balance: 1500.5,
+        credit_limit: 5000.0,
       }
 
       vi.mocked(supabase.from).mockReturnValue({
@@ -49,14 +49,14 @@ describe('BuyerStore', () => {
             }),
           }),
         }),
-      } as any)
+      } as ReturnType<typeof vi.fn>)
 
       const store = useBuyerStore.getState()
       await store.fetchBalance('buyer_123')
 
       const updatedState = useBuyerStore.getState()
-      expect(updatedState.currentBalance).toBe(1500.50)
-      expect(updatedState.creditLimit).toBe(5000.00)
+      expect(updatedState.currentBalance).toBe(1500.5)
+      expect(updatedState.creditLimit).toBe(5000.0)
       expect(updatedState.isLoading).toBe(false)
       expect(updatedState.error).toBe(null)
     })
@@ -76,7 +76,7 @@ describe('BuyerStore', () => {
             }),
           }),
         }),
-      } as any)
+      } as ReturnType<typeof vi.fn>)
 
       const store = useBuyerStore.getState()
       await store.fetchBalance('buyer_123')
@@ -98,7 +98,7 @@ describe('BuyerStore', () => {
             }),
           }),
         }),
-      } as any)
+      } as ReturnType<typeof vi.fn>)
 
       const store = useBuyerStore.getState()
       await store.fetchBalance('buyer_123')
@@ -135,7 +135,7 @@ describe('BuyerStore', () => {
             }),
           }),
         }),
-      } as any)
+      } as ReturnType<typeof vi.fn>)
 
       const store = useBuyerStore.getState()
       await store.fetchCampaigns('buyer_123')
@@ -156,7 +156,7 @@ describe('BuyerStore', () => {
             }),
           }),
         }),
-      } as any)
+      } as ReturnType<typeof vi.fn>)
 
       const store = useBuyerStore.getState()
       await store.fetchCampaigns('buyer_123')
@@ -177,7 +177,7 @@ describe('BuyerStore', () => {
             }),
           }),
         }),
-      } as any)
+      } as ReturnType<typeof vi.fn>)
 
       const store = useBuyerStore.getState()
       await store.fetchCampaigns('buyer_123')
@@ -193,8 +193,8 @@ describe('BuyerStore', () => {
       // Set initial campaigns
       useBuyerStore.setState({
         campaigns: [
-          { id: '1', name: 'Campaign 1', status: 'active' } as any,
-          { id: '2', name: 'Campaign 2', status: 'active' } as any,
+          { id: '1', name: 'Campaign 1', status: 'active' as const },
+          { id: '2', name: 'Campaign 2', status: 'active' as const },
         ],
       })
 
@@ -207,10 +207,8 @@ describe('BuyerStore', () => {
     })
 
     it('should not modify campaigns if id not found', () => {
-      const initialCampaigns = [
-        { id: '1', name: 'Campaign 1', status: 'active' } as any,
-      ]
-      
+      const initialCampaigns = [{ id: '1', name: 'Campaign 1', status: 'active' as const }]
+
       useBuyerStore.setState({ campaigns: initialCampaigns })
 
       const store = useBuyerStore.getState()
@@ -224,7 +222,7 @@ describe('BuyerStore', () => {
   describe('clearError', () => {
     it('should clear error message', () => {
       useBuyerStore.setState({ error: 'Test error' })
-      
+
       const store = useBuyerStore.getState()
       store.clearError()
 
@@ -239,7 +237,7 @@ describe('BuyerStore', () => {
       useBuyerStore.setState({
         currentBalance: 1000,
         creditLimit: 5000,
-        campaigns: [{ id: '1' } as any],
+        campaigns: [{ id: '1', name: 'Test', status: 'active' as const }],
         isLoading: true,
         error: 'Some error',
       })
@@ -274,11 +272,14 @@ describe('BuyerStore', () => {
           eq: vi.fn().mockReturnValue({
             single: vi.fn().mockImplementation(() => {
               loadingStatesDuringFetch.push(useBuyerStore.getState().isLoading)
-              return Promise.resolve({ data: { current_balance: 100, credit_limit: 500 }, error: null })
+              return Promise.resolve({
+                data: { current_balance: 100, credit_limit: 500 },
+                error: null,
+              })
             }),
           }),
         }),
-      } as any)
+      } as ReturnType<typeof vi.fn>)
 
       const store = useBuyerStore.getState()
       expect(store.isLoading).toBe(false)
