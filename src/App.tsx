@@ -36,6 +36,7 @@ const ErrorDemoPage = import.meta.env.DEV ? React.lazy(() => import('./pages/Err
 import DashboardPage from './pages/dashboard/DashboardPage'
 import CampaignsPage from './pages/campaigns/CampaignsPage'
 import CreateCampaignPage from './pages/campaigns/CreateCampaignPage'
+import EditCampaignPage from './pages/campaigns/EditCampaignPage'
 import CallsPage from './pages/calls/CallsPage'
 import ReportsPage from './pages/reports/ReportsPage'
 import BillingPage from './pages/billing/BillingPage'
@@ -145,6 +146,7 @@ function App() {
                     <Route path="dashboard" element={<DashboardPage />} />
                     <Route path="campaigns" element={<CampaignsPage />} />
                     <Route path="campaigns/create" element={<CreateCampaignPage />} />
+                    <Route path="campaigns/:id/edit" element={<EditCampaignPage />} />
                     <Route path="calls" element={<CallsPage />} />
                     <Route path="reports" element={<ReportsPage />} />
                     <Route path="billing" element={<BillingPage />} />

@@ -8,6 +8,11 @@ export interface LogContext {
   requestId?: string
   component?: string
   action?: string
+  paymentIntentId?: string
+  chargeId?: string
+  accountId?: string
+  payoutId?: string
+  transferId?: string
   metadata?: Record<string, unknown>
 }
 

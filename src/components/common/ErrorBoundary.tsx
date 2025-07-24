@@ -8,30 +8,77 @@ import {
 
 interface Props {
   children: ReactNode
-  fallback?: ReactNode
+  fallback?: ReactNode | React.ComponentType<ErrorFallbackProps>
   onError?: (error: Error, errorInfo: ErrorInfo) => void
   context?: string
   showTechnicalDetails?: boolean
+  level?: 'page' | 'section' | 'component'
+  resetKeys?: unknown[]
+}
+
+// Interface for error fallback components
+export interface ErrorFallbackProps {
+  error: Error
+  resetError: () => void
+  level?: 'page' | 'section' | 'component'
+  errorInfo?: ErrorInfo
 }
 
 interface State {
   hasError: boolean
   error?: Error
   errorInfo?: ErrorInfo
+  errorId: number
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  private resetTimeoutId: number | null = null
+
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, errorId: 0 }
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
       error,
       errorInfo: undefined,
     }
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    const { resetKeys } = this.props
+    const prevResetKeys = prevProps.resetKeys
+    
+    if (
+      this.state.hasError &&
+      resetKeys &&
+      prevResetKeys &&
+      resetKeys.length !== prevResetKeys.length ||
+      resetKeys.some((resetKey, idx) => resetKey !== prevResetKeys[idx])
+    ) {
+      this.resetErrorBoundary()
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.resetTimeoutId) {
+      clearTimeout(this.resetTimeoutId)
+    }
+  }
+
+  resetErrorBoundary = () => {
+    if (this.resetTimeoutId) {
+      clearTimeout(this.resetTimeoutId)
+    }
+    
+    this.setState({
+      hasError: false,
+      error: undefined,
+      errorInfo: undefined,
+      errorId: this.state.errorId + 1
+    })
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -57,7 +104,20 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       // Use custom fallback if provided, otherwise use default
       if (this.props.fallback) {
-        return this.props.fallback
+        const { fallback: FallbackComponent } = this.props
+        
+        if (typeof FallbackComponent === 'function') {
+          return (
+            <FallbackComponent
+              error={this.state.error!}
+              resetError={this.resetErrorBoundary}
+              level={this.props.level}
+              errorInfo={this.state.errorInfo}
+            />
+          )
+        }
+        
+        return FallbackComponent
       }
 
       // Default fallback UI
@@ -138,6 +198,36 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children
   }
+}
+
+// Higher-Order Component for wrapping components with ErrorBoundary
+export interface WithErrorBoundaryOptions {
+  level?: 'page' | 'section' | 'component'
+  onError?: (error: Error, errorInfo: ErrorInfo) => void
+  fallback?: ReactNode | React.ComponentType<ErrorFallbackProps>
+  context?: string
+  showTechnicalDetails?: boolean
+}
+
+export function withErrorBoundary<T extends Record<string, unknown>>(
+  Component: React.ComponentType<T>,
+  options: WithErrorBoundaryOptions = {}
+) {
+  const WrappedComponent = React.forwardRef<unknown, T>((props, ref) => (
+    <ErrorBoundary
+      level={options.level || 'component'}
+      onError={options.onError}
+      fallback={options.fallback}
+      context={options.context || Component.displayName || Component.name}
+      showTechnicalDetails={options.showTechnicalDetails}
+    >
+      <Component {...props} ref={ref} />
+    </ErrorBoundary>
+  ))
+
+  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`
+
+  return WrappedComponent
 }
 
 export default ErrorBoundary

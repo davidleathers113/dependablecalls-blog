@@ -437,7 +437,7 @@ export default function CampaignsPage() {
                               <EyeIcon className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => navigate(`/campaigns/${campaign.id}/edit`)}
+                              onClick={() => navigate(`/app/campaigns/${campaign.id}/edit`)}
                               className="p-1 text-gray-400 hover:text-gray-600"
                               title="Edit Campaign"
                             >

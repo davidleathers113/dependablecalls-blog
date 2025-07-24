@@ -212,6 +212,68 @@ export interface Database {
           stripe_payment_method_id?: string | null
         }
       }
+      buyer_campaigns: {
+        Row: {
+          id: string
+          buyer_id: string | null
+          name: string
+          description: string | null
+          targeting_criteria: Json
+          max_bid: number
+          daily_budget: number | null
+          monthly_budget: number | null
+          daily_cap: number | null
+          monthly_cap: number | null
+          schedule: Json
+          quality_requirements: Json
+          exclude_suppliers: string[]
+          preferred_suppliers: string[]
+          status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
+          auto_approval_enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          buyer_id?: string | null
+          name: string
+          description?: string | null
+          targeting_criteria?: Json
+          max_bid: number
+          daily_budget?: number | null
+          monthly_budget?: number | null
+          daily_cap?: number | null
+          monthly_cap?: number | null
+          schedule?: Json
+          quality_requirements?: Json
+          exclude_suppliers?: string[]
+          preferred_suppliers?: string[]
+          status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
+          auto_approval_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          buyer_id?: string | null
+          name?: string
+          description?: string | null
+          targeting_criteria?: Json
+          max_bid?: number
+          daily_budget?: number | null
+          monthly_budget?: number | null
+          daily_cap?: number | null
+          monthly_cap?: number | null
+          schedule?: Json
+          quality_requirements?: Json
+          exclude_suppliers?: string[]
+          preferred_suppliers?: string[]
+          status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
+          auto_approval_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       campaigns: {
         Row: {
           id: string

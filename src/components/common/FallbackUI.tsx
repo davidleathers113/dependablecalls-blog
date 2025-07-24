@@ -921,6 +921,25 @@ export function AppLayoutContentFallbackUI({ className, testId }: BaseErrorProps
   )
 }
 
+// Export ErrorFallback as FallbackUI for backward compatibility
+export { ErrorFallback as FallbackUI }
+
+// Export all error interfaces for external use
+export type {
+  ErrorFallbackProps,
+  BaseErrorProps,
+  ErrorActionProps,
+  ErrorDetailsProps,
+  RouteErrorProps,
+  FormErrorProps,
+  FormSubmissionErrorProps,
+  PaymentErrorProps,
+  LoadingErrorProps,
+  EmptyStateErrorProps,
+  TimeoutErrorProps,
+  SuccessStateProps
+}
+
 // Export all components as default
 export default {
   ErrorFallback,
