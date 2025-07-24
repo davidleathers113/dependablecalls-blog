@@ -67,10 +67,13 @@ if (import.meta.hot) {
 
 // Prevent multiple React roots on HMR
 const container = document.getElementById('root')!
-const root =
-  (container as unknown as { _reactRoot?: ReturnType<typeof createRoot> })._reactRoot ??
-  ((container as unknown as { _reactRoot?: ReturnType<typeof createRoot> })._reactRoot =
-    createRoot(container))
+
+interface ContainerWithRoot extends HTMLElement {
+  _reactRoot?: ReturnType<typeof createRoot>
+}
+
+const containerWithRoot = container as ContainerWithRoot
+const root = containerWithRoot._reactRoot ?? (containerWithRoot._reactRoot = createRoot(container))
 
 root.render(
   <StrictMode>
