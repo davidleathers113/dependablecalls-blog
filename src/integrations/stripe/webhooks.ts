@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import Stripe from 'stripe'
 import { stripeServerClient, stripeConfig } from './client'
 import { supabase } from '../../lib/supabase'
+import { getErrorMessage } from '../../lib/error-utils'
 import type { WebhookHandlerMap } from './types'
 
 interface Request {
@@ -77,7 +78,7 @@ const webhookHandlers: WebhookHandlerMap = {
 
       console.log(`Payment processed successfully for buyer ${buyerId}`)
     } catch (error) {
-      console.error('Error processing payment success:', error)
+      console.error('Error processing payment success:', getErrorMessage(error))
     }
   },
 
@@ -125,7 +126,7 @@ const webhookHandlers: WebhookHandlerMap = {
         }
       }
     } catch (error) {
-      console.error('Error processing payment failure:', error)
+      console.error('Error processing payment failure:', getErrorMessage(error))
     }
   },
 
@@ -136,8 +137,8 @@ const webhookHandlers: WebhookHandlerMap = {
     try {
       // Create dispute record in database
       const { error } = await supabase.from('disputes').insert({
-        call_id: dispute.metadata.call_id,
-        raised_by: dispute.metadata.buyer_id,
+        call_id: dispute.metadata?.call_id,
+        raised_by: dispute.metadata?.buyer_id,
         dispute_type: 'billing',
         reason: `Stripe dispute: ${dispute.reason}`,
         description: `Dispute created for charge ${dispute.charge}. Reason: ${dispute.reason}`,
@@ -158,7 +159,7 @@ const webhookHandlers: WebhookHandlerMap = {
         console.error('Failed to create dispute record:', error)
       }
     } catch (error) {
-      console.error('Error processing dispute creation:', error)
+      console.error('Error processing dispute creation:', getErrorMessage(error))
     }
   },
 
@@ -172,7 +173,7 @@ const webhookHandlers: WebhookHandlerMap = {
         .from('suppliers')
         .select('id, user_id')
         .eq('metadata->stripe_account_id', account.id)
-        .single()
+        .maybeSingle()
 
       if (findError || !supplier) {
         console.error('Could not find supplier for account:', account.id)
@@ -205,7 +206,7 @@ const webhookHandlers: WebhookHandlerMap = {
 
       console.log(`Updated supplier ${supplier.id} status based on Stripe account ${account.id}`)
     } catch (error) {
-      console.error('Error processing account update:', error)
+      console.error('Error processing account update:', getErrorMessage(error))
     }
   },
 
@@ -216,13 +217,13 @@ const webhookHandlers: WebhookHandlerMap = {
     try {
       // Create payout record in database
       const { error } = await supabase.from('payouts').insert({
-        supplier_id: payout.metadata.supplier_id,
+        supplier_id: payout.metadata?.supplier_id || '',
         amount: payout.amount / 100,
         fee_amount: 0, // Stripe fees are handled separately
         net_amount: payout.amount / 100,
         status: 'processing',
-        period_start: payout.metadata.period_start,
-        period_end: payout.metadata.period_end,
+        period_start: payout.metadata?.period_start || '',
+        period_end: payout.metadata?.period_end || '',
         payment_method: 'stripe',
         transaction_id: payout.id,
         payment_details: {
@@ -237,7 +238,7 @@ const webhookHandlers: WebhookHandlerMap = {
         console.error('Failed to create payout record:', error)
       }
     } catch (error) {
-      console.error('Error processing payout creation:', error)
+      console.error('Error processing payout creation:', getErrorMessage(error))
     }
   },
 
@@ -260,7 +261,7 @@ const webhookHandlers: WebhookHandlerMap = {
         console.error('Failed to update payout status:', error)
       }
     } catch (error) {
-      console.error('Error processing payout completion:', error)
+      console.error('Error processing payout completion:', getErrorMessage(error))
     }
   },
 
@@ -285,7 +286,7 @@ const webhookHandlers: WebhookHandlerMap = {
       // TODO: Send notification to supplier and admin
       // TODO: Schedule retry or manual intervention
     } catch (error) {
-      console.error('Error processing payout failure:', error)
+      console.error('Error processing payout failure:', getErrorMessage(error))
     }
   },
 
@@ -307,7 +308,7 @@ const webhookHandlers: WebhookHandlerMap = {
         .from('payouts')
         .update({
           status: 'cancelled',
-          notes: `Transfer reversed: ${transfer.reversal_details?.reason || 'Unknown reason'}`,
+          notes: `Transfer reversed: Unknown reason`,
         })
         .eq('transaction_id', transfer.id)
 
@@ -315,7 +316,7 @@ const webhookHandlers: WebhookHandlerMap = {
         console.error('Failed to update payout for reversed transfer:', error)
       }
     } catch (error) {
-      console.error('Error processing transfer reversal:', error)
+      console.error('Error processing transfer reversal:', getErrorMessage(error))
     }
   },
 }
@@ -333,9 +334,8 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
   try {
     event = verifyWebhookSignature(req.body as string | Buffer, signature)
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-    res.status(400).send(`Webhook Error: ${errorMessage}`)
+    console.error('Webhook signature verification failed:', getErrorMessage(err))
+    res.status(400).send(`Webhook Error: ${getErrorMessage(err)}`)
     return
   }
 
@@ -346,9 +346,8 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
       await handler(event)
       res.json({ received: true })
     } catch (err) {
-      console.error(`Error handling webhook ${event.type}:`, err)
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      res.status(500).send(`Webhook handler error: ${errorMessage}`)
+      console.error(`Error handling webhook ${event.type}:`, getErrorMessage(err))
+      res.status(500).send(`Webhook handler error: ${getErrorMessage(err)}`)
     }
   } else {
     console.log(`Unhandled webhook event type: ${event.type}`)

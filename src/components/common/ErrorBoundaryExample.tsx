@@ -46,7 +46,7 @@ const ComponentWithHOC = withErrorBoundary(
   ),
   {
     level: 'component',
-    onError: (error, errorInfo) => {
+    onError: (error: Error, errorInfo: React.ErrorInfo) => {
       console.log('HOC Error Handler:', error.message, errorInfo)
     },
   }

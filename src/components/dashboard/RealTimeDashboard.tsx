@@ -14,10 +14,10 @@ interface RealTimeDashboardProps {
 
 // Inner component that handles real-time data
 function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
-  const [callData, setCallData] = useState<
+  const [, setCallData] = useState<
     Array<{ id: string; created_at: string; payout_amount: number; [key: string]: unknown }>
   >([])
-  const [stats, setStats] = useState({
+  const [, setStats] = useState({
     totalCalls: 0,
     activeCampaigns: 0,
     revenue: 0,
@@ -56,7 +56,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
         })
       }
     } catch (error) {
-      logger.error('Error loading initial dashboard data', error)
+      logger.error('Error loading initial dashboard data', error as Error)
       throw error
     }
   }, [userId, userType])
@@ -86,13 +86,15 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
           logger.info('Real-time call update received', payload)
 
           if (payload.eventType === 'INSERT') {
-            setCallData((prev) => [payload.new, ...prev].slice(0, 50)) // Keep last 50 calls
-            updateStats(payload.new)
+            setCallData((prev) => [payload.new as (typeof prev)[0], ...prev].slice(0, 50)) // Keep last 50 calls
+            updateStats(payload.new as { payout_amount?: number })
           } else if (payload.eventType === 'UPDATE') {
             setCallData((prev) =>
-              prev.map((call) => (call.id === payload.new.id ? payload.new : call))
+              prev.map((call) =>
+                call.id === (payload.new as typeof call).id ? (payload.new as typeof call) : call
+              )
             )
-            updateStats(payload.new)
+            updateStats(payload.new as { payout_amount?: number })
           }
         }
       )
@@ -142,26 +144,20 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
       )}
 
       {/* Quick Stats */}
-      <QuickStatsBar
-        totalCalls={stats.totalCalls}
-        activeCampaigns={stats.activeCampaigns}
-        revenue={stats.revenue}
-        conversionRate={stats.conversion}
-        period="today"
-      />
+      <QuickStatsBar timeRange="24h" supplierId={userType === 'supplier' ? userId : ''} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Call Volume Chart */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Call Volume</h2>
-          <CallVolumeChart data={callData} />
+          <CallVolumeChart timeRange="24h" supplierId={userType === 'supplier' ? userId : ''} />
         </div>
 
         {/* Recent Calls */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Calls</h2>
-          <RecentCallsList calls={callData.slice(0, 10)} />
+          <RecentCallsList supplierId={userType === 'supplier' ? userId : ''} />
         </div>
       </div>
 
@@ -170,7 +166,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Active Campaigns</h2>
         </div>
-        <ActiveCampaignsTable userId={userId} userType={userType} />
+        <ActiveCampaignsTable supplierId={userType === 'supplier' ? userId : ''} />
       </div>
     </div>
   )

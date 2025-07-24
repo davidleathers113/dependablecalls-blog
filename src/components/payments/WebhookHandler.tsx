@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/lib/logger'
+import { toError } from '@/lib/error-utils'
 import type Stripe from 'stripe'
 import { RealtimeErrorBoundary } from '../realtime/RealtimeErrorBoundary'
 
@@ -40,10 +41,11 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         await processWebhookEvent(event)
         onWebhookReceived?.(event)
       } catch (error) {
-        logger.error('Error processing webhook event', {
+        const errorDetails = toError(error)
+        logger.error('Error processing webhook event', errorDetails, {
           eventId: event.id,
           eventType: event.type,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          component: 'webhook-handler',
         })
       }
     },
@@ -145,7 +147,11 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_payment_intent_id', paymentIntent.id)
 
       if (transactionError) {
-        logger.error('Failed to update transaction status', transactionError)
+        logger.error('Failed to update transaction status', toError(transactionError), {
+          paymentIntentId: paymentIntent.id,
+          component: 'webhook-handler',
+          action: 'update-transaction-status',
+        })
       }
 
       // Update buyer account balance if applicable
@@ -156,7 +162,12 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         })
 
         if (balanceError) {
-          logger.error('Failed to update buyer balance', balanceError)
+          logger.error('Failed to update buyer balance', toError(balanceError), {
+            paymentIntentId: paymentIntent.id,
+            buyerId: metadata.buyerId,
+            component: 'webhook-handler',
+            action: 'update-buyer-balance',
+          })
         }
       }
 
@@ -171,7 +182,12 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
           .eq('id', metadata.invoiceId)
 
         if (campaignError) {
-          logger.error('Failed to update invoice status', campaignError)
+          logger.error('Failed to update invoice status', toError(campaignError), {
+            paymentIntentId: paymentIntent.id,
+            component: 'webhook-handler',
+            action: 'update-invoice-status',
+            metadata: { invoiceId: metadata.invoiceId },
+          })
         }
       }
 
@@ -181,8 +197,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         buyerId: metadata.buyerId,
       })
     } catch (error) {
-      logger.error('Error processing payment success', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing payment success', errorDetails, {
+        paymentIntentId: paymentIntent.id,
+        component: 'webhook-handler',
+        action: 'process-payment-success',
+      })
+      throw errorDetails
     }
   }
 
@@ -201,7 +222,11 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_payment_intent_id', paymentIntent.id)
 
       if (transactionError) {
-        logger.error('Failed to update failed transaction', transactionError)
+        logger.error('Failed to update failed transaction', toError(transactionError), {
+          paymentIntentId: paymentIntent.id,
+          component: 'webhook-handler',
+          action: 'update-failed-transaction',
+        })
       }
 
       // Notify buyer of failed payment
@@ -224,8 +249,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         error: paymentIntent.last_payment_error?.message,
       })
     } catch (error) {
-      logger.error('Error processing payment failure', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing payment failure', errorDetails, {
+        paymentIntentId: paymentIntent.id,
+        component: 'webhook-handler',
+        action: 'process-payment-failure',
+      })
+      throw errorDetails
     }
   }
 
@@ -245,7 +275,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
       })
 
       if (error) {
-        logger.error('Failed to record dispute', error)
+        logger.error('Failed to record dispute', toError(error), {
+          chargeId: dispute.charge as string,
+          component: 'webhook-handler',
+          action: 'record-dispute',
+          amount: dispute.amount / 100,
+          reason: dispute.reason,
+        })
       }
 
       // Notify admin team
@@ -267,8 +303,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         reason: dispute.reason,
       })
     } catch (error) {
-      logger.error('Error processing dispute creation', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing dispute creation', errorDetails, {
+        chargeId: dispute.charge as string,
+        component: 'webhook-handler',
+        action: 'process-dispute-creation',
+      })
+      throw errorDetails
     }
   }
 
@@ -289,7 +330,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_account_id', account.id)
 
       if (error) {
-        logger.error('Failed to update account status', error)
+        logger.error('Failed to update account status', toError(error), {
+          accountId: account.id,
+          component: 'webhook-handler',
+          action: 'update-account-status',
+          chargesEnabled: account.charges_enabled,
+          payoutsEnabled: account.payouts_enabled,
+        })
       }
 
       logger.info('Account updated', {
@@ -298,8 +345,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         payoutsEnabled: account.payouts_enabled,
       })
     } catch (error) {
-      logger.error('Error processing account update', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing account update', errorDetails, {
+        accountId: account.id,
+        component: 'webhook-handler',
+        action: 'process-account-update',
+      })
+      throw errorDetails
     }
   }
 
@@ -315,13 +367,22 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_account_id', account.id)
 
       if (error) {
-        logger.error('Failed to mark account as authorized', error)
+        logger.error('Failed to mark account as authorized', toError(error), {
+          accountId: account.id,
+          component: 'webhook-handler',
+          action: 'mark-account-authorized',
+        })
       }
 
       logger.info('Account authorized', { accountId: account.id })
     } catch (error) {
-      logger.error('Error processing account authorization', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing account authorization', errorDetails, {
+        accountId: account.id,
+        component: 'webhook-handler',
+        action: 'process-account-authorization',
+      })
+      throw errorDetails
     }
   }
 
@@ -337,13 +398,22 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_account_id', account.id)
 
       if (error) {
-        logger.error('Failed to mark account as deauthorized', error)
+        logger.error('Failed to mark account as deauthorized', toError(error), {
+          accountId: account.id,
+          component: 'webhook-handler',
+          action: 'mark-account-deauthorized',
+        })
       }
 
       logger.info('Account deauthorized', { accountId: account.id })
     } catch (error) {
-      logger.error('Error processing account deauthorization', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing account deauthorization', errorDetails, {
+        accountId: account.id,
+        component: 'webhook-handler',
+        action: 'process-account-deauthorization',
+      })
+      throw errorDetails
     }
   }
 
@@ -363,7 +433,12 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
       })
 
       if (error) {
-        logger.error('Failed to record payout creation', error)
+        logger.error('Failed to record payout creation', toError(error), {
+          payoutId: payout.id,
+          component: 'webhook-handler',
+          action: 'record-payout-creation',
+          amount: payout.amount / 100,
+        })
       }
 
       logger.info('Payout created', {
@@ -372,8 +447,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         arrivalDate: payout.arrival_date,
       })
     } catch (error) {
-      logger.error('Error processing payout creation', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing payout creation', errorDetails, {
+        payoutId: payout.id,
+        component: 'webhook-handler',
+        action: 'process-payout-creation',
+      })
+      throw errorDetails
     }
   }
 
@@ -389,7 +469,12 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_payout_id', payout.id)
 
       if (error) {
-        logger.error('Failed to update payout status', error)
+        logger.error('Failed to update payout status', toError(error), {
+          payoutId: payout.id,
+          component: 'webhook-handler',
+          action: 'update-payout-status',
+          amount: payout.amount / 100,
+        })
       }
 
       logger.info('Payout paid', {
@@ -397,8 +482,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         amount: payout.amount / 100,
       })
     } catch (error) {
-      logger.error('Error processing payout payment', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing payout payment', errorDetails, {
+        payoutId: payout.id,
+        component: 'webhook-handler',
+        action: 'process-payout-payment',
+      })
+      throw errorDetails
     }
   }
 
@@ -416,7 +506,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_payout_id', payout.id)
 
       if (error) {
-        logger.error('Failed to update failed payout', error)
+        logger.error('Failed to update failed payout', toError(error), {
+          payoutId: payout.id,
+          component: 'webhook-handler',
+          action: 'update-failed-payout',
+          failureCode: payout.failure_code,
+          failureMessage: payout.failure_message,
+        })
       }
 
       // Notify supplier of failed payout
@@ -447,8 +543,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         failureMessage: payout.failure_message,
       })
     } catch (error) {
-      logger.error('Error processing payout failure', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing payout failure', errorDetails, {
+        payoutId: payout.id,
+        component: 'webhook-handler',
+        action: 'process-payout-failure',
+      })
+      throw errorDetails
     }
   }
 
@@ -466,7 +567,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
       })
 
       if (error) {
-        logger.error('Failed to record transfer creation', error)
+        logger.error('Failed to record transfer creation', toError(error), {
+          transferId: transfer.id,
+          component: 'webhook-handler',
+          action: 'record-transfer-creation',
+          amount: transfer.amount / 100,
+          destination: transfer.destination as string,
+        })
       }
 
       logger.info('Transfer created', {
@@ -475,8 +582,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         destination: transfer.destination,
       })
     } catch (error) {
-      logger.error('Error processing transfer creation', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing transfer creation', errorDetails, {
+        transferId: transfer.id,
+        component: 'webhook-handler',
+        action: 'process-transfer-creation',
+      })
+      throw errorDetails
     }
   }
 
@@ -492,7 +604,12 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         .eq('stripe_transfer_id', transfer.id)
 
       if (error) {
-        logger.error('Failed to update reversed transfer', error)
+        logger.error('Failed to update reversed transfer', toError(error), {
+          transferId: transfer.id,
+          component: 'webhook-handler',
+          action: 'update-reversed-transfer',
+          amount: transfer.amount / 100,
+        })
       }
 
       logger.info('Transfer reversed', {
@@ -500,8 +617,13 @@ const WebhookHandlerInner: React.FC<WebhookHandlerProps> = ({ onWebhookReceived 
         amount: transfer.amount / 100,
       })
     } catch (error) {
-      logger.error('Error processing transfer reversal', error)
-      throw error
+      const errorDetails = toError(error)
+      logger.error('Error processing transfer reversal', errorDetails, {
+        transferId: transfer.id,
+        component: 'webhook-handler',
+        action: 'process-transfer-reversal',
+      })
+      throw errorDetails
     }
   }
 
@@ -534,7 +656,9 @@ export const WebhookHandler: React.FC<WebhookHandlerProps> = ({ onWebhookReceive
       onReconnect={handleReconnect}
       onFallbackToPolling={handleFallbackToPolling}
       onError={(error) => {
-        logger.error('Webhook handler error boundary caught error', error)
+        logger.error('Webhook handler error boundary caught error', toError(error), {
+          component: 'webhook-handler-error-boundary',
+        })
       }}
     >
       <WebhookHandlerInner key={retryKey} onWebhookReceived={onWebhookReceived} />

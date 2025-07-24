@@ -87,7 +87,7 @@ export function useRealtimeSubscription<T extends TableName>({
       const channel = supabase
         .channel(channelName)
         .on(
-          'postgres_changes',
+          'postgres_changes' as const,
           config,
           (payload: RealtimePostgresChangesPayload<Tables[T]['Row']>) => {
             handleRealtimeEvent(payload)
@@ -218,7 +218,7 @@ export function useStatsSubscription<T extends TableName>(
 ) {
   const [stats, setStats] = useState<Tables[T]['Row'] | null>(null)
   const aggregationBuffer = useRef<Array<RealtimePostgresChangesPayload<Tables[T]['Row']>>>([])
-  const aggregationTimer = useRef<NodeJS.Timeout>()
+  const aggregationTimer = useRef<NodeJS.Timeout | undefined>()
 
   const processAggregation = useCallback(() => {
     if (aggregationBuffer.current.length === 0) return
