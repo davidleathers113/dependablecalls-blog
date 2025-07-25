@@ -24,6 +24,7 @@ const AboutPage = React.lazy(() => import('./pages/public/AboutPage'))
 const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
 const RegisterPage = React.lazy(() => import('./pages/auth/RegisterPage'))
 const ForgotPasswordPage = React.lazy(() => import('./pages/auth/ForgotPasswordPage'))
+const AuthCallbackPage = React.lazy(() => import('./pages/auth/AuthCallbackPage'))
 
 // Legal Pages
 const PrivacyPage = React.lazy(() => import('./pages/legal/PrivacyPage'))
@@ -40,8 +41,15 @@ const CreateCampaignPage = React.lazy(() => import('./pages/campaigns/CreateCamp
 const EditCampaignPage = React.lazy(() => import('./pages/campaigns/EditCampaignPage'))
 const CallsPage = React.lazy(() => import('./pages/calls/CallsPage'))
 const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'))
-const BillingPage = React.lazy(() => import('./pages/billing/BillingPage'))
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
+
+// Settings Pages
+const ProfileSettingsPage = React.lazy(() => import('./pages/settings/ProfileSettingsPage'))
+const NotificationSettingsPage = React.lazy(() => import('./pages/settings/NotificationSettingsPage'))
+const SecuritySettingsPage = React.lazy(() => import('./pages/settings/SecuritySettingsPage'))
+const AccountSettingsPage = React.lazy(() => import('./pages/settings/AccountSettingsPage'))
+const CallTrackingSettingsPage = React.lazy(() => import('./pages/settings/CallTrackingSettingsPage'))
+const PayoutSettingsPage = React.lazy(() => import('./pages/settings/PayoutSettingsPage'))
 
 // Loading component for lazy-loaded routes
 function PageLoader() {
@@ -150,6 +158,14 @@ function App() {
                       element={
                         <Suspense fallback={<PageLoader />}>
                           <ForgotPasswordPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="auth/callback"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <AuthCallbackPage />
                         </Suspense>
                       }
                     />
@@ -289,21 +305,62 @@ function App() {
                       }
                     />
                     <Route
-                      path="billing"
-                      element={
-                        <Suspense fallback={<PageLoader />}>
-                          <BillingPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route
                       path="settings"
                       element={
                         <Suspense fallback={<PageLoader />}>
                           <SettingsPage />
                         </Suspense>
                       }
-                    />
+                    >
+                      <Route
+                        path="profile"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <ProfileSettingsPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="notifications"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <NotificationSettingsPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="security"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <SecuritySettingsPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="account"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <AccountSettingsPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="call-tracking"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <CallTrackingSettingsPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="payouts"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <PayoutSettingsPage />
+                          </Suspense>
+                        }
+                      />
+                    </Route>
                   </Route>
 
                   {/* Catch all */}

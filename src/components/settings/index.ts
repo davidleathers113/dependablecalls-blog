@@ -39,3 +39,6 @@ export type { SettingsCheckboxGroupProps, CheckboxOption } from './SettingsCheck
 // Feedback components
 export { SettingsAlert } from './SettingsAlert'
 export type { SettingsAlertProps } from './SettingsAlert'
+
+// Layout components
+export { SettingsLayout } from './SettingsLayout'
