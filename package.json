@@ -7,33 +7,147 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint:fix": "eslint . --fix",  
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:ci": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage --reporter=verbose",
+    "test:call-tracking": "vitest run src/services/call-tracking/__tests__/unit --coverage",
+    "test:load": "vitest run src/services/call-tracking/__tests__/load --reporter=verbose",
+    "test:integration": "vitest run src/services/call-tracking/__tests__/integration --reporter=verbose",
+    "test:encryption": "vitest run src/lib/encryption/__tests__ --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview",
     "prepare": "husky",
     "size": "size-limit",
-    "analyze": "size-limit --why"
+    "analyze": "size-limit --why",
+    "migrate:encryption": "tsx scripts/migrate-encryption.ts",
+    "verify:encryption": "tsx scripts/verify-encryption.ts",
+    "encrypt:health": "tsx scripts/encryption-health.ts",
+    "security:test": "vitest run tests/security/ --coverage --reporter=verbose",
+    "security:scan": "snyk test --severity-threshold=medium",
+    "security:monitor": "snyk monitor",
+    "security:fix": "snyk fix",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:licenses": "license-checker --summary --excludePrivatePackages",
+    "security:sbom": "cyclonedx-npm --output ./sbom.json",
+    "security:zap": "node scripts/security/run-zap-scan.js",
+    "security:zap:quick": "node scripts/security/run-zap-scan.js --scanType quick",
+    "security:zap:standard": "node scripts/security/run-zap-scan.js --scanType standard",
+    "security:zap:comprehensive": "node scripts/security/run-zap-scan.js --scanType comprehensive",
+    "security:regression": "node scripts/security/security-regression-test.js",
+    "security:baseline": "node scripts/security/generate-security-baseline.js",
+    "security:gates": "node scripts/security/security-gate-evaluator.js",
+    "security:report": "node scripts/security/generate-security-report.js",
+    "security:monitoring": "node scripts/security/update-security-monitoring.js",
+    "setup:test-accounts": "tsx scripts/setup-test-accounts.ts",
+    "security:full": "npm run security:test && npm run security:audit && npm run security:scan && npm run security:licenses && npm run security:sbom && npm run security:report",
+    "deps:check": "npm-check-updates",
+    "deps:update": "npm-check-updates -u"
   },
   "size-limit": [
     {
-      "name": "Main bundle",
-      "path": "dist/assets/index-*.js",
-      "limit": "50 kB"
+      "name": "Main app entry",
+      "path": "dist/assets/js/index-*.js",
+      "limit": "100 kB",
+      "gzip": true
     },
     {
-      "name": "Vendor bundle",
-      "path": "dist/assets/vendor-*.js",
-      "limit": "160 kB"
+      "name": "React core libraries",
+      "path": "dist/assets/js/react-core-*.js",
+      "limit": "150 kB",
+      "gzip": true
     },
     {
-      "name": "Initial CSS",
-      "path": "dist/assets/index-*.css",
-      "limit": "15 kB"
+      "name": "React ecosystem",
+      "path": "dist/assets/js/react-ecosystem-*.js",
+      "limit": "120 kB",
+      "gzip": true
+    },
+    {
+      "name": "Supabase SDK",
+      "path": "dist/assets/js/supabase-*.js",
+      "limit": "120 kB",
+      "gzip": true
+    },
+    {
+      "name": "Stripe SDK",
+      "path": "dist/assets/js/stripe-*.js",
+      "limit": "80 kB",
+      "gzip": true
+    },
+    {
+      "name": "UI components (Headless UI)",
+      "path": "dist/assets/js/ui-headless-*.js",
+      "limit": "40 kB",
+      "gzip": true
+    },
+    {
+      "name": "Icons (Heroicons)",
+      "path": "dist/assets/js/ui-icons-*.js",
+      "limit": "30 kB",
+      "gzip": true
+    },
+    {
+      "name": "State management",
+      "path": "dist/assets/js/state-*.js",
+      "limit": "15 kB",
+      "gzip": true
+    },
+    {
+      "name": "Form validation",
+      "path": "dist/assets/js/validation-*.js",
+      "limit": "25 kB",
+      "gzip": true
+    },
+    {
+      "name": "Utilities",
+      "path": "dist/assets/js/utils-*.js",
+      "limit": "50 kB",
+      "gzip": true
+    },
+    {
+      "name": "HTTP client",
+      "path": "dist/assets/js/http-*.js",
+      "limit": "20 kB",
+      "gzip": true
+    },
+    {
+      "name": "Monitoring (Sentry)",
+      "path": "dist/assets/js/monitoring-*.js",
+      "limit": "60 kB",
+      "gzip": true
+    },
+    {
+      "name": "Other vendor code",
+      "path": "dist/assets/js/vendor-*.js",
+      "limit": "100 kB",
+      "gzip": true
+    },
+    {
+      "name": "Main CSS bundle",
+      "path": "dist/assets/css/index-*.css",
+      "limit": "20 kB",
+      "gzip": true
+    },
+    {
+      "name": "Total JavaScript (all chunks)",
+      "path": "dist/assets/js/*.js",
+      "limit": "900 kB",
+      "gzip": true
+    },
+    {
+      "name": "Initial load (critical path)",
+      "path": [
+        "dist/assets/js/index-*.js",
+        "dist/assets/js/react-core-*.js",
+        "dist/assets/css/index-*.css"
+      ],
+      "limit": "270 kB",
+      "gzip": true,
+      "running": false
     }
   ],
   "dependencies": {
@@ -43,15 +157,17 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@sentry/react": "^8.52.0",
     "@sentry/tracing": "^7.117.0",
-    "@stripe/react-stripe-js": "^3.7.0",
     "@stripe/stripe-js": "^7.6.1",
     "@supabase/supabase-js": "^2.52.0",
     "@tanstack/react-query": "^5.83.0",
     "@types/express": "^5.0.3",
+    "@types/ioredis": "^5.0.0",
     "@types/lodash": "^4.17.20",
     "@types/uuid": "^10.0.0",
     "axios": "^1.10.0",
+    "bull": "^4.16.4",
     "express": "^5.1.0",
+    "ioredis": "^5.4.1",
     "lodash": "^4.17.21",
     "playwright": "^1.54.1",
     "react": "^19.1.0",
@@ -66,6 +182,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@babel/preset-react": "^7.27.1",
     "@eslint/js": "^9.30.1",
     "@playwright/test": "^1.54.1",
     "@size-limit/preset-app": "^11.2.0",
@@ -92,11 +209,16 @@
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "rollup-plugin-visualizer": "^6.0.3",
+    "tsx": "^4.20.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.35.1",
     "vite": "^7.0.4",
     "vite-plugin-compression": "^0.5.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@cyclonedx/cyclonedx-npm": "^1.19.3",
+    "license-checker": "^25.0.1",
+    "npm-check-updates": "^17.1.12",
+    "snyk": "^1.1298.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

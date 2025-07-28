@@ -12,6 +12,7 @@ import {
   environment,
 } from '../../utils/environment'
 import { useState } from 'react'
+import AccessibleIcon from '../common/AccessibleIcon'
 
 interface ErrorFallbackProps {
   error: Error
@@ -55,7 +56,7 @@ export function ErrorFallback({
     >
       <div className="max-w-md w-full text-center">
         <div className="mb-6">
-          <ExclamationTriangleIcon className="mx-auto h-16 w-16 text-red-500" />
+          <AccessibleIcon icon={ExclamationTriangleIcon} aria-label="Error" className="mx-auto h-16 w-16 text-red-500" />
         </div>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-4">
@@ -81,9 +82,9 @@ export function ErrorFallback({
             >
               Technical Details ({envName})
               {showDetails ? (
-                <ChevronUpIcon className="h-4 w-4" />
+                <AccessibleIcon icon={ChevronUpIcon} decorative className="h-4 w-4" />
               ) : (
-                <ChevronDownIcon className="h-4 w-4" />
+                <AccessibleIcon icon={ChevronDownIcon} decorative className="h-4 w-4" />
               )}
             </button>
 
@@ -158,7 +159,7 @@ export function ErrorFallback({
             onClick={handleReset}
             className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
-            <ArrowPathIcon className="mr-2 h-4 w-4" />
+            <AccessibleIcon icon={ArrowPathIcon} decorative className="mr-2 h-4 w-4" />
             Try Again
           </button>
 

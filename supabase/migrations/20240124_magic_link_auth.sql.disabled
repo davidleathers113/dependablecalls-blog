@@ -1,0 +1,46 @@
+-- Configure authentication settings for magic links
+-- This migration updates auth configuration to support passwordless login
+
+-- Update auth configuration
+UPDATE auth.config 
+SET 
+  site_url = 'http://localhost:5173',
+  additional_redirect_urls = array[
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5173/auth/callback',
+    'http://127.0.0.1:5173/auth/callback'
+  ]::text[]
+WHERE id = 1;
+
+-- Ensure email provider is enabled
+UPDATE auth.config
+SET 
+  mailer_autoconfirm = false,
+  sms_autoconfirm = false
+WHERE id = 1;
+
+-- Update rate limits for magic links (if needed)
+-- Note: These are typically configured in the Supabase dashboard or config.toml
+
+-- Create a function to handle post-authentication user setup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  -- Insert user profile
+  INSERT INTO public.users (id, email, created_at, updated_at)
+  VALUES (NEW.id, NEW.email, NOW(), NOW())
+  ON CONFLICT (id) DO NOTHING;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger to automatically create user profile on signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Add comment for documentation
+COMMENT ON FUNCTION public.handle_new_user() IS 'Creates a user profile in public.users table when a new auth user is created';

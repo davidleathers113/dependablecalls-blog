@@ -9,6 +9,7 @@ import {
   BanknotesIcon,
   ChevronLeftIcon
 } from '@heroicons/react/24/outline'
+import AccessibleIcon from '../common/AccessibleIcon'
 
 interface SettingsNavItem {
   name: string
@@ -72,7 +73,7 @@ export function SettingsLayout() {
               <a href="/app/dashboard" className="hover:text-gray-700">
                 Dashboard
               </a>
-              <ChevronLeftIcon className="h-4 w-4 transform rotate-180" />
+              <AccessibleIcon icon={ChevronLeftIcon} decorative className="h-4 w-4 transform rotate-180" />
               <span className="text-gray-900">Settings</span>
             </nav>
             <h1 className="mt-2 text-3xl font-bold text-gray-900">Settings</h1>
@@ -98,7 +99,9 @@ export function SettingsLayout() {
                           }`
                         }
                       >
-                        <Icon
+                        <AccessibleIcon
+                          icon={Icon}
+                          decorative
                           className={`mr-3 h-5 w-5 flex-shrink-0 ${
                             isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
                           }`}

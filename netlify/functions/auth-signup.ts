@@ -1,5 +1,7 @@
 import type { Handler } from '@netlify/functions'
 import { withoutAuth, ApiError } from '../../src/lib/auth-middleware'
+import { withCsrfProtection } from './_shared/csrf-middleware'
+import { createSessionCookies } from '../../src/lib/auth-cookies'
 import { z } from 'zod'
 
 const signupSchema = z.object({
@@ -37,7 +39,8 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  return withoutAuth(event, async (supabase, request) => {
+  return withCsrfProtection(event, async (event) => {
+    return withoutAuth(event, async (supabase, request) => {
     if (!request.body) {
       throw new ApiError('Request body is required', 400)
     }
@@ -121,15 +124,37 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    // Create session cookies if a session was created
+    const sessionCookies = authData.session ? createSessionCookies(authData.session) : []
+    
     return {
-      success: true,
-      message: 'Account created successfully. Please check your email to verify your account.',
-      user: {
-        id: authData.user.id,
-        email: authData.user.email,
-        userType: requestData.userType,
-        needsEmailVerification: !authData.user.email_confirmed_at,
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
+        // Set session cookies if available
+        ...(sessionCookies.length > 0 && { 'Set-Cookie': sessionCookies }),
       },
+      body: JSON.stringify({
+        success: true,
+        message: 'Account created successfully. Please check your email to verify your account.',
+        user: {
+          id: authData.user.id,
+          email: authData.user.email,
+          userType: requestData.userType,
+          needsEmailVerification: !authData.user.email_confirmed_at,
+        },
+        // Only send non-sensitive session metadata if session exists
+        ...(authData.session && {
+          session: {
+            expires_at: authData.session.expires_at,
+          },
+        }),
+      }),
     }
+    })
   })
 }

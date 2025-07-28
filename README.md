@@ -4,14 +4,13 @@ A modern pay-per-call network platform connecting suppliers (traffic providers) 
 
 ## 🚀 Overview
 
-DCE Platform facilitates real-time call tracking, lead management, and automated billing for performance-based marketing campaigns. Built with cutting-edge technologies for reliability, scalability, and real-time performance.
+DCE Platform facilitates real-time call tracking and lead management for performance-based marketing campaigns. Built with cutting-edge technologies for reliability, scalability, and real-time performance.
 
 ### Key Features
 
 - **Real-time Call Tracking** - Monitor calls as they happen with live status updates
 - **Campaign Management** - Create and manage targeted campaigns with advanced filtering
 - **Fraud Prevention** - Built-in fraud detection and quality scoring
-- **Automated Billing** - Stripe integration for seamless payments and payouts
 - **Role-based Access** - Separate interfaces for suppliers, buyers, and administrators
 - **Analytics Dashboard** - Comprehensive reporting and performance metrics
 
@@ -21,7 +20,6 @@ DCE Platform facilitates real-time call tracking, lead management, and automated
 - **Styling**: Tailwind CSS 4.1 + Headless UI 2.2
 - **Backend**: Supabase (PostgreSQL + Auth + Realtime)
 - **State Management**: Zustand 5.0 + React Query 5.83
-- **Payments**: Stripe 18.3
 - **Testing**: Vitest 3.2 + Playwright 1.54
 - **Hosting**: Netlify with Edge Functions
 
@@ -30,7 +28,6 @@ DCE Platform facilitates real-time call tracking, lead management, and automated
 - Node.js 22.15.0 or higher
 - npm 10.x or higher
 - Supabase CLI
-- Stripe CLI (for webhook testing)
 
 ## 🚀 Quick Start
 
@@ -60,11 +57,6 @@ Edit `.env.local` with your credentials:
 VITE_SUPABASE_URL=your-supabase-url
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
-# Stripe
-VITE_STRIPE_PUBLIC_KEY=your-stripe-public-key
-STRIPE_SECRET_KEY=your-stripe-secret-key
-STRIPE_WEBHOOK_SECRET=your-webhook-secret
-
 # Sentry (optional)
 VITE_SENTRY_DSN=your-sentry-dsn
 ```
@@ -82,7 +74,19 @@ npx supabase db push
 npx supabase db seed
 ```
 
-### 5. Start the development server
+### 5. Set up test accounts
+
+```bash
+# Create test accounts and update seed data
+npm run setup:test-accounts
+
+# Reset database with test data
+npx supabase db reset
+```
+
+See [Test Accounts Setup Guide](./docs/TEST_ACCOUNTS_SETUP.md) for detailed information about test credentials and usage.
+
+### 6. Start the development server
 
 ```bash
 npm run dev
@@ -203,7 +207,6 @@ netlify deploy --prod
 - **Authentication**: Supabase Auth with JWT tokens
 - **Real-time**: WebSocket connections for live updates
 - **Edge Functions**: Serverless functions for complex operations
-- **Webhooks**: Stripe integration for payment processing
 
 ### Security Features
 
@@ -213,6 +216,39 @@ netlify deploy --prod
 - Rate limiting on API endpoints
 - Secure webhook verification
 
+### Authentication Setup
+
+The platform uses **Magic Link Authentication** (passwordless login) powered by Supabase Auth.
+
+#### Configuration Steps:
+
+1. **Configure Supabase Dashboard**
+   - Navigate to Authentication > URL Configuration
+   - Set Site URL to `http://localhost:5173` (development) or your production URL
+   - Add `/auth/callback` to Redirect URLs (e.g., `http://localhost:5173/auth/callback`)
+
+2. **Email Templates** (optional)
+   - Customize magic link emails in Authentication > Email Templates
+   - Modify the "Magic Link" template to match your brand
+
+3. **Rate Limits**
+   - Default: 1 magic link request per 60 seconds per email
+   - Adjust in Authentication > Rate Limits if needed
+
+#### How It Works:
+
+1. Users enter their email address on login/register pages
+2. System sends a secure magic link to their email
+3. Clicking the link authenticates them and redirects to the dashboard
+4. New users are prompted to select their account type (Supplier/Buyer/Network)
+
+#### Benefits:
+
+- No passwords to remember or reset
+- Enhanced security (links expire after single use)
+- Reduced friction for users
+- Protection against password-based attacks
+
 ## 🤝 User Roles
 
 ### Suppliers (Traffic Providers)
@@ -220,14 +256,14 @@ netlify deploy --prod
 - Browse active campaigns
 - Generate tracking numbers
 - Monitor call performance
-- Track earnings and payouts
+- Track earnings
 
 ### Buyers (Advertisers)
 
 - Create and manage campaigns
 - Set targeting criteria
 - Monitor lead quality
-- Manage billing and budgets
+- Manage campaign budgets
 
 ### Administrators
 
@@ -243,7 +279,7 @@ netlify deploy --prod
 - Real-time call status updates
 - Duration tracking
 - Quality scoring
-- Automatic payout calculation
+- Performance metrics
 
 ### Campaign Management
 
@@ -251,13 +287,6 @@ netlify deploy --prod
 - Time-based restrictions
 - Budget controls
 - Performance optimization
-
-### Billing & Payments
-
-- Automated invoicing
-- Scheduled payouts
-- Multiple payment methods
-- Transaction history
 
 ### Analytics & Reporting
 
@@ -275,12 +304,7 @@ netlify deploy --prod
    - Check Supabase service status
    - Ensure migrations are applied
 
-2. **Stripe webhook failures**
-   - Verify webhook secret
-   - Use Stripe CLI for local testing
-   - Check webhook logs in Stripe dashboard
-
-3. **Build errors**
+2. **Build errors**
    - Clear node_modules and reinstall
    - Check TypeScript errors with `npm run type-check`
    - Ensure all environment variables are set

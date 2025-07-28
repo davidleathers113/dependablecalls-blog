@@ -1,0 +1,86 @@
+-- Migration: Remove all billing and payment related functionality
+-- This migration removes billing tables, columns, and related objects
+
+-- Drop foreign key constraints first
+ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_invoice_id_fkey;
+ALTER TABLE calls DROP CONSTRAINT IF EXISTS calls_invoice_line_item_id_fkey;
+
+-- Drop billing-related tables
+DROP TABLE IF EXISTS invoice_line_items CASCADE;
+DROP TABLE IF EXISTS invoices CASCADE;
+DROP TABLE IF EXISTS payouts CASCADE;
+DROP TABLE IF EXISTS transactions CASCADE;
+
+-- Remove billing columns from buyers table
+ALTER TABLE buyers 
+  DROP COLUMN IF EXISTS credit_limit,
+  DROP COLUMN IF EXISTS current_balance,
+  DROP COLUMN IF EXISTS auto_recharge_enabled,
+  DROP COLUMN IF EXISTS auto_recharge_threshold,
+  DROP COLUMN IF EXISTS auto_recharge_amount,
+  DROP COLUMN IF EXISTS stripe_customer_id,
+  DROP COLUMN IF EXISTS stripe_payment_method_id;
+
+-- Remove billing columns from suppliers table
+ALTER TABLE suppliers
+  DROP COLUMN IF EXISTS credit_balance,
+  DROP COLUMN IF EXISTS minimum_payout,
+  DROP COLUMN IF EXISTS payout_frequency,
+  DROP COLUMN IF EXISTS stripe_account_id,
+  DROP COLUMN IF EXISTS stripe_onboarding_completed,
+  DROP COLUMN IF EXISTS stripe_capabilities_enabled;
+
+-- Remove pricing columns from campaigns table
+ALTER TABLE campaigns
+  DROP COLUMN IF EXISTS bid_floor,
+  DROP COLUMN IF EXISTS max_bid,
+  DROP COLUMN IF EXISTS daily_budget,
+  DROP COLUMN IF EXISTS monthly_budget,
+  DROP COLUMN IF EXISTS invoice_id;
+
+-- Remove pricing columns from calls table (if it exists)
+ALTER TABLE calls
+  DROP COLUMN IF EXISTS payout_amount,
+  DROP COLUMN IF EXISTS charge_amount,
+  DROP COLUMN IF EXISTS margin_amount,
+  DROP COLUMN IF EXISTS invoice_line_item_id;
+
+-- Drop any billing-related functions
+DROP FUNCTION IF EXISTS calculate_call_pricing CASCADE;
+DROP FUNCTION IF EXISTS process_payout CASCADE;
+DROP FUNCTION IF EXISTS update_buyer_balance CASCADE;
+DROP FUNCTION IF EXISTS update_supplier_balance CASCADE;
+DROP FUNCTION IF EXISTS create_invoice CASCADE;
+DROP FUNCTION IF EXISTS create_transaction CASCADE;
+
+-- Drop any billing-related triggers
+DROP TRIGGER IF EXISTS update_buyer_balance_trigger ON calls;
+DROP TRIGGER IF EXISTS update_supplier_balance_trigger ON calls;
+-- Only drop payout trigger if table exists
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'payouts') THEN
+    DROP TRIGGER IF EXISTS process_payout_trigger ON payouts;
+  END IF;
+END $$;
+
+-- Drop any billing-related indexes
+DROP INDEX IF EXISTS idx_buyers_stripe_customer_id;
+DROP INDEX IF EXISTS idx_suppliers_stripe_account_id;
+DROP INDEX IF EXISTS idx_invoices_buyer_id;
+DROP INDEX IF EXISTS idx_transactions_buyer_id;
+DROP INDEX IF EXISTS idx_payouts_supplier_id;
+
+-- Drop any billing-related views
+DROP VIEW IF EXISTS buyer_balance_summary CASCADE;
+DROP VIEW IF EXISTS supplier_payout_summary CASCADE;
+DROP VIEW IF EXISTS invoice_summary CASCADE;
+
+-- Update any remaining constraints or indexes that might reference removed columns
+-- This is a safety measure to ensure clean removal
+
+-- Add comment to document this change
+COMMENT ON TABLE buyers IS 'Buyer accounts - billing functionality removed';
+COMMENT ON TABLE suppliers IS 'Supplier accounts - billing functionality removed';
+COMMENT ON TABLE campaigns IS 'Campaign configurations - pricing fields removed';
+COMMENT ON TABLE calls IS 'Call activity records - financial fields removed';

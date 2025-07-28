@@ -1,13 +1,8 @@
 import type { Handler } from '@netlify/functions'
 import { withoutAuth, ApiError } from '../../src/lib/auth-middleware'
-import { z } from 'zod'
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-})
-
-type LoginRequest = z.infer<typeof loginSchema>
+import { withCsrfProtection } from './_shared/csrf-middleware'
+import { createSessionCookies } from '../../src/lib/auth-cookies'
+import { LoginSchema, type LoginData, safeValidate, sanitizeInput } from '../../src/lib/validation'
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -29,12 +24,27 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  return withoutAuth(event, async (supabase, request) => {
+  return withCsrfProtection(event, async (event) => {
+    return withoutAuth(event, async (supabase, request) => {
     if (!request.body) {
       throw new ApiError('Request body is required', 400)
     }
 
-    const requestData: LoginRequest = loginSchema.parse(JSON.parse(request.body))
+    // Parse and sanitize input
+    const rawData = JSON.parse(request.body)
+    
+    // Sanitize inputs
+    if (typeof rawData.email === 'string') {
+      rawData.email = sanitizeInput(rawData.email.trim().toLowerCase(), { escapeHtml: true })
+    }
+    
+    // Validate with shared schema
+    const validationResult = safeValidate(LoginSchema, rawData)
+    if (!validationResult.success) {
+      throw new ApiError('Invalid input data', 400, 'VALIDATION_ERROR', validationResult.errors)
+    }
+    
+    const requestData = validationResult.data!
 
     // Authenticate with Supabase
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -90,22 +100,37 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    // Create secure httpOnly cookies for the session
+    const sessionCookies = authData.session ? createSessionCookies(authData.session) : []
+    
     return {
-      success: true,
-      message: 'Login successful',
-      user: {
-        id: authData.user.id,
-        email: authData.user.email,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        userType,
-        needsEmailVerification: !authData.user.email_confirmed_at,
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
+        // Set multiple cookies
+        'Set-Cookie': sessionCookies,
       },
-      session: {
-        access_token: authData.session?.access_token,
-        refresh_token: authData.session?.refresh_token,
-        expires_at: authData.session?.expires_at,
-      },
+      body: JSON.stringify({
+        success: true,
+        message: 'Login successful',
+        user: {
+          id: authData.user.id,
+          email: authData.user.email,
+          firstName: userData.first_name,
+          lastName: userData.last_name,
+          userType,
+          needsEmailVerification: !authData.user.email_confirmed_at,
+        },
+        // Only send non-sensitive session metadata to client
+        session: {
+          expires_at: authData.session?.expires_at,
+        },
+      }),
     }
+    })
   })
 }

@@ -1,5 +1,7 @@
+// MIGRATION PLAN: This file only imports types from @supabase/supabase-js
+// Status: NO MIGRATION NEEDED - type imports don't affect bundle size
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { throttle } from 'lodash'
+import { throttleAdvanced } from '@/utils/throttle'
 import { useSupabase } from './useSupabase'
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
@@ -54,7 +56,7 @@ export function useRealtimeSubscription<T extends TableName>({
   }, [])
 
   const throttledLastEvent = useMemo(
-    () => throttle(commitLastEvent, 100, { leading: true, trailing: true }),
+    () => throttleAdvanced(commitLastEvent, 100, { leading: true, trailing: true }),
     [commitLastEvent]
   )
 

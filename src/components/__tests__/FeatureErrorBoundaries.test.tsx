@@ -1,7 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
-import { PaymentErrorBoundary } from '../payments/PaymentErrorBoundary'
 import { FormErrorBoundary } from '../forms/FormErrorBoundary'
 import { RealtimeErrorBoundary } from '../realtime/RealtimeErrorBoundary'
 import { z } from 'zod'
@@ -11,78 +10,7 @@ vi.mock('@sentry/react', () => ({
   captureException: vi.fn(),
 }))
 
-describe('PaymentErrorBoundary', () => {
-  const ThrowPaymentError = ({ errorType }: { errorType: string }) => {
-    if (errorType === 'card_declined') {
-      throw new Error('Your card was declined')
-    }
-    if (errorType === 'network') {
-      throw new Error('Network connection failed')
-    }
-    return <div>Payment form content</div>
-  }
-
-  it('should catch and display card declined errors', () => {
-    const onRetry = vi.fn()
-    const onUpdatePaymentMethod = vi.fn()
-
-    render(
-      <PaymentErrorBoundary onRetry={onRetry} onUpdatePaymentMethod={onUpdatePaymentMethod}>
-        <ThrowPaymentError errorType="card_declined" />
-      </PaymentErrorBoundary>
-    )
-
-    expect(screen.getByText('Card Declined')).toBeInTheDocument()
-    expect(screen.getByText(/Your card was declined/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Update Payment Method/i })).toBeInTheDocument()
-  })
-
-  it('should handle retry action', () => {
-    const onRetry = vi.fn()
-
-    render(
-      <PaymentErrorBoundary onRetry={onRetry}>
-        <ThrowPaymentError errorType="network" />
-      </PaymentErrorBoundary>
-    )
-
-    const retryButton = screen.getByRole('button', { name: /Try Again/i })
-    fireEvent.click(retryButton)
-
-    expect(onRetry).toHaveBeenCalled()
-  })
-
-  it('should preserve form data on error', () => {
-    const FormWithError = () => {
-      const [shouldError, setShouldError] = React.useState(false)
-
-      if (shouldError) {
-        throw new Error('Payment failed')
-      }
-
-      return (
-        <form>
-          <input name="cardNumber" defaultValue="4242424242424242" />
-          <button type="button" onClick={() => setShouldError(true)}>
-            Trigger Error
-          </button>
-        </form>
-      )
-    }
-
-    render(
-      <PaymentErrorBoundary preserveFormData={true}>
-        <FormWithError />
-      </PaymentErrorBoundary>
-    )
-
-    // Trigger error
-    fireEvent.click(screen.getByText('Trigger Error'))
-
-    // Check that sessionStorage was called (in a real test, you'd mock this)
-    expect(screen.getByText(/Payment Failed/)).toBeInTheDocument()
-  })
-})
+// Payment error boundary tests removed after billing functionality removal
 
 describe('FormErrorBoundary', () => {
   const testSchema = z.object({
@@ -256,18 +184,18 @@ describe('Error Boundary Integration', () => {
     const NormalComponent = () => <div>Normal operation</div>
 
     const { rerender } = render(
-      <PaymentErrorBoundary>
+      <FormErrorBoundary>
         <NormalComponent />
-      </PaymentErrorBoundary>
+      </FormErrorBoundary>
     )
 
     expect(screen.getByText('Normal operation')).toBeInTheDocument()
 
     // Re-render should work normally
     rerender(
-      <PaymentErrorBoundary>
+      <FormErrorBoundary>
         <NormalComponent />
-      </PaymentErrorBoundary>
+      </FormErrorBoundary>
     )
 
     expect(screen.getByText('Normal operation')).toBeInTheDocument()
@@ -280,21 +208,21 @@ describe('Error Boundary Integration', () => {
     const NormalComponent = () => <div>Normal component</div>
 
     const { rerender } = render(
-      <PaymentErrorBoundary>
+      <FormErrorBoundary>
         <ErrorComponent />
-      </PaymentErrorBoundary>
+      </FormErrorBoundary>
     )
 
-    expect(screen.getByText(/Payment Failed/)).toBeInTheDocument()
+    expect(screen.getByText(/Form Error/)).toBeInTheDocument()
 
     // Change to normal component
     rerender(
-      <PaymentErrorBoundary>
+      <FormErrorBoundary>
         <NormalComponent />
-      </PaymentErrorBoundary>
+      </FormErrorBoundary>
     )
 
     expect(screen.getByText('Normal component')).toBeInTheDocument()
-    expect(screen.queryByText(/Payment Failed/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Form Error/)).not.toBeInTheDocument()
   })
 })

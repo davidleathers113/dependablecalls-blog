@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import type { ButtonHTMLAttributes } from 'react'
 import { Slot } from '@radix-ui/react-slot'
+import { prefersReducedMotion } from '../../utils/motion'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
@@ -30,6 +31,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const Comp = asChild ? Slot : 'button'
+    // const prefersReducedMotion = useReducedMotion()
 
     const baseClasses = [
       'inline-flex items-center justify-center font-medium transition-all duration-200',
@@ -83,7 +85,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const content = (
       <>
         {loading && (
-          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <div className={`mr-2 h-4 w-4 rounded-full border-2 border-current border-t-transparent ${prefersReducedMotion ? 'border-dashed' : 'animate-spin'}`} />
         )}
         {!loading && leftIcon && <span className="mr-2">{leftIcon}</span>}
         {children}

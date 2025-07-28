@@ -1,18 +1,17 @@
+import { useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { SettingsLayout } from '../../components/settings/SettingsLayout'
+
 export default function SettingsPage() {
-  return (
-    <div className="py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Manage your account settings and preferences.
-        </p>
-        
-        <div className="mt-8">
-          <div className="bg-white shadow overflow-hidden sm:rounded-md p-6">
-            <p className="text-gray-500">Settings interface coming soon...</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  const navigate = useNavigate()
+  const location = useLocation()
+  
+  useEffect(() => {
+    // Redirect to profile settings if no specific section is selected
+    if (location.pathname === '/app/settings' || location.pathname === '/app/settings/') {
+      navigate('/app/settings/profile', { replace: true })
+    }
+  }, [location.pathname, navigate])
+  
+  return <SettingsLayout />
 }

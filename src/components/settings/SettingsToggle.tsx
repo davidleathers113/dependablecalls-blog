@@ -6,7 +6,7 @@ import { Switch } from '@headlessui/react'
  * Props for the SettingsToggle component
  */
 export interface SettingsToggleProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange'> {
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange' | 'size'> {
   /**
    * The label for the toggle
    */

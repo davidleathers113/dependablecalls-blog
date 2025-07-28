@@ -1,40 +1,20 @@
 import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useAuthStore } from '../../store/authStore'
-
-const registerSchema = z
-  .object({
-    email: z.string().email('Please enter a valid email address'),
-    password: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-      .regex(/[0-9]/, 'Password must contain at least one number'),
-    confirmPassword: z.string(),
-    userType: z.enum(['supplier', 'buyer', 'network'], {
-      message: 'Please select your account type',
-    }),
-    acceptTerms: z.boolean().refine((val) => val === true, {
-      message: 'You must accept the terms and conditions',
-    }),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ['confirmPassword'],
-  })
-
-type RegisterFormData = z.infer<typeof registerSchema>
+import { useCsrfForm } from '../../hooks/useCsrf'
+import { usePageTitle } from '../../hooks/usePageTitle'
+import { registerSchema, type RegisterData } from '../../lib/validation'
 
 export default function RegisterPage() {
-  const navigate = useNavigate()
+  usePageTitle('Register')
   const location = useLocation()
-  const { signUp } = useAuthStore()
+  const { signInWithMagicLink } = useAuthStore()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const { submitWithCsrf } = useCsrfForm<RegisterData>()
 
   // Get selected plan from location state
   const selectedPlan = location.state?.selectedPlan
@@ -44,28 +24,81 @@ export default function RegisterPage() {
     handleSubmit,
     formState: { errors },
     watch,
-  } = useForm<RegisterFormData>({
+  } = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      userType: 'supplier',
+      role: 'supplier',
     },
   })
 
-  const userType = watch('userType')
+  const userType = watch('role')
+  const email = watch('email')
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = submitWithCsrf(async (data) => {
     setError('')
     setLoading(true)
 
     try {
-      await signUp(data.email, data.password, data.userType)
-      navigate('/app/dashboard')
+      // SECURITY FIX: Store non-sensitive registration data only
+      // CSRF tokens and auth data are handled server-side via httpOnly cookies
+      localStorage.setItem('pendingRegistration', JSON.stringify({
+        userType: data.role,
+        selectedPlan,
+        timestamp: Date.now(),
+        // SECURITY: CSRF token removed - handled server-side
+      }))
+      
+      await signInWithMagicLink(data.email)
+      setEmailSent(true)
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create account'
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send verification email'
       setError(errorMessage)
     } finally {
       setLoading(false)
     }
+  })
+
+  if (emailSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+              <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+              Check your email
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              We've sent a verification link to <strong>{email}</strong>
+            </p>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Click the link to verify your email and complete registration.
+            </p>
+          </div>
+          
+          <div className="mt-6 space-y-3">
+            <button
+              onClick={() => {
+                setEmailSent(false)
+                setError('')
+              }}
+              className="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 min-h-[44px]"
+            >
+              Try a different email
+            </button>
+            
+            <div className="text-center">
+              <Link to="/login" className="text-sm font-medium text-primary-600 hover:text-primary-500 py-2 px-3 -mx-3 inline-block min-h-[44px]">
+                Already have an account? Sign in
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -85,7 +118,7 @@ export default function RegisterPage() {
           )}
           <p className="mt-2 text-center text-sm text-gray-600">
             Or{' '}
-            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500 py-2 px-3 -mx-3 inline-block min-h-[44px]">
               sign in to existing account
             </Link>
           </p>
@@ -94,11 +127,12 @@ export default function RegisterPage() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           {/* Account Type Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">I am a...</label>
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 mb-2">I am a...</legend>
             <div className="grid grid-cols-3 gap-3">
               <label className="relative">
                 <input
-                  {...register('userType')}
+                  {...register('role')}
                   type="radio"
                   value="supplier"
                   className="sr-only"
@@ -115,7 +149,7 @@ export default function RegisterPage() {
                 </div>
               </label>
               <label className="relative">
-                <input {...register('userType')} type="radio" value="buyer" className="sr-only" />
+                <input {...register('role')} type="radio" value="buyer" className="sr-only" />
                 <div
                   className={`border rounded-lg p-4 cursor-pointer text-center ${
                     userType === 'buyer'
@@ -128,7 +162,7 @@ export default function RegisterPage() {
                 </div>
               </label>
               <label className="relative">
-                <input {...register('userType')} type="radio" value="network" className="sr-only" />
+                <input {...register('role')} type="radio" value="network" className="sr-only" />
                 <div
                   className={`border rounded-lg p-4 cursor-pointer text-center ${
                     userType === 'network'
@@ -141,9 +175,10 @@ export default function RegisterPage() {
                 </div>
               </label>
             </div>
+            </fieldset>
           </div>
-          {errors.userType && (
-            <p className="mt-1 text-sm text-red-600">{errors.userType.message}</p>
+          {errors.role && (
+            <p id="usertype-error" className="mt-1 text-sm text-red-600" role="alert">{errors.role.message}</p>
           )}
 
           <div className="space-y-4">
@@ -153,66 +188,38 @@ export default function RegisterPage() {
               </label>
               <input
                 {...register('email')}
+                id="email"
                 type="email"
                 autoComplete="email"
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder="Enter your email"
+                aria-describedby={errors.email ? 'email-error' : undefined}
               />
-              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                {...register('password')}
-                type="password"
-                autoComplete="new-password"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Create a password"
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <input
-                {...register('confirmPassword')}
-                type="password"
-                autoComplete="new-password"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm your password"
-              />
-              {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
-              )}
+              {errors.email && <p id="email-error" className="mt-1 text-sm text-red-600" role="alert">{errors.email.message}</p>}
             </div>
           </div>
 
           <div className="flex items-start">
             <input
               {...register('acceptTerms')}
+              id="acceptTerms"
               type="checkbox"
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              aria-describedby={errors.acceptTerms ? 'terms-error' : undefined}
             />
-            <label className="ml-2 block text-sm text-gray-900">
+            <label htmlFor="acceptTerms" className="ml-2 block text-sm text-gray-900">
               I agree to the{' '}
-              <Link to="/terms" className="text-primary-600 hover:text-primary-500">
+              <Link to="/terms" className="text-primary-600 hover:text-primary-500 py-2 px-3 -mx-3 inline-block min-h-[44px]">
                 Terms and Conditions
               </Link>{' '}
               and{' '}
-              <Link to="/privacy" className="text-primary-600 hover:text-primary-500">
+              <Link to="/privacy" className="text-primary-600 hover:text-primary-500 py-2 px-3 -mx-3 inline-block min-h-[44px]">
                 Privacy Policy
               </Link>
             </label>
           </div>
           {errors.acceptTerms && (
-            <p className="mt-1 text-sm text-red-600">{errors.acceptTerms.message}</p>
+            <p id="terms-error" className="mt-1 text-sm text-red-600" role="alert">{errors.acceptTerms.message}</p>
           )}
 
           {error && (
@@ -229,9 +236,9 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? 'Sending verification email...' : 'Send verification email'}
             </button>
           </div>
         </form>

@@ -1,12 +1,11 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { supabase } from '../lib/supabase'
+// Mock implementation - all database calls replaced with mock data
 import type {
   Network,
   NetworkCampaign,
   NetworkMetrics,
   NetworkRelationship,
-  RoutingRule,
 } from '../types/network'
 
 interface NetworkState {
@@ -19,63 +18,97 @@ interface NetworkState {
   // UI state
   isLoading: boolean
   error: string | null
-  selectedMode: 'buyer' | 'supplier' | 'network'
+  selectedMode: 'network' | 'supplier' | 'buyer'
 
   // Actions
   setNetwork: (network: Network | null) => void
-  setSelectedMode: (mode: 'buyer' | 'supplier' | 'network') => void
+  setSelectedMode: (mode: 'network' | 'supplier' | 'buyer') => void
+  
+  // Mock async actions
   fetchNetworkData: (networkId: string) => Promise<void>
   fetchCampaigns: () => Promise<void>
   fetchRelationships: () => Promise<void>
-  fetchMetrics: (dateRange: { start: string; end: string }) => Promise<void>
-
-  // Campaign management
-  createCampaign: (campaign: Partial<NetworkCampaign>) => Promise<NetworkCampaign>
+  fetchMetrics: () => Promise<void>
+  createCampaign: (campaign: Partial<NetworkCampaign>) => Promise<void>
   updateCampaign: (id: string, updates: Partial<NetworkCampaign>) => Promise<void>
   deleteCampaign: (id: string) => Promise<void>
-
-  // Relationship management
-  addRelationship: (relationship: Partial<NetworkRelationship>) => Promise<NetworkRelationship>
+  addRelationship: (relationship: Partial<NetworkRelationship>) => Promise<void>
   updateRelationship: (id: string, updates: Partial<NetworkRelationship>) => Promise<void>
   removeRelationship: (id: string) => Promise<void>
-
-  // Routing management
-  updateRoutingRules: (rules: RoutingRule[]) => Promise<void>
-
-  // Real-time subscriptions
-  subscribeToUpdates: () => () => void
-
-  // Reset
+  clearError: () => void
   reset: () => void
+}
+
+const initialState = {
+  network: null,
+  campaigns: [],
+  relationships: [],
+  metrics: null,
+  isLoading: false,
+  error: null,
+  selectedMode: 'network' as const,
 }
 
 export const useNetworkStore = create<NetworkState>()(
   subscribeWithSelector((set, get) => ({
-    // Initial state
-    network: null,
-    campaigns: [],
-    relationships: [],
-    metrics: null,
-    isLoading: false,
-    error: null,
-    selectedMode: 'network',
+    ...initialState,
 
     // Basic setters
     setNetwork: (network) => set({ network }),
     setSelectedMode: (mode) => set({ selectedMode: mode }),
 
-    // Fetch network data
-    fetchNetworkData: async (networkId) => {
+    // Mock async actions
+    fetchNetworkData: async (networkId: string) => {
       set({ isLoading: true, error: null })
       try {
-        const { data, error } = await supabase
-          .from('networks')
-          .select('*')
-          .eq('id', networkId)
-          .single()
-
-        if (error) throw error
-        set({ network: data, isLoading: false })
+        // Mock network data
+        const mockNetwork: Network = {
+          id: networkId,
+          user_id: 'user-123',
+          company_name: 'Mock Network',
+          buyer_status: 'active',
+          credit_limit: 10000,
+          current_balance: 5000,
+          supplier_status: 'active',
+          credit_balance: 2000,
+          margin_percentage: 20,
+          routing_rules: [],
+          quality_thresholds: {
+            minimum_duration: 30,
+            maximum_duration: 3600,
+            required_fields: ['phone', 'email'],
+            blocked_numbers: [],
+            allowed_states: [],
+            business_hours: {
+              timezone: 'America/New_York',
+              schedule: {}
+            }
+          },
+          approved_suppliers: [],
+          approved_buyers: [],
+          settings: {
+            auto_accept_calls: false,
+            auto_route_calls: true,
+            margin_type: 'percentage',
+            minimum_margin: 5,
+            payment_terms: 30,
+            notifications: {
+              email_alerts: true,
+              sms_alerts: false,
+              webhook_url: undefined,
+              alert_thresholds: {
+                low_margin: 10,
+                high_rejection_rate: 30,
+                low_quality_score: 70
+              }
+            }
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          // created_at: new Date().toISOString(), // Not in NetworkCampaign interface
+          // updated_at: new Date().toISOString()
+        }
+        set({ network: mockNetwork, isLoading: false })
       } catch (error) {
         set({
           error: error instanceof Error ? error.message : 'Failed to fetch network data',
@@ -84,21 +117,26 @@ export const useNetworkStore = create<NetworkState>()(
       }
     },
 
-    // Fetch campaigns
     fetchCampaigns: async () => {
-      const { network } = get()
-      if (!network) return
-
       set({ isLoading: true, error: null })
       try {
-        const { data, error } = await supabase
-          .from('network_campaigns')
-          .select('*')
-          .eq('network_id', network.id)
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-        set({ campaigns: data || [], isLoading: false })
+        // Mock campaigns data
+        const mockCampaigns: NetworkCampaign[] = [
+          {
+            id: '1',
+            network_id: '1',
+            name: 'Mock Campaign 1',
+            status: 'active',
+            supplier_campaigns: [],
+            source_filters: [],
+            buyer_campaigns: [],
+            distribution_rules: [],
+            floor_price: 0,
+            ceiling_price: 100,
+            current_count: 0
+          }
+        ]
+        set({ campaigns: mockCampaigns, isLoading: false })
       } catch (error) {
         set({
           error: error instanceof Error ? error.message : 'Failed to fetch campaigns',
@@ -107,20 +145,23 @@ export const useNetworkStore = create<NetworkState>()(
       }
     },
 
-    // Fetch relationships
     fetchRelationships: async () => {
-      const { network } = get()
-      if (!network) return
-
       set({ isLoading: true, error: null })
       try {
-        const { data, error } = await supabase
-          .from('network_relationships')
-          .select('*')
-          .eq('network_id', network.id)
-
-        if (error) throw error
-        set({ relationships: data || [], isLoading: false })
+        // Mock relationships data
+        const mockRelationships: NetworkRelationship[] = [
+          {
+            id: '1',
+            network_id: '1',
+            entity_id: '1',
+            entity_type: 'supplier',
+            status: 'active',
+            notes: 'Primary supplier relationship',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ]
+        set({ relationships: mockRelationships, isLoading: false })
       } catch (error) {
         set({
           error: error instanceof Error ? error.message : 'Failed to fetch relationships',
@@ -129,23 +170,25 @@ export const useNetworkStore = create<NetworkState>()(
       }
     },
 
-    // Fetch metrics
-    fetchMetrics: async (dateRange) => {
-      const { network } = get()
-      if (!network) return
-
+    fetchMetrics: async () => {
       set({ isLoading: true, error: null })
       try {
-        const { data, error } = await supabase
-          .from('network_metrics')
-          .select('*')
-          .eq('network_id', network.id)
-          .gte('date', dateRange.start)
-          .lte('date', dateRange.end)
-          .single()
-
-        if (error) throw error
-        set({ metrics: data, isLoading: false })
+        // Mock metrics data
+        const mockMetrics: NetworkMetrics = {
+          network_id: '1',
+          date: new Date().toISOString(),
+          calls_purchased: 500,
+          total_cost: 12500,
+          average_cost_per_call: 25.0,
+          calls_sold: 1000,
+          total_revenue: 25000,
+          average_revenue_per_call: 25.0,
+          gross_margin: 12500,
+          net_margin: 10000,
+          rejection_rate: 5.0,
+          quality_score: 85.0
+        }
+        set({ metrics: mockMetrics, isLoading: false })
       } catch (error) {
         set({
           error: error instanceof Error ? error.message : 'Failed to fetch metrics',
@@ -154,195 +197,124 @@ export const useNetworkStore = create<NetworkState>()(
       }
     },
 
-    // Create campaign
-    createCampaign: async (campaign) => {
-      const { network } = get()
-      if (!network) throw new Error('No network selected')
-
-      const { data, error } = await supabase
-        .from('network_campaigns')
-        .insert({
-          ...campaign,
-          network_id: network.id,
+    createCampaign: async (campaign: Partial<NetworkCampaign>) => {
+      set({ isLoading: true, error: null })
+      try {
+        // Mock create campaign
+        const newCampaign: NetworkCampaign = {
+          id: Date.now().toString(),
+          network_id: '1',
+          name: campaign.name || 'New Campaign',
+          status: 'active',
+          supplier_campaigns: [],
+          source_filters: [],
+          buyer_campaigns: [],
+          distribution_rules: [],
+          floor_price: 0,
+          ceiling_price: 100,
+          current_count: 0
+        }
+        
+        const currentCampaigns = get().campaigns
+        set({ campaigns: [...currentCampaigns, newCampaign], isLoading: false })
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : 'Failed to create campaign',
+          isLoading: false,
         })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      set((state) => ({
-        campaigns: [data, ...state.campaigns],
-      }))
-
-      return data
-    },
-
-    // Update campaign
-    updateCampaign: async (id, updates) => {
-      const { data, error } = await supabase
-        .from('network_campaigns')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      set((state) => ({
-        campaigns: state.campaigns.map((c) => (c.id === id ? data : c)),
-      }))
-    },
-
-    // Delete campaign
-    deleteCampaign: async (id) => {
-      const { error } = await supabase.from('network_campaigns').delete().eq('id', id)
-
-      if (error) throw error
-
-      set((state) => ({
-        campaigns: state.campaigns.filter((c) => c.id !== id),
-      }))
-    },
-
-    // Add relationship
-    addRelationship: async (relationship) => {
-      const { network } = get()
-      if (!network) throw new Error('No network selected')
-
-      const { data, error } = await supabase
-        .from('network_relationships')
-        .insert({
-          ...relationship,
-          network_id: network.id,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      set((state) => ({
-        relationships: [...state.relationships, data],
-      }))
-
-      return data
-    },
-
-    // Update relationship
-    updateRelationship: async (id, updates) => {
-      const { data, error } = await supabase
-        .from('network_relationships')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      set((state) => ({
-        relationships: state.relationships.map((r) => (r.id === id ? data : r)),
-      }))
-    },
-
-    // Remove relationship
-    removeRelationship: async (id) => {
-      const { error } = await supabase.from('network_relationships').delete().eq('id', id)
-
-      if (error) throw error
-
-      set((state) => ({
-        relationships: state.relationships.filter((r) => r.id !== id),
-      }))
-    },
-
-    // Update routing rules
-    updateRoutingRules: async (rules) => {
-      const { network } = get()
-      if (!network) throw new Error('No network selected')
-
-      const { error } = await supabase
-        .from('networks')
-        .update({ routing_rules: rules })
-        .eq('id', network.id)
-
-      if (error) throw error
-
-      set((state) => ({
-        network: state.network ? { ...state.network, routing_rules: rules } : null,
-      }))
-    },
-
-    // Subscribe to real-time updates
-    subscribeToUpdates: () => {
-      const { network } = get()
-      if (!network) return () => {}
-
-      // Subscribe to campaign updates
-      const campaignSub = supabase
-        .channel(`network-campaigns-${network.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'network_campaigns',
-            filter: `network_id=eq.${network.id}`,
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              set((state) => ({
-                campaigns: [payload.new as NetworkCampaign, ...state.campaigns],
-              }))
-            } else if (payload.eventType === 'UPDATE') {
-              set((state) => ({
-                campaigns: state.campaigns.map((c) =>
-                  c.id === payload.new.id ? (payload.new as NetworkCampaign) : c
-                ),
-              }))
-            } else if (payload.eventType === 'DELETE') {
-              set((state) => ({
-                campaigns: state.campaigns.filter((c) => c.id !== payload.old.id),
-              }))
-            }
-          }
-        )
-        .subscribe()
-
-      // Subscribe to metrics updates
-      const metricsSub = supabase
-        .channel(`network-metrics-${network.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'network_metrics',
-            filter: `network_id=eq.${network.id}`,
-          },
-          (payload) => {
-            if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-              set({ metrics: payload.new as NetworkMetrics })
-            }
-          }
-        )
-        .subscribe()
-
-      // Return cleanup function
-      return () => {
-        campaignSub.unsubscribe()
-        metricsSub.unsubscribe()
       }
     },
 
-    // Reset store
-    reset: () =>
-      set({
-        network: null,
-        campaigns: [],
-        relationships: [],
-        metrics: null,
-        isLoading: false,
-        error: null,
-        selectedMode: 'network',
-      }),
+    updateCampaign: async (id: string, updates: Partial<NetworkCampaign>) => {
+      set({ isLoading: true, error: null })
+      try {
+        // Mock update campaign
+        const currentCampaigns = get().campaigns
+        const updatedCampaigns = currentCampaigns.map((campaign: NetworkCampaign) =>
+          campaign.id === id ? { ...campaign, ...updates, updated_at: new Date().toISOString() } : campaign
+        )
+        set({ campaigns: updatedCampaigns, isLoading: false })
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : 'Failed to update campaign',
+          isLoading: false,
+        })
+      }
+    },
+
+    deleteCampaign: async (id: string) => {
+      set({ isLoading: true, error: null })
+      try {
+        // Mock delete campaign
+        const currentCampaigns = get().campaigns
+        const filteredCampaigns = currentCampaigns.filter((campaign: NetworkCampaign) => campaign.id !== id)
+        set({ campaigns: filteredCampaigns, isLoading: false })
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : 'Failed to delete campaign',
+          isLoading: false,
+        })
+      }
+    },
+
+    addRelationship: async () => {
+      set({ isLoading: true, error: null })
+      try {
+        // Mock add relationship
+        const newRelationship: NetworkRelationship = {
+          id: Date.now().toString(),
+          network_id: '1',
+          entity_id: '1',
+          entity_type: 'supplier',
+          status: 'active',
+          notes: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        
+        const currentRelationships = get().relationships
+        set({ relationships: [...currentRelationships, newRelationship], isLoading: false })
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : 'Failed to add relationship',
+          isLoading: false,
+        })
+      }
+    },
+
+    updateRelationship: async (id: string, updates: Partial<NetworkRelationship>) => {
+      set({ isLoading: true, error: null })
+      try {
+        // Mock update relationship
+        const currentRelationships = get().relationships
+        const updatedRelationships = currentRelationships.map((rel: NetworkRelationship) =>
+          rel.id === id ? { ...rel, ...updates } : rel
+        )
+        set({ relationships: updatedRelationships, isLoading: false })
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : 'Failed to update relationship',
+          isLoading: false,
+        })
+      }
+    },
+
+    removeRelationship: async (id: string) => {
+      set({ isLoading: true, error: null })
+      try {
+        // Mock remove relationship
+        const currentRelationships = get().relationships
+        const filteredRelationships = currentRelationships.filter((rel: NetworkRelationship) => rel.id !== id)
+        set({ relationships: filteredRelationships, isLoading: false })
+      } catch (error) {
+        set({
+          error: error instanceof Error ? error.message : 'Failed to remove relationship',
+          isLoading: false,
+        })
+      }
+    },
+
+    clearError: () => set({ error: null }),
+    reset: () => set(initialState),
   }))
 )

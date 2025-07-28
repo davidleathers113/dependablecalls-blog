@@ -1,0 +1,859 @@
+name: Container Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+      - '.github/workflows/container-security-scan.yml'
+      - 'scripts/container-security/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+      - '.github/workflows/container-security-scan.yml'
+      - 'scripts/container-security/**'
+  schedule:
+    # Run daily at 3 AM UTC for base image monitoring
+    - cron: '0 3 * * *'
+    # Run every 6 hours for critical vulnerability monitoring
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of container security scan'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+        - full
+        - base-images-only
+        - built-images-only
+        - compliance-only
+      severity_threshold:
+        description: 'Minimum severity to report'
+        required: false
+        default: 'medium'
+        type: choice
+        options:
+        - low
+        - medium
+        - high
+        - critical
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # =============================================================================
+  # BASE IMAGE VULNERABILITY SCANNING
+  # =============================================================================
+  base-image-security:
+    name: Base Image Security Assessment
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'base-images-only' || github.event.inputs.scan_type == '' }}
+    
+    strategy:
+      matrix:
+        base_image:
+          - "node:22-alpine"
+          - "nginx:1.26-alpine"
+          - "redis:7.4-alpine"
+          - "gcr.io/distroless/nodejs22-debian12:nonroot"
+    
+    outputs:
+      critical-vulns-found: ${{ steps.vulnerability-summary.outputs.critical-found }}
+      security-scan-results: ${{ steps.vulnerability-summary.outputs.scan-results }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Install security scanning tools
+        run: |
+          # Install Trivy
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+          
+          # Install Grype
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          
+          # Install Docker Scout
+          curl -fsSL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh | sh
+      
+      - name: Pull and scan base image
+        id: base-scan
+        run: |
+          IMAGE="${{ matrix.base_image }}"
+          SAFE_NAME=$(echo "$IMAGE" | tr '/:@' '_')
+          
+          echo "Scanning base image: $IMAGE"
+          
+          # Pull the image
+          docker pull "$IMAGE"
+          
+          # Create scan results directory
+          mkdir -p security-scan-results/base-images
+          
+          # Trivy scan with multiple formats
+          echo "Running Trivy scan..."
+          trivy image --format json --output "security-scan-results/base-images/trivy_${SAFE_NAME}.json" "$IMAGE"
+          trivy image --format sarif --output "security-scan-results/base-images/trivy_${SAFE_NAME}.sarif" "$IMAGE"
+          trivy image --format table --output "security-scan-results/base-images/trivy_${SAFE_NAME}.txt" "$IMAGE"
+          
+          # Grype scan
+          echo "Running Grype scan..."
+          grype "$IMAGE" -o json > "security-scan-results/base-images/grype_${SAFE_NAME}.json" || true
+          grype "$IMAGE" -o sarif > "security-scan-results/base-images/grype_${SAFE_NAME}.sarif" || true
+          
+          # Docker Scout scan
+          echo "Running Docker Scout scan..."
+          docker scout cves --format json "$IMAGE" > "security-scan-results/base-images/scout_${SAFE_NAME}.json" 2>/dev/null || true
+          docker scout cves --format sarif "$IMAGE" > "security-scan-results/base-images/scout_${SAFE_NAME}.sarif" 2>/dev/null || true
+          
+          # Extract vulnerability counts from Trivy results
+          CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "security-scan-results/base-images/trivy_${SAFE_NAME}.json" 2>/dev/null || echo 0)
+          HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "security-scan-results/base-images/trivy_${SAFE_NAME}.json" 2>/dev/null || echo 0)
+          MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "security-scan-results/base-images/trivy_${SAFE_NAME}.json" 2>/dev/null || echo 0)
+          LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' "security-scan-results/base-images/trivy_${SAFE_NAME}.json" 2>/dev/null || echo 0)
+          
+          echo "vulnerability-summary-${SAFE_NAME}=Critical: $CRITICAL, High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
+          echo "critical-count-${SAFE_NAME}=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "image-scanned-${SAFE_NAME}=$IMAGE" >> $GITHUB_OUTPUT
+          
+          # Generate vulnerability report
+          cat > "security-scan-results/base-images/report_${SAFE_NAME}.md" << EOF
+          # Base Image Security Report
+          
+          **Image:** \`$IMAGE\`  
+          **Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')  
+          **Scanner:** Trivy $(trivy --version | head -1)
+          
+          ## Vulnerability Summary
+          
+          | Severity | Count |
+          |----------|-------|
+          | Critical | $CRITICAL |
+          | High     | $HIGH |
+          | Medium   | $MEDIUM |
+          | Low      | $LOW |
+          
+          ## Critical Vulnerabilities
+          
+          \`\`\`
+          $(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | "- \(.VulnerabilityID): \(.Title // .Description // "No description") (\(.PkgName)@\(.InstalledVersion))"' "security-scan-results/base-images/trivy_${SAFE_NAME}.json" 2>/dev/null | head -10)
+          \`\`\`
+          
+          ## High Severity Vulnerabilities
+          
+          \`\`\`
+          $(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | "- \(.VulnerabilityID): \(.Title // .Description // "No description") (\(.PkgName)@\(.InstalledVersion))"' "security-scan-results/base-images/trivy_${SAFE_NAME}.json" 2>/dev/null | head -15)
+          \`\`\`
+          
+          ## Recommendations
+          
+          1. Update to the latest base image version
+          2. Consider alternative base images with fewer vulnerabilities
+          3. Monitor for security updates regularly
+          4. Implement automated base image updates
+          
+          ---
+          *Generated by Container Security Scanning workflow*
+          EOF
+      
+      - name: Analyze vulnerability impact
+        id: vulnerability-summary
+        run: |
+          CRITICAL_TOTAL=0
+          HIGH_TOTAL=0
+          SCAN_RESULTS=""
+          
+          for json_file in security-scan-results/base-images/trivy_*.json; do
+            if [[ -f "$json_file" ]]; then
+              CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$json_file" 2>/dev/null || echo 0)
+              HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$json_file" 2>/dev/null || echo 0)
+              
+              CRITICAL_TOTAL=$((CRITICAL_TOTAL + CRITICAL))
+              HIGH_TOTAL=$((HIGH_TOTAL + HIGH))
+              
+              IMAGE_NAME=$(basename "$json_file" .json | sed 's/trivy_//')
+              SCAN_RESULTS="${SCAN_RESULTS}${IMAGE_NAME}: Critical: $CRITICAL, High: $HIGH\\n"
+            fi
+          done
+          
+          echo "critical-found=$([[ $CRITICAL_TOTAL -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "critical-total=$CRITICAL_TOTAL" >> $GITHUB_OUTPUT
+          echo "high-total=$HIGH_TOTAL" >> $GITHUB_OUTPUT
+          echo "scan-results<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$SCAN_RESULTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Create summary table
+          cat > security-scan-results/base-image-summary.md << EOF
+          # Base Image Security Summary
+          
+          **Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')  
+          **Total Critical Vulnerabilities:** $CRITICAL_TOTAL  
+          **Total High Severity Vulnerabilities:** $HIGH_TOTAL  
+          
+          ## Per-Image Results
+          
+          $(echo -e "$SCAN_RESULTS" | sed 's/: Critical:/|Critical:|/g; s/, High:/|High:|/g' | sed 's/^/|/; s/$/|/' | sed '1i|Image|Critical|High|' | sed '2i|-----|---------|-----|')
+          
+          ## Action Required
+          
+          $([[ $CRITICAL_TOTAL -gt 0 ]] && echo "🔴 **IMMEDIATE ACTION REQUIRED:** $CRITICAL_TOTAL critical vulnerabilities found!" || echo "✅ No critical vulnerabilities found in base images")
+          
+          EOF
+      
+      - name: Upload base image SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: security-scan-results/base-images/
+          category: 'base-image-vulnerabilities'
+      
+      - name: Upload base image scan artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: base-image-security-results-${{ github.run_number }}
+          path: |
+            security-scan-results/base-images/
+          retention-days: 30
+
+  # =============================================================================
+  # BUILT CONTAINER IMAGE SCANNING
+  # =============================================================================
+  built-image-security:
+    name: Built Container Security Assessment
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'built-images-only' || github.event.inputs.scan_type == '' }}
+    needs: base-image-security
+    
+    strategy:
+      matrix:
+        dockerfile:
+          - { path: "Dockerfile", target: "runtime", name: "production" }
+          - { path: "Dockerfile.dev", target: "", name: "development" }
+    
+    outputs:
+      built-critical-vulns: ${{ steps.built-vulnerability-summary.outputs.critical-found }}
+      security-gate-passed: ${{ steps.security-gate.outputs.passed }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Install security scanning tools
+        run: |
+          # Install Trivy
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+          
+          # Install Grype
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+      
+      - name: Build container image
+        id: build
+        run: |
+          DOCKERFILE="${{ matrix.dockerfile.path }}"
+          TARGET="${{ matrix.dockerfile.target }}"
+          IMAGE_NAME="dce-website-${{ matrix.dockerfile.name }}"
+          
+          echo "Building image from $DOCKERFILE..."
+          
+          if [[ -n "$TARGET" ]]; then
+            docker build -f "$DOCKERFILE" --target "$TARGET" -t "$IMAGE_NAME:test" .
+          else
+            docker build -f "$DOCKERFILE" -t "$IMAGE_NAME:test" .
+          fi
+          
+          echo "image-name=$IMAGE_NAME:test" >> $GITHUB_OUTPUT
+          echo "dockerfile-name=${{ matrix.dockerfile.name }}" >> $GITHUB_OUTPUT
+      
+      - name: Scan built container image
+        id: container-scan
+        run: |
+          IMAGE_NAME="${{ steps.build.outputs.image-name }}"
+          DOCKERFILE_NAME="${{ steps.build.outputs.dockerfile-name }}"
+          
+          echo "Scanning built container: $IMAGE_NAME"
+          
+          # Create scan results directory
+          mkdir -p security-scan-results/built-images
+          
+          # Trivy scan for vulnerabilities and misconfigurations
+          echo "Running Trivy vulnerability scan..."
+          trivy image --format json --output "security-scan-results/built-images/trivy_vulns_${DOCKERFILE_NAME}.json" "$IMAGE_NAME"
+          trivy image --format sarif --output "security-scan-results/built-images/trivy_vulns_${DOCKERFILE_NAME}.sarif" "$IMAGE_NAME"
+          
+          # Trivy configuration scan
+          echo "Running Trivy configuration scan..."
+          trivy config --format json --output "security-scan-results/built-images/trivy_config_${DOCKERFILE_NAME}.json" .
+          trivy config --format sarif --output "security-scan-results/built-images/trivy_config_${DOCKERFILE_NAME}.sarif" .
+          
+          # Grype scan
+          echo "Running Grype scan..."
+          grype "$IMAGE_NAME" -o json > "security-scan-results/built-images/grype_${DOCKERFILE_NAME}.json" || true
+          grype "$IMAGE_NAME" -o sarif > "security-scan-results/built-images/grype_${DOCKERFILE_NAME}.sarif" || true
+          
+          # Extract vulnerability counts
+          CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "security-scan-results/built-images/trivy_vulns_${DOCKERFILE_NAME}.json" 2>/dev/null || echo 0)
+          HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "security-scan-results/built-images/trivy_vulns_${DOCKERFILE_NAME}.json" 2>/dev/null || echo 0)
+          MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "security-scan-results/built-images/trivy_vulns_${DOCKERFILE_NAME}.json" 2>/dev/null || echo 0)
+          LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' "security-scan-results/built-images/trivy_vulns_${DOCKERFILE_NAME}.json" 2>/dev/null || echo 0)
+          
+          echo "critical-$DOCKERFILE_NAME=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high-$DOCKERFILE_NAME=$HIGH" >> $GITHUB_OUTPUT
+          echo "medium-$DOCKERFILE_NAME=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "low-$DOCKERFILE_NAME=$LOW" >> $GITHUB_OUTPUT
+          
+          # Generate built image report
+          cat > "security-scan-results/built-images/report_${DOCKERFILE_NAME}.md" << EOF
+          # Built Container Security Report
+          
+          **Image:** \`$IMAGE_NAME\`  
+          **Dockerfile:** \`${{ matrix.dockerfile.path }}\`  
+          **Target:** \`${{ matrix.dockerfile.target }}\`  
+          **Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')  
+          
+          ## Vulnerability Summary
+          
+          | Severity | Count |
+          |----------|-------|
+          | Critical | $CRITICAL |
+          | High     | $HIGH |
+          | Medium   | $MEDIUM |
+          | Low      | $LOW |
+          
+          ## Critical Issues Requiring Immediate Attention
+          
+          \`\`\`
+          $(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | "🔴 \(.VulnerabilityID): \(.Title // .Description // "No description")\n   Package: \(.PkgName)@\(.InstalledVersion)\n   Fixed: \(.FixedVersion // "No fix available")\n"' "security-scan-results/built-images/trivy_vulns_${DOCKERFILE_NAME}.json" 2>/dev/null | head -20)
+          \`\`\`
+          
+          ## Configuration Issues
+          
+          \`\`\`
+          $(jq -r '.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL" or .Severity == "HIGH") | "⚠️  \(.ID): \(.Title)\n   Status: \(.Status)\n   Severity: \(.Severity)\n"' "security-scan-results/built-images/trivy_config_${DOCKERFILE_NAME}.json" 2>/dev/null | head -10)
+          \`\`\`
+          
+          ## Security Recommendations
+          
+          1. **Immediate:** Address all critical vulnerabilities
+          2. **High Priority:** Update packages with high severity issues
+          3. **Configuration:** Fix container misconfigurations
+          4. **Monitoring:** Implement runtime security monitoring
+          
+          EOF
+      
+      - name: Container compliance check
+        id: compliance-check
+        run: |
+          DOCKERFILE_NAME="${{ steps.build.outputs.dockerfile-name }}"
+          IMAGE_NAME="${{ steps.build.outputs.image-name }}"
+          
+          echo "Running container compliance checks..."
+          
+          # Check if running as non-root
+          ROOT_USER=$(docker run --rm "$IMAGE_NAME" id -u 2>/dev/null || echo "unknown")
+          if [[ "$ROOT_USER" == "0" ]]; then
+            echo "❌ COMPLIANCE FAIL: Container running as root user"
+            echo "root-user-violation=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ COMPLIANCE PASS: Container running as non-root user (UID: $ROOT_USER)"
+            echo "root-user-violation=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for sensitive files
+          echo "Checking for sensitive files..."
+          SENSITIVE_FILES=$(docker run --rm "$IMAGE_NAME" find / -name "*.key" -o -name "*.pem" -o -name "*password*" -o -name "*secret*" 2>/dev/null | head -10 || true)
+          if [[ -n "$SENSITIVE_FILES" ]]; then
+            echo "⚠️  POTENTIAL SENSITIVE FILES FOUND:"
+            echo "$SENSITIVE_FILES"
+            echo "sensitive-files-found=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No obvious sensitive files found"
+            echo "sensitive-files-found=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check image size
+          IMAGE_SIZE=$(docker inspect "$IMAGE_NAME" --format='{{.Size}}' | awk '{print int($1/1024/1024)}')
+          echo "📊 Image size: ${IMAGE_SIZE}MB"
+          echo "image-size-mb=$IMAGE_SIZE" >> $GITHUB_OUTPUT
+          
+          if [[ $IMAGE_SIZE -gt 500 ]]; then
+            echo "⚠️  Large image size detected (${IMAGE_SIZE}MB > 500MB)"
+            echo "large-image-warning=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Image size within acceptable range"
+            echo "large-image-warning=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Security gate evaluation
+        id: security-gate
+        run: |
+          DOCKERFILE_NAME="${{ steps.build.outputs.dockerfile-name }}"
+          CRITICAL="${{ steps.container-scan.outputs[format('critical-{0}', steps.build.outputs.dockerfile-name)] }}"
+          HIGH="${{ steps.container-scan.outputs[format('high-{0}', steps.build.outputs.dockerfile-name)] }}"
+          ROOT_VIOLATION="${{ steps.compliance-check.outputs.root-user-violation }}"
+          
+          GATE_PASSED=true
+          FAILURE_REASONS=""
+          
+          # Check critical vulnerabilities (fail on any critical)
+          if [[ "$CRITICAL" -gt 0 ]]; then
+            GATE_PASSED=false
+            FAILURE_REASONS="${FAILURE_REASONS}- $CRITICAL critical vulnerabilities found\n"
+          fi
+          
+          # Check high vulnerabilities (fail on >10 high)
+          if [[ "$HIGH" -gt 10 ]]; then
+            GATE_PASSED=false
+            FAILURE_REASONS="${FAILURE_REASONS}- $HIGH high vulnerabilities (threshold: 10)\n"
+          fi
+          
+          # Check root user violation
+          if [[ "$ROOT_VIOLATION" == "true" ]]; then
+            GATE_PASSED=false
+            FAILURE_REASONS="${FAILURE_REASONS}- Container running as root user\n"
+          fi
+          
+          echo "passed=$GATE_PASSED" >> $GITHUB_OUTPUT
+          echo "failure-reasons<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$FAILURE_REASONS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          if [[ "$GATE_PASSED" == "true" ]]; then
+            echo "✅ Security gate PASSED for $DOCKERFILE_NAME image"
+          else
+            echo "❌ Security gate FAILED for $DOCKERFILE_NAME image:"
+            echo -e "$FAILURE_REASONS"
+          fi
+      
+      - name: Built image vulnerability summary
+        id: built-vulnerability-summary
+        run: |
+          CRITICAL_TOTAL=0
+          HIGH_TOTAL=0
+          
+          for json_file in security-scan-results/built-images/trivy_vulns_*.json; do
+            if [[ -f "$json_file" ]]; then
+              CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$json_file" 2>/dev/null || echo 0)
+              HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$json_file" 2>/dev/null || echo 0)
+              
+              CRITICAL_TOTAL=$((CRITICAL_TOTAL + CRITICAL))
+              HIGH_TOTAL=$((HIGH_TOTAL + HIGH))
+            fi
+          done
+          
+          echo "critical-found=$([[ $CRITICAL_TOTAL -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "critical-total=$CRITICAL_TOTAL" >> $GITHUB_OUTPUT
+          echo "high-total=$HIGH_TOTAL" >> $GITHUB_OUTPUT
+      
+      - name: Upload built image SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: security-scan-results/built-images/
+          category: 'built-container-vulnerabilities'
+      
+      - name: Upload built image scan artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: built-image-security-results-${{ matrix.dockerfile.name }}-${{ github.run_number }}
+          path: |
+            security-scan-results/built-images/
+          retention-days: 30
+
+  # =============================================================================
+  # INFRASTRUCTURE-AS-CODE SECURITY SCANNING
+  # =============================================================================
+  infrastructure-security:
+    name: Infrastructure Security Scanning
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'compliance-only' || github.event.inputs.scan_type == '' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install infrastructure scanning tools
+        run: |
+          # Install Trivy for IaC scanning
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+          
+          # Install Checkov
+          pip install checkov
+          
+          # Install Docker Bench for Security
+          git clone https://github.com/docker/docker-bench-security.git
+          cd docker-bench-security
+          chmod +x docker-bench-security.sh
+      
+      - name: Scan Dockerfiles
+        run: |
+          echo "Scanning Dockerfiles for security best practices..."
+          mkdir -p security-scan-results/infrastructure
+          
+          # Trivy config scan for Dockerfiles
+          trivy config --format json --output security-scan-results/infrastructure/dockerfile-scan.json .
+          trivy config --format sarif --output security-scan-results/infrastructure/dockerfile-scan.sarif .
+          trivy config --format table --output security-scan-results/infrastructure/dockerfile-scan.txt .
+          
+          # Checkov scan for Dockerfiles
+          checkov -f Dockerfile --framework dockerfile --output json --output-file security-scan-results/infrastructure/checkov-dockerfile.json || true
+          checkov -f Dockerfile.dev --framework dockerfile --output json --output-file security-scan-results/infrastructure/checkov-dockerfile-dev.json || true
+      
+      - name: Scan Docker Compose
+        run: |
+          echo "Scanning docker-compose.yml for security issues..."
+          
+          # Trivy config scan for docker-compose
+          trivy config --format json --output security-scan-results/infrastructure/compose-scan.json docker-compose.yml
+          
+          # Checkov scan for docker-compose
+          checkov -f docker-compose.yml --framework docker_compose --output json --output-file security-scan-results/infrastructure/checkov-compose.json || true
+      
+      - name: Scan Netlify configuration
+        run: |
+          echo "Scanning netlify.toml for security misconfigurations..."
+          
+          # Custom security checks for netlify.toml
+          python3 << 'EOF'
+          import toml
+          import json
+          import sys
+          
+          def check_netlify_security(config_file):
+              findings = []
+              
+              try:
+                  with open(config_file, 'r') as f:
+                      config = toml.load(f)
+              except Exception as e:
+                  findings.append({
+                      "severity": "ERROR",
+                      "rule": "NETLIFY_CONFIG_PARSE",
+                      "message": f"Failed to parse netlify.toml: {e}"
+                  })
+                  return findings
+              
+              # Check for security headers
+              headers_found = False
+              if 'headers' in config:
+                  for header_config in config['headers']:
+                      if 'headers' in header_config and 'values' in header_config['headers']:
+                          headers_found = True
+                          values = header_config['headers']['values']
+                          
+                          # Check for essential security headers
+                          required_headers = [
+                              'X-Frame-Options',
+                              'X-Content-Type-Options', 
+                              'X-XSS-Protection',
+                              'Strict-Transport-Security',
+                              'Content-Security-Policy'
+                          ]
+                          
+                          for header in required_headers:
+                              if header not in values:
+                                  findings.append({
+                                      "severity": "MEDIUM",
+                                      "rule": "MISSING_SECURITY_HEADER",
+                                      "message": f"Missing security header: {header}"
+                                  })
+              
+              if not headers_found:
+                  findings.append({
+                      "severity": "HIGH",
+                      "rule": "NO_SECURITY_HEADERS",
+                      "message": "No security headers configured"
+                  })
+              
+              # Check for HTTPS redirects
+              https_redirect_found = False
+              if 'redirects' in config:
+                  for redirect in config['redirects']:
+                      if redirect.get('from', '').startswith('http://') and redirect.get('to', '').startswith('https://'):
+                          https_redirect_found = True
+                          break
+              
+              if not https_redirect_found:
+                  findings.append({
+                      "severity": "MEDIUM",
+                      "rule": "NO_HTTPS_REDIRECT",
+                      "message": "No HTTP to HTTPS redirect configured"
+                  })
+              
+              return findings
+          
+          # Run security check
+          findings = check_netlify_security('netlify.toml')
+          
+          # Save results
+          with open('security-scan-results/infrastructure/netlify-security.json', 'w') as f:
+              json.dump({
+                  "scan_type": "netlify_security",
+                  "findings": findings,
+                  "summary": {
+                      "total": len(findings),
+                      "high": len([f for f in findings if f['severity'] == 'HIGH']),
+                      "medium": len([f for f in findings if f['severity'] == 'MEDIUM']),
+                      "low": len([f for f in findings if f['severity'] == 'LOW'])
+                  }
+              }, f, indent=2)
+          
+          print(f"Netlify security scan completed. Found {len(findings)} issues.")
+          for finding in findings:
+              print(f"  {finding['severity']}: {finding['message']}")
+          EOF
+      
+      - name: Generate infrastructure security report
+        run: |
+          cat > security-scan-results/infrastructure/infrastructure-security-report.md << 'EOF'
+          # Infrastructure Security Report
+          
+          **Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')  
+          **Scope:** Dockerfiles, Docker Compose, Netlify Configuration  
+          
+          ## Summary
+          
+          ### Dockerfile Security Issues
+          ```
+          $(jq -r '.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL" or .Severity == "HIGH") | "- \(.Severity): \(.ID) - \(.Title)"' security-scan-results/infrastructure/dockerfile-scan.json 2>/dev/null | head -10 || echo "No critical/high issues found")
+          ```
+          
+          ### Docker Compose Security Issues  
+          ```
+          $(jq -r '.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL" or .Severity == "HIGH") | "- \(.Severity): \(.ID) - \(.Title)"' security-scan-results/infrastructure/compose-scan.json 2>/dev/null | head -10 || echo "No critical/high issues found")
+          ```
+          
+          ### Netlify Configuration Issues
+          ```
+          $(jq -r '.findings[] | select(.severity == "HIGH" or .severity == "MEDIUM") | "- \(.severity): \(.message)"' security-scan-results/infrastructure/netlify-security.json 2>/dev/null || echo "No issues found")
+          ```
+          
+          ## Recommendations
+          
+          1. **Container Security:** Address Dockerfile misconfigurations
+          2. **Orchestration:** Secure Docker Compose configuration
+          3. **Edge Security:** Enhance Netlify security headers
+          4. **Monitoring:** Implement infrastructure security monitoring
+          
+          ## Next Steps
+          
+          - Review and remediate high/critical findings
+          - Implement infrastructure security policies  
+          - Set up automated infrastructure security scanning
+          - Monitor for configuration drift
+          
+          EOF
+      
+      - name: Upload infrastructure SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: security-scan-results/infrastructure/
+          category: 'infrastructure-security'
+      
+      - name: Upload infrastructure scan artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infrastructure-security-results-${{ github.run_number }}
+          path: |
+            security-scan-results/infrastructure/
+          retention-days: 30
+
+  # =============================================================================
+  # SECURITY SUMMARY AND REPORTING
+  # =============================================================================
+  security-summary:
+    name: Security Summary & Gate Decision
+    runs-on: ubuntu-latest
+    needs: [base-image-security, built-image-security, infrastructure-security]
+    if: always()
+    
+    outputs:
+      security-gate-passed: ${{ steps.final-gate.outputs.passed }}
+      deployment-approved: ${{ steps.final-gate.outputs.deployment-approved }}
+    
+    steps:
+      - name: Download all security artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*security-results*'
+          merge-multiple: true
+          path: all-security-results
+      
+      - name: Compile comprehensive security report
+        id: security-report
+        run: |
+          mkdir -p final-security-report
+          
+          # Aggregate vulnerability counts
+          BASE_CRITICAL=$(find all-security-results -name "*base*trivy*.json" -exec jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' {} \; 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          BASE_HIGH=$(find all-security-results -name "*base*trivy*.json" -exec jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' {} \; 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          
+          BUILT_CRITICAL=$(find all-security-results -name "*built*trivy*.json" -exec jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' {} \; 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          BUILT_HIGH=$(find all-security-results -name "*built*trivy*.json" -exec jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' {} \; 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          
+          TOTAL_CRITICAL=$((BASE_CRITICAL + BUILT_CRITICAL))
+          TOTAL_HIGH=$((BASE_HIGH + BUILT_HIGH))
+          
+          echo "total-critical=$TOTAL_CRITICAL" >> $GITHUB_OUTPUT
+          echo "total-high=$TOTAL_HIGH" >> $GITHUB_OUTPUT
+          echo "base-critical=$BASE_CRITICAL" >> $GITHUB_OUTPUT
+          echo "built-critical=$BUILT_CRITICAL" >> $GITHUB_OUTPUT
+          
+          # Generate executive summary
+          cat > final-security-report/executive-summary.md << EOF
+          # Container Security Executive Summary
+          
+          **Assessment Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')  
+          **Repository:** ${{ github.repository }}  
+          **Branch:** ${{ github.ref_name }}  
+          **Commit:** ${{ github.sha }}  
+          
+          ## Security Status Overview
+          
+          | Category | Critical | High | Status |
+          |----------|----------|------|--------|
+          | Base Images | $BASE_CRITICAL | $BASE_HIGH | $([[ $BASE_CRITICAL -eq 0 ]] && echo "✅ PASS" || echo "❌ FAIL") |
+          | Built Images | $BUILT_CRITICAL | $BUILT_HIGH | $([[ $BUILT_CRITICAL -eq 0 ]] && echo "✅ PASS" || echo "❌ FAIL") |
+          | **TOTAL** | **$TOTAL_CRITICAL** | **$TOTAL_HIGH** | $([[ $TOTAL_CRITICAL -eq 0 ]] && echo "✅ PASS" || echo "❌ FAIL") |
+          
+          ## Risk Assessment
+          
+          $([[ $TOTAL_CRITICAL -gt 0 ]] && echo "🔴 **HIGH RISK:** $TOTAL_CRITICAL critical vulnerabilities require immediate attention" || echo "🟢 **LOW RISK:** No critical vulnerabilities detected")
+          
+          $([[ $TOTAL_HIGH -gt 20 ]] && echo "🟠 **MEDIUM RISK:** $TOTAL_HIGH high-severity vulnerabilities exceed recommended threshold (20)" || echo "🟢 **ACCEPTABLE:** High-severity vulnerabilities within acceptable limits")
+          
+          ## Deployment Recommendation
+          
+          $([[ $TOTAL_CRITICAL -eq 0 && $TOTAL_HIGH -le 20 ]] && echo "✅ **APPROVED FOR DEPLOYMENT**" || echo "❌ **DEPLOYMENT BLOCKED** - Address security issues before deployment")
+          
+          ## Action Items
+          
+          $([[ $TOTAL_CRITICAL -gt 0 ]] && echo "1. 🚨 **URGENT:** Remediate $TOTAL_CRITICAL critical vulnerabilities" || echo "1. ✅ No critical vulnerabilities to address")
+          $([[ $TOTAL_HIGH -gt 10 ]] && echo "2. ⚠️ **HIGH PRIORITY:** Address $TOTAL_HIGH high-severity vulnerabilities" || echo "2. ✅ High-severity vulnerabilities within acceptable range")
+          3. 📊 **MONITORING:** Continue regular security scanning
+          4. 🔄 **PROCESS:** Update base images regularly
+          
+          ## Detailed Reports
+          
+          - Base Image Security: [View Results](base-image-security-results-${{ github.run_number }})
+          - Built Image Security: [View Results](built-image-security-results-*)
+          - Infrastructure Security: [View Results](infrastructure-security-results-${{ github.run_number }})
+          
+          ---
+          *Generated by Container Security Scanning Pipeline*
+          EOF
+      
+      - name: Final security gate decision
+        id: final-gate
+        run: |
+          TOTAL_CRITICAL="${{ steps.security-report.outputs.total-critical }}"
+          TOTAL_HIGH="${{ steps.security-report.outputs.total-high }}"
+          
+          GATE_PASSED=true
+          DEPLOYMENT_APPROVED=true
+          FAILURE_REASONS=""
+          
+          # Critical vulnerabilities always fail the gate
+          if [[ $TOTAL_CRITICAL -gt 0 ]]; then
+            GATE_PASSED=false
+            DEPLOYMENT_APPROVED=false
+            FAILURE_REASONS="${FAILURE_REASONS}- $TOTAL_CRITICAL critical vulnerabilities found\n"
+          fi
+          
+          # High vulnerabilities above threshold block deployment but don't fail gate
+          if [[ $TOTAL_HIGH -gt 20 ]]; then
+            DEPLOYMENT_APPROVED=false
+            FAILURE_REASONS="${FAILURE_REASONS}- $TOTAL_HIGH high vulnerabilities exceed threshold (20)\n"
+          fi
+          
+          echo "passed=$GATE_PASSED" >> $GITHUB_OUTPUT
+          echo "deployment-approved=$DEPLOYMENT_APPROVED" >> $GITHUB_OUTPUT
+          echo "failure-reasons<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$FAILURE_REASONS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          if [[ "$GATE_PASSED" == "true" ]]; then
+            echo "✅ SECURITY GATE PASSED"
+          else
+            echo "❌ SECURITY GATE FAILED"
+            echo -e "$FAILURE_REASONS"
+          fi
+          
+          if [[ "$DEPLOYMENT_APPROVED" == "true" ]]; then
+            echo "✅ DEPLOYMENT APPROVED"
+          else
+            echo "🚫 DEPLOYMENT BLOCKED"
+            echo -e "$FAILURE_REASONS"
+          fi
+      
+      - name: Comment PR with security summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const report = fs.readFileSync('final-security-report/executive-summary.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+            } catch (error) {
+              console.log('Could not post security summary to PR:', error);
+            }
+      
+      - name: Upload final security report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-security-report-${{ github.run_number }}
+          path: |
+            final-security-report/
+            all-security-results/
+          retention-days: 90
+      
+      - name: Fail workflow on critical security issues
+        if: steps.final-gate.outputs.passed == 'false'
+        run: |
+          echo "::error::Security gate failed due to critical vulnerabilities"
+          echo "::error::${{ steps.final-gate.outputs.failure-reasons }}"
+          echo "::error::Review security reports and address issues before deployment"
+          exit 1

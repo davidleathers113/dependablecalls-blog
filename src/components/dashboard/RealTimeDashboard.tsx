@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, channel, removeChannel } from '@/lib/supabase-optimized'
 import { RealtimeErrorBoundary } from '../realtime/RealtimeErrorBoundary'
 import { ActiveCampaignsTable } from './supplier/ActiveCampaignsTable'
 import { CallVolumeChart } from './supplier/CallVolumeChart'
 import { RecentCallsList } from './supplier/RecentCallsList'
 import { QuickStatsBar } from './supplier/QuickStatsBar'
 import { logger } from '@/lib/logger'
+import type { Database } from '@/types/database'
 
 interface RealTimeDashboardProps {
   userId: string
@@ -14,9 +15,7 @@ interface RealTimeDashboardProps {
 
 // Inner component that handles real-time data
 function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
-  const [, setCallData] = useState<
-    Array<{ id: string; created_at: string; payout_amount: number; [key: string]: unknown }>
-  >([])
+  const [, setCallData] = useState<Database['public']['Tables']['calls']['Row'][]>([])
   // Note: Stats are handled by QuickStatsBar component
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>(
     'connected'
@@ -46,8 +45,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
 
   useEffect(() => {
     // Subscribe to real-time call updates
-    const callChannel = supabase
-      .channel(`calls-${userId}`)
+    const callChannel = channel(`calls-${userId}`)
       .on(
         'postgres_changes',
         {
@@ -77,8 +75,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
       })
 
     // Subscribe to campaign updates
-    const campaignChannel = supabase
-      .channel(`campaigns-${userId}`)
+    const campaignChannel = channel(`campaigns-${userId}`)
       .on(
         'postgres_changes',
         {
@@ -101,8 +98,8 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
     loadInitialData()
 
     return () => {
-      supabase.removeChannel(callChannel)
-      supabase.removeChannel(campaignChannel)
+      removeChannel(callChannel)
+      removeChannel(campaignChannel)
     }
   }, [userId, userType, loadInitialData])
 

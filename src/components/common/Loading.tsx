@@ -1,4 +1,5 @@
 import type { HTMLAttributes } from 'react'
+import { prefersReducedMotion } from '../../utils/motion'
 
 export interface LoadingProps extends HTMLAttributes<HTMLDivElement> {
   size?: 'sm' | 'md' | 'lg' | 'xl'
@@ -17,6 +18,7 @@ const Loading = ({
   overlay = false,
   ...props
 }: LoadingProps) => {
+  // const prefersReducedMotion = useReducedMotion()
   const sizeClasses = {
     sm: 'h-4 w-4',
     md: 'h-6 w-6',
@@ -43,7 +45,7 @@ const Loading = ({
 
   const renderSpinner = () => (
     <div
-      className={`animate-spin rounded-full border-2 border-current border-t-transparent text-blue-600 ${sizeClasses[size]}`}
+      className={`${prefersReducedMotion ? 'border-dashed' : 'animate-spin'} rounded-full border-2 border-current border-t-transparent text-blue-600 ${sizeClasses[size]}`}
       role="status"
       aria-label="Loading"
     />
@@ -54,7 +56,7 @@ const Loading = ({
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className={`bg-blue-600 rounded-full animate-pulse ${
+          className={`bg-blue-600 rounded-full ${prefersReducedMotion ? 'opacity-75' : 'animate-pulse'} ${
             size === 'sm'
               ? 'h-1.5 w-1.5'
               : size === 'md'
@@ -63,7 +65,7 @@ const Loading = ({
                   ? 'h-2.5 w-2.5'
                   : 'h-3 w-3'
           }`}
-          style={{
+          style={prefersReducedMotion ? {} : {
             animationDelay: `${i * 0.15}s`,
             animationDuration: '0.6s',
           }}
@@ -74,7 +76,7 @@ const Loading = ({
 
   const renderPulse = () => (
     <div
-      className={`bg-blue-600 rounded-full animate-pulse ${sizeClasses[size]}`}
+      className={`bg-blue-600 rounded-full ${prefersReducedMotion ? 'opacity-75' : 'animate-pulse'} ${sizeClasses[size]}`}
       role="status"
       aria-label="Loading"
     />
@@ -116,7 +118,11 @@ const Skeleton = ({
   lines = 1,
   ...props
 }: SkeletonProps) => {
-  const baseClasses = ['animate-pulse bg-gray-200', rounded ? 'rounded-full' : 'rounded'].join(' ')
+  // const prefersReducedMotion = useReducedMotion()
+  const baseClasses = [
+    prefersReducedMotion ? 'bg-gray-300' : 'animate-pulse bg-gray-200',
+    rounded ? 'rounded-full' : 'rounded'
+  ].join(' ')
 
   const style = {
     width: typeof width === 'number' ? `${width}px` : width,

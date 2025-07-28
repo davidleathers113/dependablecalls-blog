@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuthStore } from '../../store/authStore'
+import { useCsrfForm } from '../../hooks/useCsrf'
 import {
   ChevronLeftIcon,
   CheckCircleIcon,
@@ -210,6 +211,7 @@ function CreateCampaignPageInner() {
   const { user } = useAuthStore()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
+  const { submitWithCsrf } = useCsrfForm<CreateCampaignFormData>()
 
   // Restore draft on mount
   useEffect(() => {
@@ -261,7 +263,7 @@ function CreateCampaignPageInner() {
     },
   })
 
-  const handleSubmit = async (data: CreateCampaignFormData) => {
+  const handleSubmit = submitWithCsrf(async (data) => {
     if (!user) {
       navigate('/login')
       return
@@ -289,7 +291,7 @@ function CreateCampaignPageInner() {
     } finally {
       setIsSubmitting(false)
     }
-  }
+  })
 
   const steps = [
     { id: 1, name: 'Basic Info', description: 'Campaign details and vertical' },

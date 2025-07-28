@@ -5,6 +5,7 @@ import { navigateToHomeSection } from '../../utils/navigation'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import ErrorBoundary from '../common/ErrorBoundary'
 import { PublicLayoutFallbackUI } from '../common/FallbackUI'
+import { Logo } from '../common/Logo'
 
 // Social media links
 const socialLinks = [
@@ -64,40 +65,47 @@ export default function PublicLayout() {
 
   return (
     <div className="bg-gray-50">
+      {/* Skip to main content link for keyboard navigation */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 bg-primary-600 text-white px-6 py-3 z-50 rounded-br-md"
+      >
+        Skip to main content
+      </a>
       {/* Navigation */}
       <nav className="bg-white shadow-sm flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link to="/" className="text-2xl font-bold text-primary-600">
-                DependableCalls
+              <Link to="/" className="py-2 inline-block min-h-[44px] flex items-center group">
+                <Logo variant="default" />
               </Link>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="hidden md:flex items-center space-x-4">
               <button
                 onClick={() => navigateToHomeSection('features')}
-                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium cursor-pointer min-h-[44px] flex items-center"
               >
                 Features
               </button>
               <button
-                onClick={() => navigateToHomeSection('pricing')}
-                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Pricing
-              </button>
-              <button
                 onClick={() => navigateToHomeSection('about')}
-                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium cursor-pointer min-h-[44px] flex items-center"
               >
                 About
               </button>
+              <Link
+                to="/blog"
+                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium min-h-[44px] inline-flex items-center"
+              >
+                Blog
+              </Link>
 
               {user ? (
                 <Link
                   to="/app/dashboard"
-                  className="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-md text-sm font-medium"
+                  className="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-md text-sm font-medium min-h-[44px] inline-flex items-center"
                 >
                   Dashboard
                 </Link>
@@ -105,13 +113,13 @@ export default function PublicLayout() {
                 <>
                   <Link
                     to="/login"
-                    className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+                    className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium min-h-[44px] inline-flex items-center"
                   >
                     Login
                   </Link>
                   <Link
                     to="/register"
-                    className="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-md text-sm font-medium"
+                    className="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-md text-sm font-medium min-h-[44px] inline-flex items-center"
                   >
                     Get Started
                   </Link>
@@ -123,7 +131,7 @@ export default function PublicLayout() {
             <div className="md:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-gray-700 hover:text-primary-600 p-2 rounded-md"
+                className="text-gray-700 hover:text-primary-600 p-2 rounded-md min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="Toggle mobile menu"
               >
                 {mobileMenuOpen ? (
@@ -145,32 +153,23 @@ export default function PublicLayout() {
                   navigateToHomeSection('features')
                   setMobileMenuOpen(false)
                 }}
-                className="block w-full text-left text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-2 rounded-md text-base font-medium transition-colors"
+                className="block w-full text-left text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
               >
                 Features
-              </button>
-              <button
-                onClick={() => {
-                  navigateToHomeSection('pricing')
-                  setMobileMenuOpen(false)
-                }}
-                className="block w-full text-left text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-2 rounded-md text-base font-medium transition-colors"
-              >
-                Pricing
               </button>
               <button
                 onClick={() => {
                   navigateToHomeSection('about')
                   setMobileMenuOpen(false)
                 }}
-                className="block w-full text-left text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-2 rounded-md text-base font-medium transition-colors"
+                className="block w-full text-left text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
               >
                 About
               </button>
               <Link
                 to="/blog"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-2 rounded-md text-base font-medium transition-colors"
+                className="block text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
               >
                 Blog
               </Link>
@@ -179,7 +178,7 @@ export default function PublicLayout() {
                 <Link
                   to="/app/dashboard"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block bg-primary-600 text-white hover:bg-primary-700 px-3 py-2 rounded-md text-base font-medium transition-colors"
+                  className="block bg-primary-600 text-white hover:bg-primary-700 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
                 >
                   Dashboard
                 </Link>
@@ -188,14 +187,14 @@ export default function PublicLayout() {
                   <Link
                     to="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-2 rounded-md text-base font-medium transition-colors"
+                    className="block text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
                   >
                     Login
                   </Link>
                   <Link
                     to="/register"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block bg-primary-600 text-white hover:bg-primary-700 px-3 py-2 rounded-md text-base font-medium transition-colors"
+                    className="block bg-primary-600 text-white hover:bg-primary-700 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
                   >
                     Get Started
                   </Link>
@@ -207,7 +206,7 @@ export default function PublicLayout() {
       </nav>
 
       {/* Main Content */}
-      <main>
+      <main id="main-content">
         <ErrorBoundary context="PublicLayout - Main Content" fallback={<PublicLayoutFallbackUI />}>
           <Outlet />
         </ErrorBoundary>
@@ -218,7 +217,9 @@ export default function PublicLayout() {
         <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-2xl font-bold mb-4">DependableCalls</h3>
+              <div className="mb-4">
+                <Logo variant="white" size="lg" />
+              </div>
               <p className="text-gray-400">
                 The most trusted pay-per-call network for quality lead generation.
               </p>
@@ -230,21 +231,13 @@ export default function PublicLayout() {
                 <li>
                   <button
                     onClick={() => navigateToHomeSection('features')}
-                    className="text-gray-400 hover:text-white text-left"
+                    className="text-gray-400 hover:text-white text-left py-2 px-1 -mx-1 inline-block min-h-[44px]"
                   >
                     Features
                   </button>
                 </li>
                 <li>
-                  <button
-                    onClick={() => navigateToHomeSection('pricing')}
-                    className="text-gray-400 hover:text-white text-left"
-                  >
-                    Pricing
-                  </button>
-                </li>
-                <li>
-                  <Link to="/blog" className="text-gray-400 hover:text-white">
+                  <Link to="/blog" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
                     Blog
                   </Link>
                 </li>
@@ -257,18 +250,18 @@ export default function PublicLayout() {
                 <li>
                   <button
                     onClick={() => navigateToHomeSection('about')}
-                    className="text-gray-400 hover:text-white text-left"
+                    className="text-gray-400 hover:text-white text-left py-2 px-1 -mx-1 inline-block min-h-[44px]"
                   >
                     About Us
                   </button>
                 </li>
                 <li>
-                  <Link to="/contact" className="text-gray-400 hover:text-white">
+                  <Link to="/contact" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
                     Contact
                   </Link>
                 </li>
                 <li>
-                  <Link to="/careers" className="text-gray-400 hover:text-white">
+                  <Link to="/careers" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
                     Careers
                   </Link>
                 </li>
@@ -279,17 +272,17 @@ export default function PublicLayout() {
               <h4 className="text-lg font-semibold mb-4">Legal</h4>
               <ul className="space-y-2">
                 <li>
-                  <Link to="/privacy" className="text-gray-400 hover:text-white">
+                  <Link to="/privacy" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link to="/terms" className="text-gray-400 hover:text-white">
+                  <Link to="/terms" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
                     Terms of Service
                   </Link>
                 </li>
                 <li>
-                  <Link to="/compliance" className="text-gray-400 hover:text-white">
+                  <Link to="/compliance" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
                     Compliance
                   </Link>
                 </li>
@@ -306,9 +299,9 @@ export default function PublicLayout() {
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-400 hover:text-white transition-colors duration-200"
+                    className="text-gray-400 hover:text-white transition-colors duration-200 p-2 -m-2 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded"
+                    aria-label={`Visit ${item.name}`}
                   >
-                    <span className="sr-only">{item.name}</span>
                     <item.icon className="h-6 w-6" aria-hidden="true" />
                   </a>
                 ))}

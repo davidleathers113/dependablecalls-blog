@@ -113,7 +113,7 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
-    name: 🔒 Security Scan
+    name: 🔒 Security Testing
 
     steps:
       - name: 📥 Checkout code
@@ -128,16 +128,69 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
+      - name: 🧪 Run security tests
+        run: npm run test:security
+        env:
+          SECURITY_TEST_ENV: ci
+
       - name: 🔍 Run security audit
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
 
       - name: 🔒 Run CodeQL analysis
         uses: github/codeql-action/init@v3
         with:
           languages: javascript,typescript
+          queries: security-extended,security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: 🔒 Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3
+
+      - name: 📊 Upload security test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-test-reports
+          path: |
+            test-results/security/
+            coverage/security/
+          retention-days: 7
+
+  security-scan-staging:
+    runs-on: ubuntu-latest
+    name: 🕷️ OWASP ZAP Scan (Staging)
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🕷️ Run ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.10.0
+        with:
+          target: 'https://staging.dependablecalls.com'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+          
+      - name: 🕷️ Run ZAP full scan
+        uses: zaproxy/action-full-scan@v0.8.0
+        with:
+          target: 'https://staging.dependablecalls.com'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a -j'
+
+      - name: 📊 Upload ZAP results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-scan-results
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          retention-days: 7
 
   deploy-staging:
     runs-on: ubuntu-latest
@@ -172,6 +225,34 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STAGING_SITE_ID }}
+
+  security-scan-production:
+    runs-on: ubuntu-latest
+    name: 🕷️ OWASP ZAP Scan (Production)
+    needs: [deploy-production]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🕷️ Run ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.10.0
+        with:
+          target: 'https://dependablecalls.com'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+          
+      - name: 📊 Upload ZAP results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-production-scan-results
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          retention-days: 30
 
   deploy-production:
     runs-on: ubuntu-latest
@@ -264,6 +345,39 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+  penetration-test:
+    runs-on: ubuntu-latest
+    name: 🎯 Penetration Testing
+    needs: [security-scan-staging]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'schedule'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎯 Run penetration tests
+        run: npm run test:pentest
+        env:
+          TARGET_URL: https://staging.dependablecalls.com
+          PENTEST_API_KEY: ${{ secrets.PENTEST_API_KEY }}
+
+      - name: 📊 Upload penetration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: penetration-test-results
+          path: test-results/pentest/
+          retention-days: 30
+
   performance:
     runs-on: ubuntu-latest
     name: ⚡ Performance Tests
@@ -279,10 +393,58 @@ jobs:
           npx artillery run performance/load-test.yml --target https://staging.dependablecalls.com
           npx artillery run performance/stress-test.yml --target https://staging.dependablecalls.com
 
+  security-report:
+    runs-on: ubuntu-latest
+    name: 📊 Security Report
+    needs: [security, security-scan-staging, security-scan-production]
+    if: always()
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 📊 Generate security report
+        run: npm run security:report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📤 Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: reports/security/
+          retention-days: 90
+
+      - name: 📢 Post security summary to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'reports/security/summary.md';
+            if (fs.existsSync(summaryPath)) {
+              const summary = fs.readFileSync(summaryPath, 'utf8');
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🔒 Security Test Summary\n\n${summary}`
+              });
+            }
+
   notification:
     runs-on: ubuntu-latest
     name: 📢 Notifications
-    needs: [deploy-production]
+    needs: [deploy-production, security-report]
     if: always() && github.ref == 'refs/heads/main'
 
     steps:

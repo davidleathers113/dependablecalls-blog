@@ -1,5 +1,7 @@
+// MIGRATION PLAN: This file already uses optimized imports from lib/supabase-optimized
+// Status: MIGRATION COMPLETE ✅ - only has type imports from @supabase/supabase-js
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { channel, removeChannel, from } from '../lib/supabase-optimized'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 interface RealTimeStats {
@@ -12,7 +14,7 @@ interface RealTimeStats {
 interface CallUpdate {
   id: string
   supplier_id: string
-  status: 'active' | 'completed' | 'failed'
+  status: 'initiated' | 'ringing' | 'connected' | 'completed' | 'failed' | 'rejected'
   duration?: number
   revenue?: number
   created_at: string
@@ -25,8 +27,7 @@ export function useRealTimeStats(supplierId: string) {
     if (!supplierId) return
 
     // Subscribe to call updates for this supplier
-    const callsChannel = supabase
-      .channel(`supplier-calls-${supplierId}`)
+    const callsChannel = channel(`supplier-calls-${supplierId}`)
       .on(
         'postgres_changes',
         {
@@ -42,8 +43,7 @@ export function useRealTimeStats(supplierId: string) {
       .subscribe()
 
     // Subscribe to supplier stats updates
-    const statsChannel = supabase
-      .channel(`supplier-stats-${supplierId}`)
+    const statsChannel = channel(`supplier-stats-${supplierId}`)
       .on(
         'postgres_changes',
         {
@@ -64,8 +64,8 @@ export function useRealTimeStats(supplierId: string) {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(callsChannel)
-      supabase.removeChannel(statsChannel)
+      removeChannel(callsChannel)
+      removeChannel(statsChannel)
     }
   }, [supplierId])
 
@@ -75,7 +75,7 @@ export function useRealTimeStats(supplierId: string) {
     switch (eventType) {
       case 'INSERT':
         // New call started
-        if (newCall?.status === 'active') {
+        if (newCall?.status === 'connected') {
           setLiveStats((prev) => ({
             ...prev,
             totalCalls: (prev?.totalCalls || 0) + 1,
@@ -85,7 +85,7 @@ export function useRealTimeStats(supplierId: string) {
 
       case 'UPDATE':
         // Call status or data updated
-        if (newCall?.status === 'completed' && oldCall?.status === 'active') {
+        if (newCall?.status === 'completed' && oldCall?.status === 'connected') {
           // Call completed - update revenue and conversion stats
           setLiveStats((prev) => ({
             ...prev,
@@ -118,11 +118,10 @@ export function useRealTimeCallCount(supplierId: string) {
 
     // Initial fetch of active calls
     const fetchActiveCallCount = async () => {
-      const { count } = await supabase
-        .from('calls')
+      const { count } = await from('calls')
         .select('*', { count: 'exact', head: true })
         .eq('supplier_id', supplierId)
-        .eq('status', 'active')
+        .eq('status', 'connected')
 
       setActiveCallCount(count || 0)
     }
@@ -130,8 +129,7 @@ export function useRealTimeCallCount(supplierId: string) {
     fetchActiveCallCount()
 
     // Subscribe to real-time updates
-    const channel = supabase
-      .channel(`active-calls-${supplierId}`)
+    const activeCallsChannel = channel(`active-calls-${supplierId}`)
       .on(
         'postgres_changes',
         {
@@ -143,15 +141,15 @@ export function useRealTimeCallCount(supplierId: string) {
         (payload: RealtimePostgresChangesPayload<CallUpdate>) => {
           const { eventType, new: newCall, old: oldCall } = payload
 
-          if (eventType === 'INSERT' && newCall?.status === 'active') {
+          if (eventType === 'INSERT' && newCall?.status === 'connected') {
             setActiveCallCount((prev) => prev + 1)
           } else if (eventType === 'UPDATE') {
-            if (oldCall?.status === 'active' && newCall?.status !== 'active') {
+            if (oldCall?.status === 'connected' && newCall?.status !== 'connected') {
               setActiveCallCount((prev) => Math.max(prev - 1, 0))
-            } else if (oldCall?.status !== 'active' && newCall?.status === 'active') {
+            } else if (oldCall?.status !== 'connected' && newCall?.status === 'connected') {
               setActiveCallCount((prev) => prev + 1)
             }
-          } else if (eventType === 'DELETE' && oldCall?.status === 'active') {
+          } else if (eventType === 'DELETE' && oldCall?.status === 'connected') {
             setActiveCallCount((prev) => Math.max(prev - 1, 0))
           }
         }
@@ -159,7 +157,7 @@ export function useRealTimeCallCount(supplierId: string) {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      removeChannel(activeCallsChannel)
     }
   }, [supplierId])
 

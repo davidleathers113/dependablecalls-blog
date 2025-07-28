@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { PlayIcon, PauseIcon, EyeIcon, ChartBarIcon } from '@heroicons/react/24/outline'
-import { supabase } from '../../../lib/supabase'
+import { from } from '../../../lib/supabase-optimized'
 
 interface ActiveCampaignsTableProps {
   supplierId: string
@@ -21,8 +21,7 @@ interface Campaign {
 }
 
 async function fetchActiveCampaigns(supplierId: string): Promise<Campaign[]> {
-  const { data, error } = await supabase
-    .from('supplier_campaigns_view')
+  const { data, error } = await from('campaigns')
     .select('*')
     .eq('supplier_id', supplierId)
     .in('status', ['active', 'paused'])
@@ -33,7 +32,20 @@ async function fetchActiveCampaigns(supplierId: string): Promise<Campaign[]> {
     return []
   }
 
-  return data || []
+  // Map database fields to Campaign interface
+  return (data || []).map(campaign => ({
+    id: campaign.id,
+    name: campaign.name,
+    buyer_name: 'Unknown', // This field doesn't exist in campaigns table, would need a join
+    status: campaign.status as Campaign['status'],
+    bid_amount: campaign.bid_floor,
+    daily_cap: campaign.daily_cap || 0,
+    quality_score: campaign.quality_threshold || 0,
+    calls_today: 0, // Would need to be calculated from calls table
+    revenue_today: 0, // Would need to be calculated
+    conversion_rate: 0, // Would need to be calculated
+    created_at: campaign.created_at || new Date().toISOString()
+  }))
 }
 
 function CampaignStatusBadge({ status }: { status: Campaign['status'] }) {
@@ -117,8 +129,7 @@ export function ActiveCampaignsTable({ supplierId }: ActiveCampaignsTableProps) 
     const newStatus = currentStatus === 'active' ? 'paused' : 'active'
 
     try {
-      const { error } = await supabase
-        .from('campaigns')
+      const { error } = await from('campaigns')
         .update({ status: newStatus })
         .eq('id', campaignId)
 

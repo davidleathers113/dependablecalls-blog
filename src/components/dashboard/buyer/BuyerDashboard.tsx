@@ -9,9 +9,9 @@ import {
   UserGroupIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline'
-import { PaymentModal } from '../../payments/PaymentModal'
 import { useBuyerStore } from '../../../store/buyerStore'
 import { formatCurrency } from '../../../utils/format'
+import AccessibleIcon from '../../common/AccessibleIcon'
 
 interface BuyerStats {
   totalSpent: number
@@ -77,7 +77,7 @@ function StatCard({
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          <Icon className="h-8 w-8 text-primary-600" />
+          <AccessibleIcon icon={Icon} decorative className="h-8 w-8 text-primary-600" />
           <div className="ml-3">
             <p className="text-sm font-medium text-gray-600">{title}</p>
             <p className="text-2xl font-bold text-gray-900">{formatValue(value)}</p>
@@ -96,7 +96,6 @@ function StatCard({
 export function BuyerDashboard() {
   const { user } = useAuth()
   const [selectedTimeRange, setSelectedTimeRange] = useState<'24h' | '7d' | '30d'>('7d')
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const { currentBalance, fetchBalance } = useBuyerStore()
 
   useEffect(() => {
@@ -144,12 +143,13 @@ export function BuyerDashboard() {
             <div className="text-lg font-bold text-gray-900">{formatCurrency(currentBalance)}</div>
           </div>
 
-          {/* Add Funds Button */}
+          {/* Add Funds Button - Disabled (billing removed) */}
           <button
-            onClick={() => setIsPaymentModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-400 cursor-not-allowed"
+            title="Billing functionality has been removed"
           >
-            <PlusIcon className="h-4 w-4 mr-2" />
+            <AccessibleIcon icon={PlusIcon} decorative className="h-4 w-4 mr-2" />
             Add Funds
           </button>
 
@@ -332,19 +332,6 @@ export function BuyerDashboard() {
         </ul>
       </div>
 
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        type="topup"
-        onSuccess={(paymentIntentId, amount) => {
-          console.log('Payment successful:', paymentIntentId, amount)
-          // Refresh balance after successful payment
-          if (user?.id) {
-            fetchBalance(user.id)
-          }
-        }}
-      />
     </div>
   )
 }

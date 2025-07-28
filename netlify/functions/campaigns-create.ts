@@ -1,6 +1,8 @@
 import type { Handler } from '@netlify/functions'
 import { requireRole, ApiError } from '../../src/lib/auth-middleware'
-import { z } from 'zod'
+import { withCsrfProtection } from './_shared/csrf-middleware'
+import { withValidation, ValidationError } from '../../src/lib/validation-middleware'
+import { CreateCampaignSchema, type CreateCampaignData } from '../../src/lib/validation'
 
 const createCampaignSchema = z.object({
   name: z
@@ -78,7 +80,8 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  return requireRole(['supplier'])(event, async (context) => {
+  return withCsrfProtection(event, async (event) => {
+    return requireRole(['supplier'])(event, async (context) => {
     if (!event.body) {
       throw new ApiError('Request body is required', 400)
     }
@@ -155,5 +158,6 @@ export const handler: Handler = async (event) => {
       message: 'Campaign created successfully',
       data: campaign,
     }
+    })
   })
 }

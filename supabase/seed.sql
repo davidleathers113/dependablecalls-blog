@@ -6,7 +6,7 @@
 
 -- Insert admin user profile
 INSERT INTO users (id, email, first_name, last_name, status, is_active) VALUES
-('00000000-0000-0000-0000-000000000001', 'admin@dce-platform.com', 'Admin', 'User', 'active', true)
+('b4efe4ce-4176-4610-a428-e0896aef806b', 'admin@dce-platform.com', 'Admin', 'User', 'active', true)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
   first_name = EXCLUDED.first_name,
@@ -16,7 +16,7 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Insert test admin record
 INSERT INTO admins (user_id, role, permissions, is_active) VALUES
-('00000000-0000-0000-0000-000000000001', 'super_admin', '{"super_admin": true, "user_management": true, "financial_management": true}', true)
+('b4efe4ce-4176-4610-a428-e0896aef806b', 'super_admin', '{"super_admin": true, "user_management": true, "financial_management": true}', true)
 ON CONFLICT (user_id) DO UPDATE SET
   role = EXCLUDED.role,
   permissions = EXCLUDED.permissions,
@@ -24,7 +24,7 @@ ON CONFLICT (user_id) DO UPDATE SET
 
 -- Insert test supplier user
 INSERT INTO users (id, email, first_name, last_name, status, is_active) VALUES
-('11111111-1111-1111-1111-111111111111', 'supplier@test.com', 'Test', 'Supplier', 'active', true)
+('95311d54-c419-4883-b3e5-37a31bd1fae2', 'supplier@test.com', 'Test', 'Supplier', 'active', true)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
   first_name = EXCLUDED.first_name,
@@ -32,19 +32,44 @@ ON CONFLICT (id) DO UPDATE SET
   status = EXCLUDED.status,
   is_active = EXCLUDED.is_active;
 
--- Insert test supplier record
-INSERT INTO suppliers (user_id, company_name, business_type, credit_balance, status, approved_at, approved_by) VALUES
-('11111111-1111-1111-1111-111111111111', 'Test Traffic Co', 'Lead Generation', 1500.00, 'active', NOW(), (SELECT id FROM admins WHERE role = 'super_admin' LIMIT 1))
-ON CONFLICT (user_id) DO UPDATE SET
-  company_name = EXCLUDED.company_name,
-  business_type = EXCLUDED.business_type,
-  credit_balance = EXCLUDED.credit_balance,
-  status = EXCLUDED.status;
+-- Insert test supplier record (with conditional credit_balance)
+DO $$
+DECLARE
+  v_admin_id UUID;
+  v_has_credit_balance BOOLEAN;
+BEGIN
+  -- Get admin ID
+  SELECT id INTO v_admin_id FROM admins WHERE role = 'super_admin' LIMIT 1;
+  
+  -- Check if credit_balance column exists
+  SELECT EXISTS(
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'suppliers' AND column_name = 'credit_balance'
+  ) INTO v_has_credit_balance;
+  
+  -- Insert with or without credit_balance
+  IF v_has_credit_balance THEN
+    INSERT INTO suppliers (user_id, company_name, business_type, credit_balance, status, approved_at, approved_by) VALUES
+    ('95311d54-c419-4883-b3e5-37a31bd1fae2', 'Test Traffic Co', 'Lead Generation', 1500.00, 'active', NOW(), v_admin_id)
+    ON CONFLICT (user_id) DO UPDATE SET
+      company_name = EXCLUDED.company_name,
+      business_type = EXCLUDED.business_type,
+      credit_balance = EXCLUDED.credit_balance,
+      status = EXCLUDED.status;
+  ELSE
+    INSERT INTO suppliers (user_id, company_name, business_type, status, approved_at, approved_by) VALUES
+    ('95311d54-c419-4883-b3e5-37a31bd1fae2', 'Test Traffic Co', 'Lead Generation', 'active', NOW(), v_admin_id)
+    ON CONFLICT (user_id) DO UPDATE SET
+      company_name = EXCLUDED.company_name,
+      business_type = EXCLUDED.business_type,
+      status = EXCLUDED.status;
+  END IF;
+END $$;
 
 -- Insert test buyer users
 INSERT INTO users (id, email, first_name, last_name, status, is_active) VALUES
-('22222222-2222-2222-2222-222222222222', 'buyer@test.com', 'Test', 'Buyer', 'active', true),
-('33333333-3333-3333-3333-333333333333', 'buyer2@test.com', 'Premium', 'Buyer', 'active', true)
+('9ce8ce0e-1b65-40ca-b3cf-bf936bc48918', 'buyer@test.com', 'Test', 'Buyer', 'active', true),
+('da839c66-2a16-426a-8a35-9a701d7d0b91', 'buyer2@test.com', 'Premium', 'Buyer', 'active', true)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
   first_name = EXCLUDED.first_name,
@@ -52,59 +77,142 @@ ON CONFLICT (id) DO UPDATE SET
   status = EXCLUDED.status,
   is_active = EXCLUDED.is_active;
 
--- Insert test buyer records
-INSERT INTO buyers (user_id, company_name, business_type, credit_limit, current_balance, status, approved_at, approved_by) VALUES
-('22222222-2222-2222-2222-222222222222', 'Insurance Plus LLC', 'Insurance', 10000.00, 8500.00, 'active', NOW(), (SELECT id FROM admins WHERE role = 'super_admin' LIMIT 1)),
-('33333333-3333-3333-3333-333333333333', 'Premium Legal Services', 'Legal Services', 25000.00, 22000.00, 'active', NOW(), (SELECT id FROM admins WHERE role = 'super_admin' LIMIT 1))
-ON CONFLICT (user_id) DO UPDATE SET
-  company_name = EXCLUDED.company_name,
-  business_type = EXCLUDED.business_type,
-  credit_limit = EXCLUDED.credit_limit,
-  current_balance = EXCLUDED.current_balance,
-  status = EXCLUDED.status;
+-- Insert test buyer records (with conditional credit fields)
+DO $$
+DECLARE
+  v_admin_id UUID;
+  v_has_credit_fields BOOLEAN;
+BEGIN
+  -- Get admin ID
+  SELECT id INTO v_admin_id FROM admins WHERE role = 'super_admin' LIMIT 1;
+  
+  -- Check if credit fields exist
+  SELECT EXISTS(
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'buyers' AND column_name = 'credit_limit'
+  ) INTO v_has_credit_fields;
+  
+  -- Insert with or without credit fields
+  IF v_has_credit_fields THEN
+    INSERT INTO buyers (user_id, company_name, business_type, credit_limit, current_balance, status, approved_at, approved_by) VALUES
+    ('9ce8ce0e-1b65-40ca-b3cf-bf936bc48918', 'Insurance Plus LLC', 'Insurance', 10000.00, 8500.00, 'active', NOW(), v_admin_id),
+    ('da839c66-2a16-426a-8a35-9a701d7d0b91', 'Premium Legal Services', 'Legal Services', 25000.00, 22000.00, 'active', NOW(), v_admin_id)
+    ON CONFLICT (user_id) DO UPDATE SET
+      company_name = EXCLUDED.company_name,
+      business_type = EXCLUDED.business_type,
+      credit_limit = EXCLUDED.credit_limit,
+      current_balance = EXCLUDED.current_balance,
+      status = EXCLUDED.status;
+  ELSE
+    INSERT INTO buyers (user_id, company_name, business_type, status, approved_at, approved_by) VALUES
+    ('9ce8ce0e-1b65-40ca-b3cf-bf936bc48918', 'Insurance Plus LLC', 'Insurance', 'active', NOW(), v_admin_id),
+    ('da839c66-2a16-426a-8a35-9a701d7d0b91', 'Premium Legal Services', 'Legal Services', 'active', NOW(), v_admin_id)
+    ON CONFLICT (user_id) DO UPDATE SET
+      company_name = EXCLUDED.company_name,
+      business_type = EXCLUDED.business_type,
+      status = EXCLUDED.status;
+  END IF;
+END $$;
 
--- Insert test campaigns
-INSERT INTO campaigns (
-  id, supplier_id, name, description, category, vertical, 
-  targeting, bid_floor, max_concurrent_calls, status,
-  quality_threshold, recording_enabled
-) VALUES
-(
-  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-  (SELECT id FROM suppliers WHERE user_id = '11111111-1111-1111-1111-111111111111'),
-  'Auto Insurance Leads - Florida',
-  'High-quality auto insurance leads from Florida residents',
-  'Insurance',
-  'Auto Insurance',
-  '{"geographic": {"states": ["FL"], "cities": ["Miami", "Orlando", "Tampa"]}, "demographic": {"age_range": "25-65", "income_level": "middle"}, "schedule": {"enabled": true, "timezone": "EST", "hours": {"monday": {"start": 9, "end": 18}, "tuesday": {"start": 9, "end": 18}, "wednesday": {"start": 9, "end": 18}, "thursday": {"start": 9, "end": 18}, "friday": {"start": 9, "end": 18}}}}',
-  15.00,
-  5,
-  'active',
-  75,
-  true
-),
-(
-  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-  (SELECT id FROM suppliers WHERE user_id = '11111111-1111-1111-1111-111111111111'),
-  'Personal Injury Legal Leads',
-  'Qualified personal injury leads for law firms',
-  'Legal',
-  'Personal Injury',
-  '{"geographic": {"states": ["CA", "NY", "TX"], "metro_areas": ["Los Angeles", "New York", "Houston"]}, "demographic": {"age_range": "18-75"}, "schedule": {"enabled": true, "timezone": "PST", "hours": {"monday": {"start": 8, "end": 20}, "tuesday": {"start": 8, "end": 20}, "wednesday": {"start": 8, "end": 20}, "thursday": {"start": 8, "end": 20}, "friday": {"start": 8, "end": 20}}}}',
-  85.00,
-  10,
-  'active',
-  80,
-  true
-)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  description = EXCLUDED.description,
-  category = EXCLUDED.category,
-  vertical = EXCLUDED.vertical,
-  targeting = EXCLUDED.targeting,
-  bid_floor = EXCLUDED.bid_floor,
-  status = EXCLUDED.status;
+-- Insert test campaigns (with conditional bid_floor)
+DO $$
+DECLARE
+  v_supplier_id UUID;
+  v_has_bid_floor BOOLEAN;
+BEGIN
+  -- Get supplier ID
+  SELECT id INTO v_supplier_id FROM suppliers WHERE user_id = '95311d54-c419-4883-b3e5-37a31bd1fae2';
+  
+  -- Check if bid_floor column exists
+  SELECT EXISTS(
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'campaigns' AND column_name = 'bid_floor'
+  ) INTO v_has_bid_floor;
+  
+  -- Insert campaigns based on schema
+  IF v_has_bid_floor THEN
+    INSERT INTO campaigns (
+      id, supplier_id, name, description, category, vertical, 
+      targeting, bid_floor, max_concurrent_calls, status,
+      quality_threshold, recording_enabled
+    ) VALUES
+    (
+      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      v_supplier_id,
+      'Auto Insurance Leads - Florida',
+      'High-quality auto insurance leads from Florida residents',
+      'Insurance',
+      'Auto Insurance',
+      '{"geographic": {"states": ["FL"], "cities": ["Miami", "Orlando", "Tampa"]}, "demographic": {"age_range": "25-65", "income_level": "middle"}, "schedule": {"enabled": true, "timezone": "EST", "hours": {"monday": {"start": 9, "end": 18}, "tuesday": {"start": 9, "end": 18}, "wednesday": {"start": 9, "end": 18}, "thursday": {"start": 9, "end": 18}, "friday": {"start": 9, "end": 18}}}}',
+      15.00,
+      5,
+      'active',
+      75,
+      true
+    ),
+    (
+      'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      v_supplier_id,
+      'Personal Injury Legal Leads',
+      'Qualified personal injury leads for law firms',
+      'Legal',
+      'Personal Injury',
+      '{"geographic": {"states": ["CA", "NY", "TX"], "metro_areas": ["Los Angeles", "New York", "Houston"]}, "demographic": {"age_range": "18-75"}, "schedule": {"enabled": true, "timezone": "PST", "hours": {"monday": {"start": 8, "end": 20}, "tuesday": {"start": 8, "end": 20}, "wednesday": {"start": 8, "end": 20}, "thursday": {"start": 8, "end": 20}, "friday": {"start": 8, "end": 20}}}}',
+      85.00,
+      10,
+      'active',
+      80,
+      true
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      category = EXCLUDED.category,
+      vertical = EXCLUDED.vertical,
+      targeting = EXCLUDED.targeting,
+      bid_floor = EXCLUDED.bid_floor,
+      status = EXCLUDED.status;
+  ELSE
+    INSERT INTO campaigns (
+      id, supplier_id, name, description, category, vertical, 
+      targeting, max_concurrent_calls, status,
+      quality_threshold, recording_enabled
+    ) VALUES
+    (
+      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      v_supplier_id,
+      'Auto Insurance Leads - Florida',
+      'High-quality auto insurance leads from Florida residents',
+      'Insurance',
+      'Auto Insurance',
+      '{"geographic": {"states": ["FL"], "cities": ["Miami", "Orlando", "Tampa"]}, "demographic": {"age_range": "25-65", "income_level": "middle"}, "schedule": {"enabled": true, "timezone": "EST", "hours": {"monday": {"start": 9, "end": 18}, "tuesday": {"start": 9, "end": 18}, "wednesday": {"start": 9, "end": 18}, "thursday": {"start": 9, "end": 18}, "friday": {"start": 9, "end": 18}}}}',
+      5,
+      'active',
+      75,
+      true
+    ),
+    (
+      'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      v_supplier_id,
+      'Personal Injury Legal Leads',
+      'Qualified personal injury leads for law firms',
+      'Legal',
+      'Personal Injury',
+      '{"geographic": {"states": ["CA", "NY", "TX"], "metro_areas": ["Los Angeles", "New York", "Houston"]}, "demographic": {"age_range": "18-75"}, "schedule": {"enabled": true, "timezone": "PST", "hours": {"monday": {"start": 8, "end": 20}, "tuesday": {"start": 8, "end": 20}, "wednesday": {"start": 8, "end": 20}, "thursday": {"start": 8, "end": 20}, "friday": {"start": 8, "end": 20}}}}',
+      10,
+      'active',
+      80,
+      true
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      category = EXCLUDED.category,
+      vertical = EXCLUDED.vertical,
+      targeting = EXCLUDED.targeting,
+      status = EXCLUDED.status;
+  END IF;
+END $$;
 
 -- Insert tracking numbers for campaigns
 INSERT INTO tracking_numbers (campaign_id, number, display_number, area_code, is_active) VALUES
@@ -125,7 +233,7 @@ INSERT INTO buyer_campaigns (
 ) VALUES
 (
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
-  (SELECT id FROM buyers WHERE user_id = '22222222-2222-2222-2222-222222222222'),
+  (SELECT id FROM buyers WHERE user_id = '9ce8ce0e-1b65-40ca-b3cf-bf936bc48918'),
   'Florida Auto Insurance Campaign',
   'Buying auto insurance leads in Florida market',
   '{"geographic": {"states": ["FL"]}, "vertical": ["Auto Insurance"], "call_duration_min": 60, "quality_score_min": 70}',
@@ -138,7 +246,7 @@ INSERT INTO buyer_campaigns (
 ),
 (
   'dddddddd-dddd-dddd-dddd-dddddddddddd',
-  (SELECT id FROM buyers WHERE user_id = '33333333-3333-3333-3333-333333333333'),
+  (SELECT id FROM buyers WHERE user_id = 'da839c66-2a16-426a-8a35-9a701d7d0b91'),
   'Personal Injury Leads - Multi-State',
   'High-value personal injury leads across multiple states',
   '{"geographic": {"states": ["CA", "NY", "TX"]}, "vertical": ["Personal Injury"], "call_duration_min": 120, "quality_score_min": 80}',
@@ -305,7 +413,7 @@ INSERT INTO invoices (
   status, period_start, period_end, due_date, payment_terms
 ) VALUES
 (
-  (SELECT id FROM buyers WHERE user_id = '22222222-2222-2222-2222-222222222222'),
+  (SELECT id FROM buyers WHERE user_id = '9ce8ce0e-1b65-40ca-b3cf-bf936bc48918'),
   'INV-2024-000001',
   30.00,
   2.40,
@@ -349,7 +457,7 @@ INSERT INTO payouts (
   period_start, period_end, payment_method, reference_number
 ) VALUES
 (
-  (SELECT id FROM suppliers WHERE user_id = '11111111-1111-1111-1111-111111111111'),
+  (SELECT id FROM suppliers WHERE user_id = '95311d54-c419-4883-b3e5-37a31bd1fae2'),
   155.25,
   7.76,
   147.49,
@@ -364,12 +472,12 @@ ON CONFLICT DO NOTHING;
 -- Update supplier balance based on completed calls
 UPDATE suppliers 
 SET credit_balance = calculate_supplier_balance(id)
-WHERE user_id = '11111111-1111-1111-1111-111111111111';
+WHERE user_id = '95311d54-c419-4883-b3e5-37a31bd1fae2';
 
 -- Update buyer balance based on charges
 UPDATE buyers 
 SET current_balance = calculate_buyer_balance(id)
-WHERE user_id IN ('22222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333333');
+WHERE user_id IN ('9ce8ce0e-1b65-40ca-b3cf-bf936bc48918', 'da839c66-2a16-426a-8a35-9a701d7d0b91');
 
 -- Comments
 COMMENT ON TABLE users IS 'Seed data includes admin, supplier, and buyer test accounts';

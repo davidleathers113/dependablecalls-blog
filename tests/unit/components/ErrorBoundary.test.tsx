@@ -1,11 +1,9 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import ErrorBoundary, {
-  withErrorBoundary,
-  useErrorHandler,
-  ErrorFallbackProps,
-} from '../../../src/components/common/ErrorBoundary'
+import { ErrorBoundary, type ErrorFallbackProps } from '../../../src/components/common/ErrorBoundary'
+import { withErrorBoundary } from '../../../src/components/common/withErrorBoundary'
+import { useErrorHandler } from '../../../src/hooks/useErrorHandler'
 
 // Mock the monitoring module
 vi.mock('../../../src/lib/monitoring', () => ({
@@ -84,56 +82,29 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       )
 
-      expect(screen.getByRole('alert')).toBeInTheDocument()
-      expect(screen.getByText('Component Error')).toBeInTheDocument()
-      expect(
-        screen.getByText('This component encountered an error and cannot be displayed.')
-      ).toBeInTheDocument()
-      expect(screen.getByText('Try Again')).toBeInTheDocument()
+      expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Refresh Page' })).toBeInTheDocument()
     })
 
-    it('displays different messages based on level prop', () => {
-      const { rerender } = render(
-        <ErrorBoundary level="page">
-          <ThrowError shouldThrow />
-        </ErrorBoundary>
-      )
-
-      expect(screen.getByText('Page Error')).toBeInTheDocument()
-      expect(
-        screen.getByText('An unexpected error occurred while loading this page.')
-      ).toBeInTheDocument()
-
-      rerender(
-        <ErrorBoundary level="section">
-          <ThrowError shouldThrow />
-        </ErrorBoundary>
-      )
-
-      expect(screen.getByText('Section Error')).toBeInTheDocument()
-      expect(screen.getByText('An error occurred in this section of the page.')).toBeInTheDocument()
-    })
-
-    it('shows reload button for page-level errors', () => {
+    it('displays error message consistently', () => {
       render(
         <ErrorBoundary level="page">
           <ThrowError shouldThrow />
         </ErrorBoundary>
       )
 
-      expect(screen.getByText('Try Again')).toBeInTheDocument()
-      expect(screen.getByText('Reload Page')).toBeInTheDocument()
+      expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Refresh Page' })).toBeInTheDocument()
     })
 
-    it('does not show reload button for component-level errors', () => {
+    it('shows refresh page button', () => {
       render(
-        <ErrorBoundary level="component">
+        <ErrorBoundary level="page">
           <ThrowError shouldThrow />
         </ErrorBoundary>
       )
 
-      expect(screen.getByText('Try Again')).toBeInTheDocument()
-      expect(screen.queryByText('Reload Page')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Refresh Page' })).toBeInTheDocument()
     })
   })
 
@@ -330,7 +301,7 @@ describe('ErrorBoundary', () => {
   })
 
   describe('useErrorHandler hook', () => {
-    it('provides error handling function', () => {
+    it('provides error handling function', async () => {
       let errorHandler: ((error: Error) => void) | null = null
 
       const TestComponent = () => {

@@ -3,7 +3,7 @@
  * This file demonstrates how to use the various settings components
  */
 
-import React from 'react'
+// React import removed - not needed in React 19
 import { useForm } from 'react-hook-form'
 import {
   SettingsSection,

@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { supabase } from '../../lib/supabase'
+import { auth } from '@/lib/supabase-optimized'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const resetPasswordSchema = z
   .object({
@@ -23,6 +24,7 @@ const resetPasswordSchema = z
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 
 export default function ResetPasswordPage() {
+  usePageTitle('Reset Password')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [error, setError] = useState('')
@@ -44,7 +46,7 @@ export default function ResetPasswordPage() {
       const refreshToken = searchParams.get('refresh_token')
 
       if (accessToken && refreshToken) {
-        const { error } = await supabase.auth.setSession({
+        const { error } = await auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         })
@@ -65,7 +67,7 @@ export default function ResetPasswordPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await auth.updateUser({
         password: data.password,
       })
 
@@ -126,13 +128,15 @@ export default function ResetPasswordPage() {
               </label>
               <input
                 {...register('password')}
+                id="password"
                 type="password"
                 autoComplete="new-password"
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder="Create a new password"
+                aria-describedby={errors.password ? 'password-error' : undefined}
               />
               {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                <p id="password-error" className="mt-1 text-sm text-red-600" role="alert">{errors.password.message}</p>
               )}
             </div>
 
@@ -142,13 +146,15 @@ export default function ResetPasswordPage() {
               </label>
               <input
                 {...register('confirmPassword')}
+                id="confirmPassword"
                 type="password"
                 autoComplete="new-password"
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder="Confirm your new password"
+                aria-describedby={errors.confirmPassword ? 'confirmPassword-error' : undefined}
               />
               {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
+                <p id="confirmPassword-error" className="mt-1 text-sm text-red-600" role="alert">{errors.confirmPassword.message}</p>
               )}
             </div>
           </div>

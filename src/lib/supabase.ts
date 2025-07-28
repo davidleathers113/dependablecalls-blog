@@ -10,8 +10,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
+    autoRefreshToken: false, // We'll handle refresh via server-side
+    persistSession: false, // No localStorage, using httpOnly cookies
     detectSessionInUrl: true,
+    flowType: 'pkce',
+    storage: {
+      // Custom storage that does nothing - all session handling is server-side
+      getItem: async () => null,
+      setItem: async () => {},
+      removeItem: async () => {},
+    },
   },
 })

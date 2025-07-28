@@ -70,12 +70,9 @@ export function LoginForm({
       // Use the auth store to sign in
       const user = await signIn(data.email, data.password)
 
-      // Handle remember me functionality
-      if (data.rememberMe) {
-        localStorage.setItem('dce_remember_me', 'true')
-      } else {
-        localStorage.removeItem('dce_remember_me')
-      }
+      // SECURITY FIX: Remember me functionality moved to server-side
+      // Session persistence is now handled via httpOnly cookies with appropriate expiry
+      // No client-side storage of auth preferences needed
 
       // Call success callback if provided
       if (onSuccess) {

@@ -8,48 +8,119 @@ import React, { useEffect, Suspense } from 'react'
 import { useAuthStore } from './store/authStore'
 import { captureError } from './lib/monitoring'
 import { QueryErrorFallback } from './components/ui/QueryErrorFallback'
+import { CSPProvider } from './lib/CSPProvider'
+// // import { useReducedMotion } from './hooks/useReducedMotion' // Removed for build
 
 // Layouts - Keep these eager as they're used on every route
 import PublicLayout from './components/layout/PublicLayout'
 import AppLayout from './components/layout/AppLayout'
 
-// Lazy load all pages for code splitting
-// Public Pages
-const HomePage = React.lazy(() => import('./pages/public/HomePage'))
-const BlogPage = React.lazy(() => import('./pages/public/BlogPage'))
-const BlogPostPage = React.lazy(() => import('./pages/public/BlogPostPage'))
-const ContactPage = React.lazy(() => import('./pages/public/ContactPage'))
-const CareersPage = React.lazy(() => import('./pages/public/CareersPage'))
-const AboutPage = React.lazy(() => import('./pages/public/AboutPage'))
-const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
-const RegisterPage = React.lazy(() => import('./pages/auth/RegisterPage'))
-const ForgotPasswordPage = React.lazy(() => import('./pages/auth/ForgotPasswordPage'))
-const AuthCallbackPage = React.lazy(() => import('./pages/auth/AuthCallbackPage'))
+// Lazy load all pages for code splitting with magic comments for optimal loading
+// Public Pages - Prefetch for better UX on navigation
+const HomePage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "home" */ './pages/public/HomePage')
+)
+const BlogPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "blog" */ './pages/public/BlogPage')
+)
+const BlogPostPage = React.lazy(() => 
+  import(/* webpackChunkName: "blog-post" */ './pages/public/BlogPostPage')
+)
+const ContactPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "contact" */ './pages/public/ContactPage')
+)
+const CareersPage = React.lazy(() => 
+  import(/* webpackChunkName: "careers" */ './pages/public/CareersPage')
+)
+const AboutPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "about" */ './pages/public/AboutPage')
+)
 
-// Legal Pages
-const PrivacyPage = React.lazy(() => import('./pages/legal/PrivacyPage'))
-const TermsPage = React.lazy(() => import('./pages/legal/TermsPage'))
-const CompliancePage = React.lazy(() => import('./pages/legal/CompliancePage'))
+// Auth Pages - Preload critical auth flows
+const LoginPage = React.lazy(() => 
+  import(/* webpackPreload: true, webpackChunkName: "login" */ './pages/auth/LoginPage')
+)
+const RegisterPage = React.lazy(() => 
+  import(/* webpackPreload: true, webpackChunkName: "register" */ './pages/auth/RegisterPage')
+)
+const ForgotPasswordPage = React.lazy(() => 
+  import(/* webpackChunkName: "forgot-password" */ './pages/auth/ForgotPasswordPage')
+)
+const AuthCallbackPage = React.lazy(() => 
+  import(/* webpackChunkName: "auth-callback" */ './pages/auth/AuthCallbackPage')
+)
+
+// Legal Pages - Low priority
+const PrivacyPage = React.lazy(() => 
+  import(/* webpackChunkName: "privacy" */ './pages/legal/PrivacyPage')
+)
+const TermsPage = React.lazy(() => 
+  import(/* webpackChunkName: "terms" */ './pages/legal/TermsPage')
+)
+const CompliancePage = React.lazy(() => 
+  import(/* webpackChunkName: "compliance" */ './pages/legal/CompliancePage')
+)
 
 // Demo Pages (Development Only)
-const ErrorDemoPage = import.meta.env.DEV ? React.lazy(() => import('./pages/ErrorDemo')) : null
+const ErrorDemoPage = import.meta.env.DEV ? React.lazy(() => 
+  import(/* webpackChunkName: "error-demo" */ './pages/ErrorDemo')
+) : null
 
-// Authenticated Pages
-const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
-const CampaignsPage = React.lazy(() => import('./pages/campaigns/CampaignsPage'))
-const CreateCampaignPage = React.lazy(() => import('./pages/campaigns/CreateCampaignPage'))
-const EditCampaignPage = React.lazy(() => import('./pages/campaigns/EditCampaignPage'))
-const CallsPage = React.lazy(() => import('./pages/calls/CallsPage'))
-const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'))
-const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
+// Authenticated Pages - Preload dashboard, prefetch others
+const DashboardPage = React.lazy(() => 
+  import(/* webpackPreload: true, webpackChunkName: "dashboard" */ './pages/dashboard/DashboardPage')
+)
+const CampaignsPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "campaigns" */ './pages/campaigns/CampaignsPage')
+)
+const CreateCampaignPage = React.lazy(() => 
+  import(/* webpackChunkName: "create-campaign" */ './pages/campaigns/CreateCampaignPage')
+)
+const EditCampaignPage = React.lazy(() => 
+  import(/* webpackChunkName: "edit-campaign" */ './pages/campaigns/EditCampaignPage')
+)
+const CallsPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "calls" */ './pages/calls/CallsPage')
+)
+const ReportsPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "reports" */ './pages/reports/ReportsPage')
+)
+const SettingsPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "settings" */ './pages/settings/SettingsPage')
+)
 
-// Settings Pages
-const ProfileSettingsPage = React.lazy(() => import('./pages/settings/ProfileSettingsPage'))
-const NotificationSettingsPage = React.lazy(() => import('./pages/settings/NotificationSettingsPage'))
-const SecuritySettingsPage = React.lazy(() => import('./pages/settings/SecuritySettingsPage'))
-const AccountSettingsPage = React.lazy(() => import('./pages/settings/AccountSettingsPage'))
-const CallTrackingSettingsPage = React.lazy(() => import('./pages/settings/CallTrackingSettingsPage'))
-const PayoutSettingsPage = React.lazy(() => import('./pages/settings/PayoutSettingsPage'))
+// Settings Pages - Common (prefetch on settings page visit)
+const ProfileSettingsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-profile" */ './pages/settings/ProfileSettingsPage')
+)
+const NotificationSettingsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-notifications" */ './pages/settings/NotificationSettingsPage')
+)
+const SecuritySettingsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-security" */ './pages/settings/SecuritySettingsPage')
+)
+const AccountSettingsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-account" */ './pages/settings/AccountSettingsPage')
+)
+
+// Settings Pages - Supplier specific
+const CallTrackingSettingsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-call-tracking" */ './pages/settings/CallTrackingSettingsPage')
+)
+const PayoutSettingsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-payouts" */ './pages/settings/PayoutSettingsPage')
+)
+
+// Settings Pages - Buyer specific
+const CampaignDefaultsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-campaign-defaults" */ './pages/settings/CampaignDefaultsPage')
+)
+const BillingSettingsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-billing" */ './pages/settings/BillingSettingsPage')
+)
+const QualityStandardsPage = React.lazy(() => 
+  import(/* webpackChunkName: "settings-quality" */ './pages/settings/QualityStandardsPage')
+)
 
 // Loading component for lazy-loaded routes
 function PageLoader() {
@@ -108,23 +179,59 @@ function App() {
     checkSession()
   }, [checkSession])
 
+  // Add resource error tracking to identify 404s and other loading issues
+  useEffect(() => {
+    const handleResourceError = (event: Event) => {
+      if (event.target instanceof HTMLImageElement || 
+          event.target instanceof HTMLScriptElement || 
+          event.target instanceof HTMLLinkElement) {
+        const target = event.target
+        const resourceUrl = 
+          target instanceof HTMLImageElement ? target.src :
+          target instanceof HTMLScriptElement ? target.src :
+          target instanceof HTMLLinkElement ? target.href : 'unknown'
+        
+        console.error('Resource loading error:', {
+          type: target.tagName.toLowerCase(),
+          url: resourceUrl,
+          message: 'Failed to load resource'
+        })
+
+        // Also capture in monitoring if available
+        captureError(new Error(`Failed to load ${target.tagName.toLowerCase()}: ${resourceUrl}`), {
+          errorBoundary: 'resource-loading',
+          context: 'resource-error',
+          resourceType: target.tagName.toLowerCase(),
+          resourceUrl
+        })
+      }
+    }
+
+    window.addEventListener('error', handleResourceError, true)
+
+    return () => {
+      window.removeEventListener('error', handleResourceError, true)
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <QueryClientProvider client={queryClient}>
-        <QueryErrorResetBoundary>
-          {({ reset }) => (
-            <ErrorBoundary
-              FallbackComponent={QueryErrorFallback}
-              onError={(error, errorInfo) => {
-                // Capture React Query related errors
-                captureError(error, {
-                  errorBoundary: 'query-level',
-                  componentStack: errorInfo.componentStack,
-                  context: 'react-query-boundary',
-                })
-              }}
-              onReset={reset}
-            >
+    <CSPProvider>
+      <div className="min-h-screen flex flex-col">
+        <QueryClientProvider client={queryClient}>
+          <QueryErrorResetBoundary>
+            {({ reset }) => (
+              <ErrorBoundary
+                FallbackComponent={QueryErrorFallback}
+                onError={(error, errorInfo) => {
+                  // Capture React Query related errors
+                  captureError(error, {
+                    errorBoundary: 'query-level',
+                    componentStack: errorInfo.componentStack,
+                    context: 'react-query-boundary',
+                  })
+                }}
+                onReset={reset}
+              >
               <Router>
                 <Routes>
                   {/* Public routes */}
@@ -360,6 +467,30 @@ function App() {
                           </Suspense>
                         }
                       />
+                      <Route
+                        path="campaign-defaults"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <CampaignDefaultsPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="billing"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <BillingSettingsPage />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="quality-standards"
+                        element={
+                          <Suspense fallback={<PageLoader />}>
+                            <QualityStandardsPage />
+                          </Suspense>
+                        }
+                      />
                     </Route>
                   </Route>
 
@@ -372,6 +503,7 @@ function App() {
         </QueryErrorResetBoundary>
       </QueryClientProvider>
     </div>
+    </CSPProvider>
   )
 }
 

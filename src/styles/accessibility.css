@@ -1,0 +1,136 @@
+/* Accessibility Styles - Motion Preferences */
+
+/* 
+ * Respects user's motion preferences for better accessibility
+ * See: https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion
+ */
+
+/* Base reduced motion styles */
+@media (prefers-reduced-motion: reduce) {
+  /* Remove all CSS animations */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable Tailwind animation utilities */
+  .animate-spin,
+  .animate-ping,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none !important;
+  }
+
+  /* Instant transitions while preserving end state */
+  .transition,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-shadow,
+  .transition-transform {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Remove smooth scrolling */
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable hover transform effects */
+  *:hover {
+    transform: none !important;
+  }
+
+  /* Reduce opacity transitions to instant */
+  .opacity-0,
+  .opacity-10,
+  .opacity-20,
+  .opacity-30,
+  .opacity-40,
+  .opacity-50,
+  .opacity-60,
+  .opacity-70,
+  .opacity-80,
+  .opacity-90,
+  .opacity-100 {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Disable scale transforms */
+  .scale-0,
+  .scale-50,
+  .scale-75,
+  .scale-90,
+  .scale-95,
+  .scale-100,
+  .scale-105,
+  .scale-110,
+  .scale-125,
+  .scale-150 {
+    transform: none !important;
+  }
+
+  /* Instant duration for all duration utilities */
+  .duration-75,
+  .duration-100,
+  .duration-150,
+  .duration-200,
+  .duration-300,
+  .duration-500,
+  .duration-700,
+  .duration-1000 {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Loading indicators should still be visible but not animated */
+  .animate-spin {
+    /* Replace spin with static indicator */
+    border-style: dashed !important;
+  }
+
+  /* Progress bars and skeletons should be static */
+  .animate-pulse {
+    /* Keep the background but remove pulsing */
+    opacity: 0.75 !important;
+  }
+}
+
+/* Optional: Add visual indicator for reduced motion mode (for testing) */
+@media (prefers-reduced-motion: reduce) and (prefers-color-scheme: dark) {
+  body::after {
+    content: 'Reduced motion enabled';
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 9999;
+    display: none; /* Hidden by default, enable for testing */
+  }
+}
+
+/* Ensure focus indicators remain visible */
+@media (prefers-reduced-motion: reduce) {
+  *:focus {
+    outline: 2px solid currentColor !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Maintain focus-visible behavior */
+  *:focus:not(:focus-visible) {
+    outline: none !important;
+  }
+
+  *:focus-visible {
+    outline: 2px solid currentColor !important;
+    outline-offset: 2px !important;
+  }
+}

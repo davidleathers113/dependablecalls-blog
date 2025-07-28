@@ -1,91 +1,408 @@
+# =============================================================================
+# HARDENED DOCKER COMPOSE WITH SECURITY CONTROLS
+# =============================================================================
+# This docker-compose.yml implements container security best practices:
+# - Security contexts and capabilities management
+# - Read-only root filesystems with tmpfs mounts
+# - Network security and isolation
+# - Resource limits and security policies
+# - Secrets management
+# - Security monitoring integration
+# =============================================================================
+
 version: '3.9'
 
+# =============================================================================
+# SECRETS MANAGEMENT
+# =============================================================================
+secrets:
+  redis_password:
+    file: ./secrets/redis_password.txt
+  nginx_ssl_cert:
+    file: ./secrets/ssl_cert.pem
+  nginx_ssl_key:
+    file: ./secrets/ssl_key.pem
+
+# =============================================================================
+# SERVICES WITH SECURITY HARDENING
+# =============================================================================
 services:
+  # Production application with security hardening
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
+      target: runtime
     container_name: dce-website
+    
+    # Security context
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    user: "65532:65532"  # nonroot user from distroless
+    
+    # Read-only root filesystem with tmpfs for writable areas
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+      - /var/tmp:rw,noexec,nosuid,size=50m
+    
+    # Network and port configuration
     ports:
       - '4173:4173'
+    networks:
+      - dce-network
+    
+    # Environment variables (non-sensitive only)
     environment:
       NODE_ENV: production
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
-      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-      VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY}
-      VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
       VITE_APP_VERSION: ${VITE_APP_VERSION:-1.0.0}
+    
+    # Sensitive environment variables from file
+    env_file:
+      - .env.production
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    # Enhanced health check
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:4173/health']
+      test: ['CMD', 'node', '-e', 'require(\"http\").get({hostname:\"localhost\",port:4173,path:\"/health\",timeout:5000}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    
     restart: unless-stopped
-    networks:
-      - dce-network
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Development environment with hot reload
+  # Development environment with security monitoring
   app-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
     container_name: dce-website-dev
+    
+    # Security context for development
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    user: "1000:1000"  # devuser from development image
+    
+    # Partial read-only filesystem for development
+    read_only: false  # Development needs write access
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=200m
+    
     ports:
       - '5173:5173'
+    
     environment:
       NODE_ENV: development
+    
+    # Secure volume mounts - read-only where possible
     volumes:
-      - ./src:/app/src
-      - ./public:/app/public
-      - ./index.html:/app/index.html
-      - ./vite.config.ts:/app/vite.config.ts
-      - ./tsconfig.json:/app/tsconfig.json
-      - ./tailwind.config.js:/app/tailwind.config.js
-      - ./postcss.config.js:/app/postcss.config.js
+      - ./src:/app/src:rw  # Development needs write access
+      - ./public:/app/public:ro
+      - ./index.html:/app/index.html:ro
+      - ./vite.config.ts:/app/vite.config.ts:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./tailwind.config.js:/app/tailwind.config.js:ro
+      - ./postcss.config.js:/app/postcss.config.js:ro
+      # Security monitoring volume
+      - ./security-reports:/app/dev-security:rw
+    
     env_file:
-      - .env
+      - .env.development
+    
+    # Resource limits for development
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+    
     networks:
       - dce-network
+    
+    # Development health check
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'require(\"http\").get({hostname:\"localhost\",port:5173,path:\"/\",timeout:5000}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))']
+      interval: 60s
+      timeout: 10s
+      retries: 2
+      start_period: 30s
 
-  # Nginx reverse proxy
+  # Hardened Nginx reverse proxy
   nginx:
-    image: nginx:alpine
+    image: nginx:1.26-alpine@sha256:208ae3c180c4d82a51e9f0e9e2c4eb6df8a6d48e026ac1a9fa4a31dcb28c5b9f
     container_name: dce-nginx
+    
+    # Security context
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    user: "101:101"  # nginx user
+    
+    # Read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:rw,noexec,nosuid,size=50m
+      - /var/run:rw,noexec,nosuid,size=10m
+      - /tmp:rw,noexec,nosuid,size=10m
+    
     ports:
       - '80:80'
       - '443:443'
+    
+    # Secure volume mounts
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    
+    # Use secrets for SSL certificates
+    secrets:
+      - source: nginx_ssl_cert
+        target: /etc/nginx/ssl/cert.pem
+        mode: 0444
+      - source: nginx_ssl_key
+        target: /etc/nginx/ssl/key.pem
+        mode: 0400
+    
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    
     networks:
       - dce-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+    
     restart: unless-stopped
+    
+    # Nginx health check
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
-  # Redis for caching
+  # Hardened Redis cache
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine@sha256:de13e74e14b98eb96bdf886791ae47686c3c5d29f9d5f85ea55206843e3fce26
     container_name: dce-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpass}
+    
+    # Security context
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+    user: "999:999"  # redis user
+    
+    # Read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=50m
+      - /var/run:rw,noexec,nosuid,size=10m
+    
+    # Secure Redis configuration
+    command: |
+      redis-server
+      --appendonly yes
+      --requirepass-file /run/secrets/redis_password
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 60
+      --timeout 30
+      --bind 0.0.0.0
+      --protected-mode yes
+      --port 6379
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    secrets:
+      - redis_password
+    
     ports:
       - '6379:6379'
+    
+    # Persistent volume for Redis data
     volumes:
-      - redis-data:/data
+      - redis-data:/data:rw
+    
     networks:
       - dce-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
     restart: unless-stopped
+    
+    # Redis health check
     healthcheck:
-      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      test: ['CMD', 'redis-cli', '--pass', '$(cat /run/secrets/redis_password)', 'ping']
       interval: 30s
       timeout: 3s
       retries: 5
+      start_period: 10s
 
+  # Security monitoring service
+  security-monitor:
+    build:
+      context: ./docker/security-monitor
+      dockerfile: Dockerfile
+    container_name: dce-security-monitor
+    
+    # Security context
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "1001:1001"
+    
+    # Read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=50m
+    
+    # Monitor other containers
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./security-reports:/app/reports:rw
+    
+    environment:
+      MONITOR_INTERVAL: 300  # 5 minutes
+      ALERT_WEBHOOK: ${SECURITY_ALERT_WEBHOOK:-}
+    
+    networks:
+      - dce-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    restart: unless-stopped
+    
+    depends_on:
+      - app
+      - nginx
+      - redis
+
+# =============================================================================
+# NETWORK SECURITY
+# =============================================================================
 networks:
   dce-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    labels:
+      - "com.docker.network.security=hardened"
 
+# =============================================================================
+# VOLUME SECURITY
+# =============================================================================
 volumes:
   redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/redis
+      o: bind,uid=999,gid=999
+    labels:
+      - "com.docker.volume.security=encrypted"
+
+# =============================================================================
+# SECURITY CONFIGURATION NOTES
+# =============================================================================
+# Additional security measures to implement:
+#
+# 1. Create required directories:
+#    mkdir -p ./secrets ./data/redis ./security-reports ./nginx/conf.d
+#
+# 2. Generate secrets:
+#    openssl rand -base64 32 > ./secrets/redis_password.txt
+#    chmod 600 ./secrets/redis_password.txt
+#
+# 3. Generate SSL certificates:
+#    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#      -keyout ./secrets/ssl_key.pem \
+#      -out ./secrets/ssl_cert.pem
+#
+# 4. Set proper file permissions:
+#    chmod 600 ./secrets/*
+#    chmod 700 ./secrets
+#
+# 5. Run with additional security:
+#    docker-compose --env-file .env.production up -d
+#
+# 6. Monitor security logs:
+#    docker-compose logs -f security-monitor
+# =============================================================================

@@ -1,3 +1,5 @@
+// MIGRATION PLAN: This file only imports types from @supabase/supabase-js
+// Status: NO MIGRATION NEEDED - type imports don't affect bundle size
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import type { Database } from './database'
 
@@ -7,20 +9,9 @@ export type BaseUser = SupabaseUser
 // Extended User type with additional properties from our database
 export interface User extends BaseUser {
   // Properties from suppliers table (if user is a supplier)
-  stripe_account_id?: string | null
-  stripe_onboarding_completed?: boolean
-  stripe_charges_enabled?: boolean
-  stripe_payouts_enabled?: boolean
   company_name?: string
 
   // Properties from buyers table (if user is a buyer)
-  stripe_customer_id?: string | null
-  stripe_payment_method_id?: string | null
-  current_balance?: number
-  credit_limit?: number
-  auto_recharge_enabled?: boolean
-  auto_recharge_threshold?: number
-  auto_recharge_amount?: number
 
   // User type for role-based access
   userType?: 'supplier' | 'buyer' | 'admin' | 'network' | null
@@ -38,11 +29,8 @@ export type DbNetwork = {
   company_name: string
   buyer_id?: string | null
   buyer_status: 'pending' | 'active' | 'suspended' | 'banned'
-  credit_limit: number
-  current_balance: number
   supplier_id?: string | null
   supplier_status: 'pending' | 'active' | 'suspended' | 'banned'
-  credit_balance: number
   margin_percentage: number
   routing_rules: unknown
   quality_thresholds: unknown
@@ -76,22 +64,11 @@ export function createExtendedUser(
 
   // Add supplier-specific properties
   if (supplier) {
-    user.stripe_account_id = supplier.stripe_account_id
-    user.stripe_onboarding_completed = supplier.stripe_onboarding_completed
-    user.stripe_charges_enabled = supplier.stripe_charges_enabled
-    user.stripe_payouts_enabled = supplier.stripe_payouts_enabled
     user.company_name = supplier.company_name
   }
 
   // Add buyer-specific properties
   if (buyer) {
-    user.stripe_customer_id = buyer.stripe_customer_id
-    user.stripe_payment_method_id = buyer.stripe_payment_method_id
-    user.current_balance = buyer.current_balance
-    user.credit_limit = buyer.credit_limit
-    user.auto_recharge_enabled = buyer.auto_recharge_enabled
-    user.auto_recharge_threshold = buyer.auto_recharge_threshold
-    user.auto_recharge_amount = buyer.auto_recharge_amount
     user.company_name = buyer.company_name
   }
 

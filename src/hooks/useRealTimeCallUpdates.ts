@@ -1,5 +1,7 @@
+// MIGRATION PLAN: This file already uses optimized imports from lib/supabase-optimized
+// Status: MIGRATION COMPLETE ✅ - only has type imports from @supabase/supabase-js
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { channel, removeChannel } from '../lib/supabase-optimized'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 interface CallRecord {
@@ -21,8 +23,7 @@ export function useRealTimeCallUpdates(supplierId: string) {
     if (!supplierId) return
 
     // Subscribe to real-time call updates for this supplier
-    const channel = supabase
-      .channel(`supplier-call-updates-${supplierId}`)
+    const callChannel = channel(`supplier-call-updates-${supplierId}`)
       .on(
         'postgres_changes',
         {
@@ -38,7 +39,7 @@ export function useRealTimeCallUpdates(supplierId: string) {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      removeChannel(callChannel)
     }
   }, [supplierId])
 

@@ -1,9 +1,10 @@
 import type { Handler } from '@netlify/functions'
 import { withoutAuth, ApiError } from '../../src/lib/auth-middleware'
+import { parseCookies, extractSessionFromCookies, createSessionCookies } from '../../src/lib/auth-cookies'
 import { z } from 'zod'
 
 const refreshTokenSchema = z.object({
-  refresh_token: z.string().min(1, 'Refresh token is required'),
+  refresh_token: z.string().min(1, 'Refresh token is required').optional(),
 })
 
 type RefreshTokenRequest = z.infer<typeof refreshTokenSchema>
@@ -29,15 +30,27 @@ export const handler: Handler = async (event) => {
   }
 
   return withoutAuth(event, async (supabase, request) => {
-    if (!request.body) {
-      throw new ApiError('Request body is required', 400)
+    // First try to get refresh token from cookies
+    const cookieHeader = event.headers.cookie || ''
+    const cookies = parseCookies(cookieHeader)
+    const { refreshToken: cookieRefreshToken } = extractSessionFromCookies(cookies)
+    
+    // Also check request body for backward compatibility
+    let refreshToken = cookieRefreshToken
+    if (request.body) {
+      const requestData: RefreshTokenRequest = refreshTokenSchema.parse(JSON.parse(request.body))
+      if (requestData.refresh_token) {
+        refreshToken = requestData.refresh_token
+      }
     }
-
-    const requestData: RefreshTokenRequest = refreshTokenSchema.parse(JSON.parse(request.body))
+    
+    if (!refreshToken) {
+      throw new ApiError('Refresh token is required', 400, 'MISSING_REFRESH_TOKEN')
+    }
 
     // Refresh the session
     const { data, error } = await supabase.auth.refreshSession({
-      refresh_token: requestData.refresh_token,
+      refresh_token: refreshToken,
     })
 
     if (error) {
@@ -82,22 +95,36 @@ export const handler: Handler = async (event) => {
       userType = 'supplier'
     }
 
+    // Create new session cookies
+    const sessionCookies = createSessionCookies(data.session)
+    
     return {
-      success: true,
-      message: 'Session refreshed successfully',
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        userType,
-        needsEmailVerification: !data.user.email_confirmed_at,
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
+        // Set refreshed session cookies
+        'Set-Cookie': sessionCookies,
       },
-      session: {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at,
-      },
+      body: JSON.stringify({
+        success: true,
+        message: 'Session refreshed successfully',
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          firstName: userData.first_name,
+          lastName: userData.last_name,
+          userType,
+          needsEmailVerification: !data.user.email_confirmed_at,
+        },
+        // Only send non-sensitive session metadata
+        session: {
+          expires_at: data.session.expires_at,
+        },
+      }),
     }
   })
 }

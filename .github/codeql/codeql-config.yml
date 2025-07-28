@@ -1,0 +1,250 @@
+name: "DCE Security CodeQL Configuration"
+
+# Disable the default CodeQL query suites
+disable-default-queries: false
+
+# Define custom query suites for enhanced security analysis
+queries:
+  # Security-focused queries
+  - name: security-extended
+    uses: security-extended
+  - name: security-and-quality
+    uses: security-and-quality
+  
+  # Custom security queries for DCE platform
+  - uses: ./.github/codeql/custom-queries/
+
+# Paths to include in analysis
+paths:
+  - "src/"
+  - "tests/"
+  - "scripts/"
+  - "netlify/functions/"
+
+# Paths to ignore during analysis
+paths-ignore:
+  - "node_modules/"
+  - "dist/"
+  - "build/"
+  - "coverage/"
+  - "docs/"
+  - "cypress/"
+  - "**/*.min.js"
+  - "**/*.bundle.js"
+  - "**/vendor/"
+  - "**/*.generated.js"
+  - "**/*.config.js"
+
+# Query filters for DCE-specific security concerns
+query-filters:
+  # Include all high and medium severity security queries
+  - include:
+      security-severity: 
+        - critical
+        - high
+        - medium
+      
+  # Include specific vulnerability types relevant to DCE platform
+  - include:
+      tags:
+        - security
+        - external/cwe/cwe-079   # Cross-site scripting
+        - external/cwe/cwe-089   # SQL injection
+        - external/cwe/cwe-078   # OS command injection
+        - external/cwe/cwe-022   # Path traversal
+        - external/cwe/cwe-352   # CSRF
+        - external/cwe/cwe-434   # Unrestricted file upload
+        - external/cwe/cwe-611   # XML external entity
+        - external/cwe/cwe-798   # Hard-coded credentials
+        - external/cwe/cwe-327   # Weak cryptography
+        - external/cwe/cwe-285   # Improper authorization
+        - external/cwe/cwe-287   # Improper authentication
+        - external/cwe/cwe-918   # Server-side request forgery
+        - external/cwe/cwe-770   # Resource allocation without limits
+        - external/cwe/cwe-209   # Information exposure through error messages
+        - external/cwe/cwe-312   # Cleartext storage of sensitive information
+        - external/cwe/cwe-319   # Cleartext transmission
+        - external/cwe/cwe-522   # Insufficiently protected credentials
+        - external/cwe/cwe-614   # Sensitive cookie without secure flag
+        - external/cwe/cwe-776   # Improper restriction of recursive entity references
+
+  # Exclude low-priority or noisy queries
+  - exclude:
+      tags:
+        - maintainability
+        - reliability/syntax-error
+      security-severity: low
+
+  # Custom filters for DCE platform patterns
+  - include:
+      kind:
+        - problem
+        - path-problem
+      precision:
+        - high
+        - very-high
+
+# Custom configuration for DCE platform
+packs:
+  # JavaScript/TypeScript security pack
+  - codeql/javascript-queries
+  - codeql/javascript-security-queries
+  
+# Analysis configuration
+database:
+  # Increase analysis timeout for comprehensive scanning
+  timeout: 3600  # 1 hour
+  
+  # Enable additional analysis features
+  features:
+    - security-and-quality
+    - performance
+    - maintainability
+
+# Source root configuration
+source-root: "."
+
+# External libraries configuration
+external:
+  # Mark these as external libraries (not our code)
+  - node_modules/**
+  - dist/**
+  - build/**
+
+# Language-specific configurations
+languages:
+  javascript:
+    # Enable additional JavaScript-specific security checks
+    queries:
+      - uses: javascript-security-extended
+    
+    # Configure module resolution
+    module-resolution:
+      - node_modules
+      - src
+    
+    # Framework-specific configurations
+    frameworks:
+      - react
+      - express
+      - node
+    
+    # Analysis options
+    options:
+      # Enable analysis of dynamically loaded code
+      analyze-dynamic-code: true
+      
+      # Include analysis of test files
+      include-tests: true
+      
+      # Enable prototype pollution detection
+      prototype-pollution: true
+      
+      # Enable DOM-based XSS detection
+      dom-xss: true
+
+  typescript:
+    # TypeScript-specific security analysis
+    extends: javascript
+    
+    # Additional TypeScript security checks
+    queries:
+      - uses: typescript-security-extended
+    
+    # Type-aware security analysis
+    options:
+      type-aware-analysis: true
+      strict-mode: true
+
+# Custom severity levels for DCE platform
+severity-levels:
+  # Critical: Immediate action required
+  critical:
+    - remote-code-execution
+    - authentication-bypass
+    - privilege-escalation
+    - payment-manipulation
+    
+  # High: High priority security issues
+  high:
+    - sql-injection
+    - xss-stored
+    - csrf
+    - sensitive-data-exposure
+    - insecure-cryptography
+    
+  # Medium: Important security considerations
+  medium:
+    - xss-reflected
+    - information-disclosure
+    - weak-authentication
+    - session-management
+    - input-validation
+    
+  # Low: Security improvements
+  low:
+    - security-misconfiguration
+    - insufficient-logging
+    - deprecated-functions
+
+# Platform-specific security patterns
+security-patterns:
+  # Payment processing security
+  payment-security:
+    - pattern: "stripe.*secret"
+      severity: critical
+      message: "Potential exposure of Stripe secret key"
+    
+    - pattern: "amount.*[+\\-*/]"
+      severity: high
+      message: "Potential payment amount manipulation"
+  
+  # Authentication security
+  auth-security:
+    - pattern: "password.*==.*"
+      severity: high
+      message: "Potential password comparison vulnerability"
+    
+    - pattern: "jwt.*decode.*verify.*false"
+      severity: critical
+      message: "JWT verification disabled"
+  
+  # Database security
+  database-security:
+    - pattern: "SELECT.*\\+.*req\\."
+      severity: critical
+      message: "Potential SQL injection via string concatenation"
+    
+    - pattern: "query.*\\$\\{.*\\}"
+      severity: high
+      message: "Potential SQL injection via template literal"
+  
+  # API security
+  api-security:
+    - pattern: "cors.*origin.*\\*"
+      severity: medium
+      message: "Overly permissive CORS configuration"
+    
+    - pattern: "rate.*limit.*false"
+      severity: high
+      message: "Rate limiting disabled"
+
+# Integration with external security tools
+integrations:
+  # Snyk integration
+  snyk:
+    enabled: true
+    severity-threshold: medium
+  
+  # SonarQube integration
+  sonarqube:
+    enabled: true
+    quality-gate: security
+  
+  # Custom security linting
+  eslint-security:
+    enabled: true
+    rules:
+      - security/detect-object-injection
+      - security/detect-non-literal-regexp
+      - security/detect-unsafe-regex

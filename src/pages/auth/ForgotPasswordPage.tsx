@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { supabase } from '../../lib/supabase'
+import { auth } from '@/lib/supabase-optimized'
+import { useCsrfForm } from '../../hooks/useCsrf'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -12,9 +14,11 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
 
 export default function ForgotPasswordPage() {
+  usePageTitle('Forgot Password')
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const { submitWithCsrf } = useCsrfForm<ForgotPasswordFormData>()
 
   const {
     register,
@@ -24,12 +28,12 @@ export default function ForgotPasswordPage() {
     resolver: zodResolver(forgotPasswordSchema),
   })
 
-  const onSubmit = async (data: ForgotPasswordFormData) => {
+  const onSubmit = submitWithCsrf(async (data) => {
     setError('')
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+      const { error } = await auth.resetPasswordForEmail(data.email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
 
@@ -42,7 +46,7 @@ export default function ForgotPasswordPage() {
     } finally {
       setLoading(false)
     }
-  }
+  })
 
   if (success) {
     return (
@@ -79,20 +83,22 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit((data) => { onSubmit(data) })}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email address
             </label>
             <input
               {...register('email')}
+              id="email"
               type="email"
               autoComplete="email"
               className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
               placeholder="Enter your email"
+              aria-describedby={errors.email ? 'email-error' : undefined}
             />
             {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+              <p id="email-error" className="mt-1 text-sm text-red-600" role="alert">{errors.email.message}</p>
             )}
           </div>
 

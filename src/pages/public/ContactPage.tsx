@@ -1,33 +1,9 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useLocation } from 'react-router-dom'
 import { EnvelopeIcon, PhoneIcon, MapPinIcon } from '@heroicons/react/24/outline'
 import { useFormSubmission } from '../../hooks/useFormSubmission'
-
-const contactSchema = z.object({
-  firstName: z
-    .string()
-    .min(1, 'First name is required')
-    .max(50, 'First name must be less than 50 characters'),
-  lastName: z
-    .string()
-    .min(1, 'Last name is required')
-    .max(50, 'Last name must be less than 50 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  company: z.string().max(100, 'Company name must be less than 100 characters').optional(),
-  phone: z.string().optional(),
-  subject: z
-    .string()
-    .min(1, 'Subject is required')
-    .max(200, 'Subject must be less than 200 characters'),
-  message: z
-    .string()
-    .min(10, 'Message must be at least 10 characters')
-    .max(2000, 'Message must be less than 2000 characters'),
-})
-
-type ContactFormData = z.infer<typeof contactSchema>
+import { contactSchema, type ContactFormData } from '../../lib/validation'
 
 export default function ContactPage() {
   const location = useLocation()
@@ -46,6 +22,9 @@ export default function ContactPage() {
     resolver: zodResolver(contactSchema),
     defaultValues: {
       subject: isEnterpriseInquiry ? 'Enterprise Pricing Inquiry' : '',
+      name: '',
+      email: '',
+      message: ''
     },
   })
 
@@ -177,31 +156,17 @@ export default function ContactPage() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                    First Name *
+                <div className="sm:col-span-2">
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                    Full Name *
                   </label>
                   <input
                     type="text"
-                    {...register('firstName')}
+                    {...register('name')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                   />
-                  {errors.firstName && (
-                    <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                    Last Name *
-                  </label>
-                  <input
-                    type="text"
-                    {...register('lastName')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                  />
-                  {errors.lastName && (
-                    <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+                  {errors.name && (
+                    <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
                   )}
                 </div>
 
@@ -230,16 +195,6 @@ export default function ContactPage() {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label htmlFor="company" className="block text-sm font-medium text-gray-700">
-                    Company
-                  </label>
-                  <input
-                    type="text"
-                    {...register('company')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                  />
-                </div>
 
                 <div className="sm:col-span-2">
                   <label htmlFor="subject" className="block text-sm font-medium text-gray-700">

@@ -1,5 +1,6 @@
 import type { Handler } from '@netlify/functions'
 import { withoutAuth, ApiError } from '../../src/lib/auth-middleware'
+import { withCsrfProtection } from './_shared/csrf-middleware'
 import { z } from 'zod'
 
 const resetPasswordSchema = z.object({
@@ -28,7 +29,8 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  return withoutAuth(event, async (supabase, request) => {
+  return withCsrfProtection(event, async (event) => {
+    return withoutAuth(event, async (supabase, request) => {
     if (!request.body) {
       throw new ApiError('Request body is required', 400)
     }
@@ -68,5 +70,6 @@ export const handler: Handler = async (event) => {
       success: true,
       message: 'If an account with that email exists, a password reset link has been sent.',
     }
+    })
   })
 }

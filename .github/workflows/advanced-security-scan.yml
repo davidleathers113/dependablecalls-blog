@@ -1,0 +1,634 @@
+name: Advanced Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 2 AM UTC for comprehensive scan
+    - cron: '0 2 * * *'
+    # Run every 6 hours for high-priority vulnerability monitoring
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of security scan to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+        - full
+        - dependency-only
+        - sast-only
+        - supply-chain-only
+      severity_threshold:
+        description: 'Minimum severity to report'
+        required: false
+        default: 'medium'
+        type: choice
+        options:
+        - low
+        - medium
+        - high
+        - critical
+
+env:
+  NODE_VERSION: '22'
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  vulnerability-assessment:
+    name: Enhanced Vulnerability Assessment
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'dependency-only' || github.event.inputs.scan_type == '' }}
+    outputs:
+      critical-vulns: ${{ steps.vuln-summary.outputs.critical }}
+      high-vulns: ${{ steps.vuln-summary.outputs.high }}
+      dependency-count: ${{ steps.dependency-audit.outputs.total-deps }}
+      sbom-generated: ${{ steps.sbom.outputs.generated }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Cache dependency analysis
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/snyk
+            .snyk-cache/
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+          
+      - name: Install dependencies
+        run: npm ci --audit=false
+        
+      - name: Dependency inventory and audit
+        id: dependency-audit
+        run: |
+          echo "=== Dependency Inventory ===" 
+          npm list --depth=0 --json > dependency-inventory.json
+          TOTAL_DEPS=$(cat dependency-inventory.json | jq '.dependencies | length')
+          echo "total-deps=$TOTAL_DEPS" >> $GITHUB_OUTPUT
+          echo "Total dependencies: $TOTAL_DEPS"
+          
+          echo "=== High-risk package detection ==="
+          npm audit --audit-level=low --json > npm-audit.json || true
+          
+          # Check for abandoned packages using npm-check-updates
+          npx npm-check-updates --format json > package-updates.json || true
+          
+      - name: Enhanced Snyk vulnerability scanning
+        id: snyk-scan
+        run: |
+          # Install latest Snyk CLI
+          npm install -g snyk@latest
+          
+          # Authenticate
+          snyk auth ${{ env.SNYK_TOKEN }}
+          
+          # Configure Snyk for enhanced scanning
+          cat > .snyk << 'EOF'
+          version: v1.0.0
+          language-settings:
+            javascript:
+              includeDevDeps: true
+              ignoreUnknownCA: false
+              skipUnresolved: false
+          ignore:
+            # Example: Ignore specific vulnerabilities with justification
+            # SNYK-JS-LODASH-567746:
+            #   - '*':
+            #       reason: False positive - not exploitable in our usage context
+            #       expires: '2024-12-31T23:59:59.999Z'
+          EOF
+          
+          # Run comprehensive vulnerability test
+          snyk test --json --all-projects --detection-depth=5 \
+            --severity-threshold=${{ github.event.inputs.severity_threshold || 'medium' }} \
+            --exclude-base-image-vulns > snyk-test-report.json || true
+            
+          # Generate SARIF for GitHub Security tab
+          snyk test --sarif --severity-threshold=medium > snyk.sarif || true
+          
+          # Monitor project for continuous tracking
+          snyk monitor --all-projects || true
+          
+          # License compliance check
+          snyk test --json --severity-threshold=medium --license-policy-path=.snyk > snyk-license-report.json || true
+          
+          # Container scanning if applicable
+          if [ -f Dockerfile ]; then
+            snyk container test . --json > snyk-container-report.json || true
+          fi
+          
+      - name: Supply chain security analysis
+        id: supply-chain
+        run: |
+          echo "=== Package integrity verification ==="
+          # Verify package checksums and signatures
+          npm audit signatures || true
+          
+          # Check for typosquatting and suspicious packages
+          npx @naugtur/npm-audit-ci-wrapper --moderate-exit-code || true
+          
+          # Analyze package maintenance and popularity
+          cat package.json | jq '.dependencies' | jq 'keys[]' | while read -r package; do
+            package=$(echo $package | tr -d '"')
+            echo "Analyzing: $package"
+            npm view "$package" time maintainers --json >> package-metadata.json 2>/dev/null || true
+          done
+          
+          # Check for packages with install scripts (potential security risk)
+          npm ls --parseable | xargs npm view --json | jq -r '.[] | select(.scripts.install or .scripts.preinstall or .scripts.postinstall) | .name' > packages-with-scripts.txt || true
+          
+      - name: Generate Software Bill of Materials (SBOM)
+        id: sbom
+        run: |
+          # Install SBOM generation tools
+          npm install -g @cyclonedx/cyclonedx-npm
+          
+          # Generate SBOM in multiple formats
+          cyclonedx-npm --output ./sbom.json --output-format json
+          cyclonedx-npm --output ./sbom.xml --output-format xml
+          
+          # Generate SPDX format SBOM
+          npm install -g @fossa/fossa-cli || true
+          fossa analyze --output ./sbom-spdx.json --format spdx || true
+          
+          echo "generated=true" >> $GITHUB_OUTPUT
+          
+      - name: Vulnerability summary and prioritization
+        id: vuln-summary
+        run: |
+          # Process Snyk results
+          if [ -f snyk-test-report.json ]; then
+            CRITICAL=$(cat snyk-test-report.json | jq '[.vulnerabilities[] | select(.severity=="critical")] | length')
+            HIGH=$(cat snyk-test-report.json | jq '[.vulnerabilities[] | select(.severity=="high")] | length')
+            MEDIUM=$(cat snyk-test-report.json | jq '[.vulnerabilities[] | select(.severity=="medium")] | length')
+            LOW=$(cat snyk-test-report.json | jq '[.vulnerabilities[] | select(.severity=="low")] | length')
+            
+            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
+            echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+            echo "low=$LOW" >> $GITHUB_OUTPUT
+            
+            echo "🔴 Critical: $CRITICAL vulnerabilities"
+            echo "🟠 High: $HIGH vulnerabilities"
+            echo "🟡 Medium: $MEDIUM vulnerabilities"
+            echo "🟢 Low: $LOW vulnerabilities"
+            
+            # Generate prioritized vulnerability list
+            cat snyk-test-report.json | jq -r '.vulnerabilities[] | select(.severity=="critical" or .severity=="high") | "\(.severity | ascii_upcase): \(.title) - Package: \(.packageName)@\(.version) - CVE: \(.identifiers.CVE[0] // "N/A")"' > high-priority-vulns.txt
+            
+            # Fail on critical vulnerabilities
+            if [ "$CRITICAL" -gt 0 ]; then
+              echo "::error::Found $CRITICAL critical vulnerabilities!"
+              echo "::error::Review the security tab for details"
+            fi
+          fi
+          
+      - name: License compliance analysis
+        id: license-check
+        run: |
+          # Enhanced license checking
+          npx license-checker --json --out license-report.json
+          
+          # Check for license conflicts
+          cat license-report.json | jq -r 'to_entries[] | select(.value.licenses | type == "string" and (contains("GPL") or contains("AGPL") or contains("LGPL"))) | "\(.key): \(.value.licenses)"' > license-conflicts.txt || true
+          
+          # Generate license summary
+          cat license-report.json | jq -r 'to_entries[] | .value.licenses' | sort | uniq -c | sort -nr > license-summary.txt
+          
+      - name: Generate comprehensive security report
+        run: |
+          SCAN_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          cat > security-report.md << EOF
+          # Comprehensive Security Scan Report
+          
+          **Scan Date:** $SCAN_DATE
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          **Scan Type:** ${{ github.event.inputs.scan_type || 'full' }}
+          
+          ## Executive Summary
+          
+          ### Vulnerability Summary
+          - 🔴 **Critical:** ${{ steps.vuln-summary.outputs.critical || '0' }} vulnerabilities
+          - 🟠 **High:** ${{ steps.vuln-summary.outputs.high || '0' }} vulnerabilities  
+          - 🟡 **Medium:** ${{ steps.vuln-summary.outputs.medium || '0' }} vulnerabilities
+          - 🟢 **Low:** ${{ steps.vuln-summary.outputs.low || '0' }} vulnerabilities
+          
+          ### Dependencies Analysis
+          - **Total packages:** ${{ steps.dependency-audit.outputs.total-deps }}
+          - **SBOM generated:** ${{ steps.sbom.outputs.generated }}
+          
+          ## High Priority Issues
+          
+          \`\`\`
+          $(cat high-priority-vulns.txt 2>/dev/null || echo "No high-priority vulnerabilities found")
+          \`\`\`
+          
+          ## License Compliance
+          
+          ### License Summary
+          \`\`\`
+          $(cat license-summary.txt 2>/dev/null || echo "License analysis unavailable")
+          \`\`\`
+          
+          ### Potential License Conflicts
+          \`\`\`
+          $(cat license-conflicts.txt 2>/dev/null || echo "No license conflicts detected")
+          \`\`\`
+          
+          ## Supply Chain Security
+          
+          ### Packages with Install Scripts
+          \`\`\`
+          $(cat packages-with-scripts.txt 2>/dev/null || echo "No packages with install scripts")
+          \`\`\`
+          
+          ## Remediation Steps
+          
+          1. **Immediate Actions (Critical/High)**
+             - Review critical and high severity vulnerabilities
+             - Update affected packages where fixes are available
+             - Consider workarounds for unfixed vulnerabilities
+          
+          2. **Medium Priority**
+             - Schedule updates for medium severity issues
+             - Monitor for security patches
+          
+          3. **Ongoing Monitoring**
+             - Enable automated dependency updates
+             - Monitor Snyk dashboard for new vulnerabilities
+             - Review license compliance regularly
+          
+          ## Additional Resources
+          
+          - [GitHub Security Tab](https://github.com/${{ github.repository }}/security)
+          - [Dependency Graph](https://github.com/${{ github.repository }}/network/dependencies)
+          - [Snyk Project Dashboard](https://app.snyk.io/projects)
+          
+          ---
+          *Report generated by Advanced Security Scanning workflow*
+          EOF
+          
+      - name: Upload enhanced Snyk results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk.sarif
+          category: 'snyk-vulnerabilities'
+          
+      - name: Upload comprehensive security artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-results-${{ github.run_number }}
+          path: |
+            snyk-test-report.json
+            snyk-license-report.json
+            snyk-container-report.json
+            npm-audit.json
+            dependency-inventory.json
+            package-metadata.json
+            package-updates.json
+            packages-with-scripts.txt
+            high-priority-vulns.txt
+            license-report.json
+            license-conflicts.txt
+            license-summary.txt
+            sbom.json
+            sbom.xml
+            sbom-spdx.json
+            security-report.md
+            .snyk
+          retention-days: 90
+          
+      - name: Comment PR with security summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const report = fs.readFileSync('security-report.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+            } catch (error) {
+              console.log('Could not post security report to PR:', error);
+            }
+            
+      - name: Block deployment on critical vulnerabilities
+        if: steps.vuln-summary.outputs.critical > 0
+        run: |
+          echo "::error::Blocking deployment due to critical vulnerabilities"
+          echo "::error::Found ${{ steps.vuln-summary.outputs.critical }} critical issues"
+          echo "::error::Address these before proceeding with deployment"
+          exit 1
+
+  supply-chain-verification:
+    name: Supply Chain Security
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'supply-chain-only' || github.event.inputs.scan_type == '' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci --audit=false
+        
+      - name: Package provenance verification
+        run: |
+          echo "=== Verifying package provenance ==="
+          
+          # Check npm registry signatures
+          npm audit signatures --audit-level=moderate || true
+          
+          # Verify package integrity
+          npm install --package-lock-only --audit=false
+          
+          # Check for suspicious dependency changes
+          git diff --name-only HEAD~1 2>/dev/null | grep -E "(package\.json|package-lock\.json|yarn\.lock)" > changed-deps.txt || echo "No dependency changes detected"
+          
+          if [ -s changed-deps.txt ]; then
+            echo "Dependency changes detected:"
+            cat changed-deps.txt
+            
+            # Generate dependency diff report
+            npm ls --json > current-deps.json
+            git show HEAD~1:package-lock.json > prev-package-lock.json 2>/dev/null || echo "{}" > prev-package-lock.json
+            
+            # Compare and highlight new/changed packages
+            echo "=== New or modified dependencies ==="
+            node -e "
+              const current = require('./package-lock.json');
+              const prev = JSON.parse(require('fs').readFileSync('prev-package-lock.json'));
+              
+              const currentPackages = current.packages || {};
+              const prevPackages = prev.packages || {};
+              
+              Object.keys(currentPackages).forEach(pkg => {
+                if (!prevPackages[pkg] || currentPackages[pkg].version !== prevPackages[pkg].version) {
+                  console.log(\`\${pkg}: \${prevPackages[pkg]?.version || 'NEW'} -> \${currentPackages[pkg].version}\`);
+                }
+              });
+            " > dependency-changes.txt 2>/dev/null || echo "Could not analyze dependency changes"
+          fi
+          
+      - name: Malicious package detection
+        run: |
+          echo "=== Scanning for malicious patterns ==="
+          
+          # Check for packages with suspicious install scripts
+          node -e "
+            const packageLock = require('./package-lock.json');
+            const suspiciousPackages = [];
+            
+            Object.entries(packageLock.packages || {}).forEach(([name, info]) => {
+              if (info.hasInstallScript) {
+                suspiciousPackages.push({
+                  name: name.replace('node_modules/', ''),
+                  version: info.version,
+                  scripts: info.scripts || {}
+                });
+              }
+            });
+            
+            if (suspiciousPackages.length > 0) {
+              console.log('Packages with install scripts:');
+              suspiciousPackages.forEach(pkg => {
+                console.log(\`- \${pkg.name}@\${pkg.version}\`);
+                Object.entries(pkg.scripts).forEach(([script, command]) => {
+                  if (['install', 'preinstall', 'postinstall'].includes(script)) {
+                    console.log(\`  \${script}: \${command}\`);
+                  }
+                });
+              });
+            }
+          " > suspicious-packages.txt || echo "Could not analyze install scripts"
+          
+          # Check for typosquatting (common package name variations)
+          node -e "
+            const package = require('./package.json');
+            const commonTargets = ['react', 'lodash', 'express', 'axios', 'moment'];
+            const deps = Object.keys({...package.dependencies, ...package.devDependencies});
+            
+            const suspicious = deps.filter(dep => {
+              return commonTargets.some(target => {
+                const similarity = dep.toLowerCase().includes(target) && dep !== target;
+                return similarity;
+              });
+            });
+            
+            if (suspicious.length > 0) {
+              console.log('Potentially suspicious package names:');
+              suspicious.forEach(pkg => console.log(\`- \${pkg}\`));
+            }
+          " > typosquatting-check.txt || echo "Could not check for typosquatting"
+          
+      - name: Upload supply chain artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: supply-chain-analysis-${{ github.run_number }}
+          path: |
+            changed-deps.txt
+            dependency-changes.txt
+            suspicious-packages.txt
+            typosquatting-check.txt
+          retention-days: 30
+
+  automated-dependency-updates:
+    name: Automated Dependency Updates
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' && github.ref == 'refs/heads/main' }}
+    needs: [vulnerability-assessment]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Check for security updates
+        id: security-updates
+        run: |
+          npm ci --audit=false
+          
+          # Check for packages with security vulnerabilities that have fixes
+          npm audit --json > audit-results.json || true
+          
+          # Extract fixable vulnerabilities
+          cat audit-results.json | jq -r '.vulnerabilities | to_entries[] | select(.value.fixAvailable) | "\(.key): \(.value.fixAvailable.name)@\(.value.fixAvailable.version)"' > fixable-vulns.txt
+          
+          if [ -s fixable-vulns.txt ]; then
+            echo "security-fixes-available=true" >> $GITHUB_OUTPUT
+            echo "Security fixes available:"
+            cat fixable-vulns.txt
+          else
+            echo "security-fixes-available=false" >> $GITHUB_OUTPUT
+            echo "No security fixes available"
+          fi
+          
+      - name: Apply security updates
+        if: steps.security-updates.outputs.security-fixes-available == 'true'
+        run: |
+          # Apply automatic security fixes
+          npm audit fix --audit-level=moderate
+          
+          # Check if any changes were made
+          if git diff --quiet package.json package-lock.json; then
+            echo "No changes applied"
+            exit 0
+          fi
+          
+          # Run tests to ensure updates don't break functionality
+          npm test || {
+            echo "Tests failed after security updates, reverting changes"
+            git checkout -- package.json package-lock.json
+            exit 1
+          }
+          
+      - name: Create automated security update PR
+        if: steps.security-updates.outputs.security-fixes-available == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'security: apply automated security updates'
+          title: '🔒 Automated Security Updates'
+          body: |
+            ## Automated Security Updates
+            
+            This PR contains automated security updates for vulnerable dependencies.
+            
+            ### Changes Applied
+            - Applied `npm audit fix` for security vulnerabilities
+            - All tests passed after updates
+            
+            ### Security Fixes
+            ```
+            $(cat fixable-vulns.txt)
+            ```
+            
+            ### Verification
+            - ✅ Tests passed
+            - ✅ No breaking changes detected
+            - ✅ Security vulnerabilities addressed
+            
+            This PR was automatically created by the Advanced Security Scanning workflow.
+          branch: automated-security-updates
+          delete-branch: true
+          labels: |
+            security
+            automated
+            dependencies
+
+  security-monitoring:
+    name: Security Monitoring Dashboard
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' }}
+    needs: [vulnerability-assessment, supply-chain-verification]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Generate security dashboard
+        run: |
+          cat > security-dashboard.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>DCE Security Dashboard</title>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 40px; }
+              .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+              .metric { display: inline-block; margin: 10px 20px; text-align: center; }
+              .metric-value { font-size: 2em; font-weight: bold; }
+              .critical { color: #dc3545; }
+              .high { color: #fd7e14; }
+              .medium { color: #ffc107; }
+              .low { color: #28a745; }
+              .section { margin: 20px 0; padding: 20px; border: 1px solid #dee2e6; border-radius: 8px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>DCE Security Dashboard</h1>
+              <p>Last updated: $(date)</p>
+            </div>
+            
+            <div class="section">
+              <h2>Vulnerability Summary</h2>
+              <div class="metric">
+                <div class="metric-value critical">${{ needs.vulnerability-assessment.outputs.critical-vulns || '0' }}</div>
+                <div>Critical</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value high">${{ needs.vulnerability-assessment.outputs.high-vulns || '0' }}</div>
+                <div>High</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">${{ needs.vulnerability-assessment.outputs.dependency-count || '0' }}</div>
+                <div>Dependencies</div>
+              </div>
+            </div>
+            
+            <div class="section">
+              <h2>Security Status</h2>
+              <ul>
+                <li>SBOM Generated: ${{ needs.vulnerability-assessment.outputs.sbom-generated || 'false' }}</li>
+                <li>Last Scan: $(date)</li>
+                <li>Branch: ${{ github.ref_name }}</li>
+              </ul>
+            </div>
+          </body>
+          </html>
+          EOF
+          
+      - name: Deploy security dashboard
+        run: |
+          # This would typically deploy to a monitoring dashboard
+          # For now, we'll just upload as an artifact
+          echo "Security dashboard generated"
+          
+      - name: Upload dashboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-dashboard
+          path: security-dashboard.html
+          retention-days: 7

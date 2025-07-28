@@ -14,6 +14,9 @@ export type { LoadingProps, SkeletonProps, PageLoadingProps, CardLoadingProps } 
 export { Badge, StatusBadge, NumberBadge } from './Badge'
 export type { BadgeProps, StatusBadgeProps, NumberBadgeProps } from './Badge'
 
+export { Logo } from './Logo'
+export type { LogoProps } from './Logo'
+
 export { ErrorBoundary } from './ErrorBoundary'
 export type { ErrorFallbackProps } from './ErrorBoundary'
 

@@ -171,7 +171,7 @@ export default function PayoutSettingsPage() {
   if (!isSupplier) {
     return (
       <div className="p-6">
-        <SettingsAlert type="info">
+        <SettingsAlert variant="info">
           Payout settings are only available for supplier accounts.
         </SettingsAlert>
       </div>
@@ -196,9 +196,8 @@ export default function PayoutSettingsPage() {
         >
           <div className="space-y-4">
             <SettingsRadioGroup
-              {...register('preferredMethod', {
-                required: 'Please select a payout method'
-              })}
+              value={watch('preferredMethod')}
+              onChange={(value) => setValue('preferredMethod', value as 'bank_transfer' | 'wire' | 'paypal' | 'check')}
               options={PAYOUT_METHOD_OPTIONS}
               error={errors.preferredMethod?.message}
             />
@@ -322,7 +321,7 @@ export default function PayoutSettingsPage() {
                     </SettingsField>
 
                     {verificationStatus === 'pending' && (
-                      <SettingsAlert type="info">
+                      <SettingsAlert variant="info">
                         <p className="text-sm">
                           Verifying your bank account... This may take a few moments.
                         </p>
@@ -380,7 +379,7 @@ export default function PayoutSettingsPage() {
               />
             </SettingsField>
 
-            <SettingsAlert type="info">
+            <SettingsAlert variant="info">
               <p className="text-sm">
                 Next payout: <strong>Monday, January 15, 2024</strong> (estimated $2,450.00)
               </p>
@@ -423,17 +422,19 @@ export default function PayoutSettingsPage() {
             <SettingsToggle
               label="Tax Exempt"
               description="Check if your organization has tax-exempt status"
-              {...register('taxInformation.taxExempt')}
+              checked={watch('taxInformation.taxExempt')}
+              onChange={(checked) => setValue('taxInformation.taxExempt', checked)}
             />
 
             <SettingsToggle
               label="W-9 Filed"
               description="I have submitted a completed W-9 form"
-              {...register('taxInformation.w9Filed')}
+              checked={watch('taxInformation.w9Filed')}
+              onChange={(checked) => setValue('taxInformation.w9Filed', checked)}
             />
 
             {!watch('taxInformation.w9Filed') && (
-              <SettingsAlert type="warning">
+              <SettingsAlert variant="warning">
                 <div className="flex">
                   <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
                   <div className="ml-3">
@@ -458,7 +459,8 @@ export default function PayoutSettingsPage() {
             <SettingsToggle
               label="Generate Invoices Automatically"
               description="Create invoices for each payout automatically"
-              {...register('invoiceSettings.generateAutomatically')}
+              checked={watch('invoiceSettings.generateAutomatically')}
+              onChange={(checked) => setValue('invoiceSettings.generateAutomatically', checked)}
             />
 
             <SettingsField
@@ -478,7 +480,8 @@ export default function PayoutSettingsPage() {
             <SettingsToggle
               label="Include Detailed Call Logs"
               description="Attach detailed call reports to invoices"
-              {...register('invoiceSettings.includeDetails')}
+              checked={watch('invoiceSettings.includeDetails')}
+              onChange={(checked) => setValue('invoiceSettings.includeDetails', checked)}
             />
           </div>
         </SettingsSection>
@@ -493,25 +496,29 @@ export default function PayoutSettingsPage() {
             <SettingsToggle
               label="Payout Initiated"
               description="Notify when a payout is sent"
-              defaultChecked={true}
+              checked={true}
+              onChange={() => {}}
             />
 
             <SettingsToggle
               label="Payout Received"
               description="Confirm when funds are deposited"
-              defaultChecked={true}
+              checked={true}
+              onChange={() => {}}
             />
 
             <SettingsToggle
               label="Payout Failed"
               description="Alert if a payout fails or is rejected"
-              defaultChecked={true}
+              checked={true}
+              onChange={() => {}}
             />
 
             <SettingsToggle
               label="Threshold Reached"
               description="Notify when minimum payout amount is reached"
-              defaultChecked={false}
+              checked={false}
+              onChange={() => {}}
             />
           </div>
         </SettingsSection>

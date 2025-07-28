@@ -1,0 +1,32 @@
+{
+  "name": "dce-security-tests",
+  "version": "1.0.0",
+  "description": "Security testing suite for DCE platform",
+  "scripts": {
+    "security:test": "vitest run security/",
+    "security:owasp": "playwright test owasp-tests.js",
+    "security:zap": "node scripts/run-zap-scan.js",
+    "security:audit": "npm audit --audit-level high",
+    "security:scan": "npm run security:test && npm run security:owasp && npm run security:audit",
+    "security:report": "node scripts/generate-security-report.js",
+    "penetration:test": "node scripts/penetration-tests.js"
+  },
+  "devDependencies": {
+    "@owasp/nodejs-owasp-zap": "^0.2.0",
+    "@playwright/test": "^1.54.0",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.0",
+    "express-validator": "^7.0.1",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "dompurify": "^3.0.7",
+    "validator": "^13.11.0"
+  },
+  "keywords": [
+    "security",
+    "testing",
+    "owasp",
+    "penetration",
+    "vulnerability"
+  ]
+}

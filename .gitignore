@@ -43,3 +43,16 @@ test-results/
 
 # Monitoring files
 monitor.log
+
+# Security - Never commit credentials
+TEST_ACCOUNTS.md
+**/test-credentials*
+**/credentials*
+*.credentials
+*.secrets
+.env.production
+.env.staging
+SUPABASE_SERVICE_ROLE_KEY*
+
+# Local Netlify folder
+.netlify

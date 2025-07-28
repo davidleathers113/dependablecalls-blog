@@ -1,0 +1,127 @@
+/* Brand Color System */
+:root {
+  /* Primary Brand Colors - Professional Blue */
+  --brand-primary-h: 217;
+  --brand-primary-s: 91%;
+  --brand-primary-l: 60%;
+  
+  /* Accent Color - Trust Green */
+  --brand-accent-h: 158;
+  --brand-accent-s: 64%;
+  --brand-accent-l: 42%;
+  
+  /* Secondary Color - Warm Gray */
+  --brand-secondary-h: 220;
+  --brand-secondary-s: 9%;
+  --brand-secondary-l: 46%;
+  
+  /* Semantic Brand Colors */
+  --brand-primary: hsl(var(--brand-primary-h), var(--brand-primary-s), var(--brand-primary-l));
+  --brand-primary-light: hsl(var(--brand-primary-h), var(--brand-primary-s), calc(var(--brand-primary-l) + 20%));
+  --brand-primary-dark: hsl(var(--brand-primary-h), var(--brand-primary-s), calc(var(--brand-primary-l) - 20%));
+  
+  --brand-accent: hsl(var(--brand-accent-h), var(--brand-accent-s), var(--brand-accent-l));
+  --brand-accent-light: hsl(var(--brand-accent-h), var(--brand-accent-s), calc(var(--brand-accent-l) + 20%));
+  --brand-accent-dark: hsl(var(--brand-accent-h), var(--brand-accent-s), calc(var(--brand-accent-l) - 10%));
+  
+  --brand-secondary: hsl(var(--brand-secondary-h), var(--brand-secondary-s), var(--brand-secondary-l));
+  
+  /* Functional Colors */
+  --brand-success: var(--brand-accent);
+  --brand-warning: hsl(45, 100%, 51%);
+  --brand-error: hsl(0, 84%, 60%);
+  --brand-info: hsl(199, 89%, 48%);
+  
+  /* Text Colors */
+  --brand-text-primary: hsl(0, 0%, 13%);
+  --brand-text-secondary: hsl(220, 9%, 46%);
+  --brand-text-light: hsl(220, 9%, 60%);
+  --brand-text-on-primary: hsl(0, 0%, 100%);
+  
+  /* Background Colors */
+  --brand-bg-primary: hsl(0, 0%, 100%);
+  --brand-bg-secondary: hsl(220, 14%, 96%);
+  --brand-bg-tertiary: hsl(220, 14%, 98%);
+  
+  /* Border Colors */
+  --brand-border-primary: hsl(220, 13%, 91%);
+  --brand-border-secondary: hsl(220, 13%, 85%);
+  
+  /* Shadow Colors */
+  --brand-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --brand-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --brand-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Adjust lightness for dark mode */
+    --brand-primary: hsl(var(--brand-primary-h), var(--brand-primary-s), calc(var(--brand-primary-l) - 10%));
+    --brand-accent: hsl(var(--brand-accent-h), var(--brand-accent-s), calc(var(--brand-accent-l) + 10%));
+    
+    /* Invert text colors */
+    --brand-text-primary: hsl(0, 0%, 95%);
+    --brand-text-secondary: hsl(220, 9%, 70%);
+    --brand-text-light: hsl(220, 9%, 60%);
+    --brand-text-on-primary: hsl(0, 0%, 13%);
+    
+    /* Dark backgrounds */
+    --brand-bg-primary: hsl(222, 47%, 11%);
+    --brand-bg-secondary: hsl(222, 47%, 15%);
+    --brand-bg-tertiary: hsl(222, 47%, 20%);
+    
+    /* Dark borders */
+    --brand-border-primary: hsl(220, 13%, 25%);
+    --brand-border-secondary: hsl(220, 13%, 30%);
+  }
+}
+
+/* Animation utilities for brand elements */
+@keyframes pulse-brand {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse-brand 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+/* Brand Typography */
+.brand-heading {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.brand-body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Brand Gradients */
+.brand-gradient-primary {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
+}
+
+.brand-gradient-accent {
+  background: linear-gradient(135deg, var(--brand-accent-light) 0%, var(--brand-accent) 100%);
+}
+
+.brand-gradient-hero {
+  background: linear-gradient(
+    135deg, 
+    hsl(var(--brand-primary-h), var(--brand-primary-s), calc(var(--brand-primary-l) + 30%)) 0%,
+    var(--brand-primary) 50%,
+    hsl(var(--brand-primary-h), var(--brand-primary-s), calc(var(--brand-primary-l) - 10%)) 100%
+  );
+}

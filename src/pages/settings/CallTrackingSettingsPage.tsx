@@ -107,7 +107,7 @@ export default function CallTrackingSettingsPage() {
   if (!isSupplier) {
     return (
       <div className="p-6">
-        <SettingsAlert type="info">
+        <SettingsAlert variant="info">
           Call tracking settings are only available for supplier accounts.
         </SettingsAlert>
       </div>
@@ -147,7 +147,7 @@ export default function CallTrackingSettingsPage() {
 
             {selectedProvider && (
               <>
-                <SettingsAlert type="info" className="mt-4">
+                <SettingsAlert variant="info" className="mt-4">
                   <div className="flex">
                     <InformationCircleIcon className="h-5 w-5 flex-shrink-0" />
                     <div className="ml-3">
@@ -214,7 +214,8 @@ export default function CallTrackingSettingsPage() {
             <SettingsToggle
               label="Record Calls"
               description="Automatically record all calls for quality assurance"
-              {...register('recordCalls')}
+              checked={recordCalls}
+              onChange={(checked) => setValue('recordCalls', checked)}
             />
 
             {recordCalls && (
@@ -222,10 +223,11 @@ export default function CallTrackingSettingsPage() {
                 <SettingsToggle
                   label="Transcribe Calls"
                   description="Generate text transcriptions of recorded calls"
-                  {...register('transcribeCalls')}
+                  checked={watch('transcribeCalls')}
+                  onChange={(checked) => setValue('transcribeCalls', checked)}
                 />
 
-                <SettingsAlert type="warning" className="mt-4">
+                <SettingsAlert variant="warning" className="mt-4">
                   <div className="flex">
                     <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
                     <div className="ml-3">
@@ -321,7 +323,7 @@ export default function CallTrackingSettingsPage() {
               />
             </SettingsField>
 
-            <SettingsAlert type="info">
+            <SettingsAlert variant="info">
               <p className="text-sm">
                 After the retention period, call recordings and transcriptions will be automatically deleted. 
                 Call metadata will be retained for reporting purposes.

@@ -6,7 +6,6 @@ import {
   ChartBarIcon,
   PhoneIcon,
   DocumentTextIcon,
-  CreditCardIcon,
   CogIcon,
   UserCircleIcon,
   Bars3Icon,
@@ -14,6 +13,8 @@ import {
 } from '@heroicons/react/24/outline'
 import ErrorBoundary from '../common/ErrorBoundary'
 import { AppLayoutSidebarFallbackUI, AppLayoutContentFallbackUI } from '../common/FallbackUI'
+import AccessibleIcon from '../common/AccessibleIcon'
+import { Logo } from '../common/Logo'
 
 // Dynamic navigation based on user type
 const getNavigation = (userType: string | null) => {
@@ -29,7 +30,6 @@ const getNavigation = (userType: string | null) => {
         { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
         { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
         { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
-        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
         baseNav[1], // Settings
       ]
     case 'buyer':
@@ -38,7 +38,6 @@ const getNavigation = (userType: string | null) => {
         { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
         { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
         { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
-        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
         baseNav[1], // Settings
       ]
     case 'network':
@@ -48,7 +47,6 @@ const getNavigation = (userType: string | null) => {
         { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
         { name: 'Partners', href: '/app/partners', icon: UserCircleIcon },
         { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
-        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
         baseNav[1], // Settings
       ]
     case 'admin':
@@ -58,7 +56,6 @@ const getNavigation = (userType: string | null) => {
         { name: 'Campaigns', href: '/app/campaigns', icon: ChartBarIcon },
         { name: 'Calls', href: '/app/calls', icon: PhoneIcon },
         { name: 'Reports', href: '/app/reports', icon: DocumentTextIcon },
-        { name: 'Billing', href: '/app/billing', icon: CreditCardIcon },
         baseNav[1], // Settings
       ]
     default:
@@ -87,6 +84,13 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
+      {/* Skip to main content link for keyboard navigation */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 bg-primary-600 text-white px-6 py-3 z-50 rounded-br-md"
+      >
+        Skip to main content
+      </a>
       {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 flex z-40 lg:hidden">
@@ -108,13 +112,14 @@ export default function AppLayout() {
               <button
                 className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                 onClick={() => setSidebarOpen(false)}
+                aria-label="Close sidebar"
               >
-                <XMarkIcon className="h-6 w-6 text-white" />
+                <AccessibleIcon icon={XMarkIcon} decorative className="h-6 w-6 text-white" />
               </button>
             </div>
 
             <div className="flex-shrink-0 flex items-center px-4">
-              <span className="text-2xl font-bold text-primary-600">DependableCalls</span>
+              <Logo variant="default" />
             </div>
 
             <div className="mt-5 flex-1 h-0 overflow-y-auto">
@@ -135,7 +140,9 @@ export default function AppLayout() {
                       )}
                       onClick={() => setSidebarOpen(false)}
                     >
-                      <item.icon
+                      <AccessibleIcon
+                        icon={item.icon}
+                        decorative
                         className={classNames(
                           location.pathname === item.href
                             ? 'text-gray-500'
@@ -157,7 +164,7 @@ export default function AppLayout() {
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
         <div className="flex flex-col flex-1 min-h-0 bg-white border-r border-gray-200">
           <div className="flex items-center h-16 flex-shrink-0 px-4 bg-white border-b border-gray-200">
-            <span className="text-2xl font-bold text-primary-600">DependableCalls</span>
+            <Logo variant="default" />
           </div>
 
           <div className="flex-1 flex flex-col overflow-y-auto">
@@ -177,7 +184,9 @@ export default function AppLayout() {
                       'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
                     )}
                   >
-                    <item.icon
+                    <AccessibleIcon
+                      icon={item.icon}
+                      decorative
                       className={classNames(
                         location.pathname === item.href
                           ? 'text-gray-500'
@@ -202,8 +211,9 @@ export default function AppLayout() {
             type="button"
             className="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 lg:hidden"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
           >
-            <Bars3Icon className="h-6 w-6" />
+            <AccessibleIcon icon={Bars3Icon} decorative className="h-6 w-6" />
           </button>
 
           <div className="flex-1 px-4 flex justify-between">
@@ -217,7 +227,7 @@ export default function AppLayout() {
                     className="max-w-xs bg-white flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                   >
-                    <UserCircleIcon className="h-8 w-8 text-gray-400" />
+                    <AccessibleIcon icon={UserCircleIcon} aria-label="User profile" className="h-8 w-8 text-gray-400" />
                     <span className="ml-3 text-gray-700 text-sm font-medium">{user?.email}</span>
                   </button>
                 </div>
@@ -248,7 +258,7 @@ export default function AppLayout() {
         </div>
 
         {/* Page content */}
-        <main className="flex-1">
+        <main id="main-content" className="flex-1">
           <ErrorBoundary
             context="AppLayout - Main Content"
             fallback={<AppLayoutContentFallbackUI />}

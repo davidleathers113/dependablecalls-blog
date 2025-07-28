@@ -1,0 +1,190 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.25.0
+
+# Language-specific settings
+language-settings:
+  javascript:
+    includeDevDeps: true
+    ignoreUnknownCA: false
+    skipUnresolved: false
+
+# License policies
+license-policy:
+  severity: medium
+  allowed-licenses:
+    - MIT
+    - ISC
+    - Apache-2.0
+    - BSD-2-Clause
+    - BSD-3-Clause
+    - CC0-1.0
+    - Unlicense
+  disallowed-licenses:
+    - GPL-2.0
+    - GPL-3.0
+    - AGPL-1.0
+    - AGPL-3.0
+    - LGPL-2.0
+    - LGPL-2.1
+    - LGPL-3.0
+    - CDDL-1.0
+    - CDDL-1.1
+    - CPL-1.0
+    - EPL-1.0
+    - EPL-2.0
+    - EUPL-1.1
+    - EUPL-1.2
+
+# Global ignore rules (use sparingly and with justification)
+ignore:
+  # Example entries - remove/modify as needed
+  # SNYK-JS-EXAMPLE-123456:
+  #   - '*':
+  #       reason: False positive - not exploitable in our usage context
+  #       expires: '2024-12-31T23:59:59.999Z'
+  #       created: '2024-01-01T00:00:00.000Z'
+
+# Patch settings
+patch: {}
+
+# Update policies for automatic fixes
+update-policy:
+  # Automatically apply patches for vulnerabilities
+  auto-patch: true
+  # Minimum severity to auto-patch
+  patch-threshold: medium
+  # Maximum version bump allowed for auto-updates
+  version-strategy: minor
+
+# Monitoring settings
+monitor:
+  # Monitor all projects by default
+  all-projects: true
+  # Include dev dependencie in monitoring
+  dev: true
+  # Fail on issues above this threshold
+  fail-on: upgradable
+  # Severity threshold for failing builds
+  severity-threshold: medium
+
+# Custom severity overrides (use with caution)
+# severity-overrides:
+#   SNYK-JS-EXAMPLE-123456: medium
+
+# Exclude paths from scanning
+exclude:
+  global:
+    - "**/.git/**"
+    - "**/node_modules/**"
+    - "**/bower_components/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/*.min.js"
+    - "**/coverage/**"
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/__tests__/**"
+    - "**/*.test.js"
+    - "**/*.spec.js"
+    - "**/cypress/**"
+    - "**/playwright/**"
+    - "**/.next/**"
+    - "**/.nuxt/**"
+    - "**/out/**"
+    - "**/.output/**"
+
+# Organizational settings (customize for your needs)
+org-settings:
+  # Default organization (if applicable)
+  # org: 'your-org-name'
+  
+  # Project tags for organization
+  project-tags:
+    - frontend
+    - react
+    - typescript
+    - production
+    - dce-platform
+
+# Integration settings
+integrations:
+  # GitHub integration
+  github:
+    # Post PR comments with vulnerability details
+    pr-comments: true
+    # Fail PR checks on high/critical vulnerabilities
+    fail-on-issues: true
+    # Monitor default branch
+    monitor-branches:
+      - main
+      - develop
+
+# Notification settings
+notifications:
+  # Email notifications for new vulnerabilities
+  email:
+    enabled: true
+    frequency: weekly
+  
+  # Slack notifications (configure webhook)
+  # slack:
+  #   enabled: true
+  #   webhook-url: 'https://hooks.slack.com/...'
+  #   channel: '#security'
+  #   frequency: immediate
+
+# Reporting preferences
+reporting:
+  # Generate detailed reports
+  detailed: true
+  # Include remediation advice
+  remediation: true
+  # Include license information
+  licenses: true
+  # Report format preferences
+  formats:
+    - json
+    - sarif
+    - html
+
+# Advanced scanning options
+scanning:
+  # Enable experimental features
+  experimental: false
+  # Scan timeout in seconds
+  timeout: 300
+  # Maximum number of concurrent scans
+  concurrent-scans: 5
+  # Include indirect vulnerabilities
+  include-indirect: true
+  # Scan depth for nested dependencies
+  depth: 10
+
+# Container scanning settings (if applicable)
+container:
+  # Exclude base image vulnerabilities
+  exclude-base-image-vulns: true
+  # Scan for malware
+  malware-scan: true
+  # Include OS package vulnerabilities
+  os-scan: true
+
+# Infrastructure as Code scanning
+iac:
+  # Scan Terraform files
+  terraform: true
+  # Scan Kubernetes manifests  
+  kubernetes: true
+  # Scan CloudFormation templates
+  cloudformation: true
+  # Custom rules
+  custom-rules: true
+
+# API security scanning
+api:
+  # OpenAPI/Swagger specification scanning
+  openapi: true
+  # REST API endpoint scanning
+  rest: true
+  # GraphQL schema scanning
+  graphql: true

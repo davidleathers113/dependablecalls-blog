@@ -5,6 +5,10 @@ import App from './App.tsx'
 import { initSentry, SentryErrorBoundary, captureError } from './lib/monitoring'
 import { apm } from './lib/apm'
 import { AppErrorFallback } from './components/ui/AppErrorFallback'
+import { initializeTrustedTypes } from './lib/trusted-types'
+
+// Initialize CSP v3 Trusted Types (must be done early)
+initializeTrustedTypes()
 
 // Initialize Sentry monitoring
 initSentry()

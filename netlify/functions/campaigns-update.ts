@@ -1,5 +1,6 @@
 import type { Handler } from '@netlify/functions'
 import { requireRole, ApiError } from '../../src/lib/auth-middleware'
+import { withCsrfProtection } from './_shared/csrf-middleware'
 import { z } from 'zod'
 
 const updateCampaignSchema = z.object({
@@ -84,7 +85,8 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  return requireRole(['supplier', 'admin'])(event, async (context) => {
+  return withCsrfProtection(event, async (event) => {
+    return requireRole(['supplier', 'admin'])(event, async (context) => {
     const campaignId = event.path.split('/').pop()
 
     if (!campaignId) {
@@ -213,5 +215,6 @@ export const handler: Handler = async (event) => {
       message: 'Campaign updated successfully',
       data: campaign,
     }
+    })
   })
 }

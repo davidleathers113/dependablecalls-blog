@@ -1,18 +1,26 @@
+// MIGRATION PLAN: This file creates its own Supabase client instance
+// Should use: import { supabase } from './supabase-optimized'
+// Status: NEEDS MIGRATION - direct client creation reduces performance
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../types/database'
+import { extractSessionFromCookies } from './auth-cookies'
+import { mfaService } from './mfa/mfa-service'
+import { MFASetupRequiredError, MFAVerificationRequiredError } from '../types/mfa'
 
 const supabase = createClient<Database>(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
+  process.env.VITE_SUPABASE_URL || '',
+  process.env.VITE_SUPABASE_ANON_KEY || ''
 )
 
 export interface AuthContext {
   user: {
     id: string
     email: string
-    role?: 'supplier' | 'buyer' | 'admin'
+    role?: 'supplier' | 'buyer' | 'admin' | 'network'
   } | null
   supabase: SupabaseClient<Database>
+  mfaVerified?: boolean
+  deviceTrusted?: boolean
 }
 
 export interface ApiRequest {
@@ -45,17 +53,28 @@ export async function withAuth<T>(
   handler: (context: AuthContext, request: ApiRequest) => Promise<T>
 ): Promise<ApiResponse> {
   try {
-    // Extract token from Authorization header
-    const authHeader = request.headers.authorization || request.headers.Authorization
-
-    if (!authHeader || typeof authHeader !== 'string') {
-      throw new ApiError('Missing authorization header', 401, 'UNAUTHORIZED')
+    let token: string | undefined
+    
+    // First try to get token from cookies
+    const cookieHeader = request.headers.cookie
+    if (cookieHeader && typeof cookieHeader === 'string') {
+      const session = extractSessionFromCookies(cookieHeader)
+      const accessToken = session?.access_token
+      if (accessToken) {
+        token = accessToken
+      }
+    }
+    
+    // Fall back to Authorization header
+    if (!token) {
+      const authHeader = request.headers.authorization || request.headers.Authorization
+      if (authHeader && typeof authHeader === 'string') {
+        token = authHeader.replace('Bearer ', '')
+      }
     }
 
-    const token = authHeader.replace('Bearer ', '')
-
     if (!token) {
-      throw new ApiError('Invalid authorization header format', 401, 'UNAUTHORIZED')
+      throw new ApiError('Missing authentication credentials', 401, 'UNAUTHORIZED')
     }
 
     // Verify the JWT token with Supabase
@@ -81,7 +100,7 @@ export async function withAuth<T>(
     }
 
     // Determine user role by checking related tables
-    let role: 'supplier' | 'buyer' | 'admin' | undefined
+    let role: 'supplier' | 'buyer' | 'admin' | 'network' | undefined
 
     const [supplierCheck, buyerCheck, adminCheck] = await Promise.all([
       supabase.from('suppliers').select('id').eq('user_id', user.id).single(),
@@ -97,6 +116,18 @@ export async function withAuth<T>(
       role = 'supplier'
     }
 
+    // Check MFA enforcement for this user role
+    const mfaEnforcement = await mfaService.enforceMFA(user.id)
+
+    // If MFA is required but not configured, throw setup required error
+    if (mfaEnforcement.required && !mfaEnforcement.configured) {
+      throw new MFASetupRequiredError()
+    }
+
+    // For now, assume MFA is verified if configured
+    const mfaVerified = mfaEnforcement.configured
+    const deviceTrusted = false // Could be enhanced with device trust logic
+
     const context: AuthContext = {
       user: {
         id: user.id,
@@ -104,6 +135,8 @@ export async function withAuth<T>(
         role,
       },
       supabase,
+      mfaVerified,
+      deviceTrusted,
     }
 
     const result = await handler(context, request)
@@ -115,6 +148,7 @@ export async function withAuth<T>(
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
       },
       body: JSON.stringify(result),
     }
@@ -137,6 +171,40 @@ export async function withAuth<T>(
       }
     }
 
+    if (error instanceof MFASetupRequiredError) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        },
+        body: JSON.stringify({
+          error: error.message,
+          code: error.code,
+          requiresMFASetup: true,
+        }),
+      }
+    }
+
+    if (error instanceof MFAVerificationRequiredError) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        },
+        body: JSON.stringify({
+          error: error.message,
+          code: error.code,
+          requiresMFAVerification: true,
+        }),
+      }
+    }
+
     return {
       statusCode: 500,
       headers: {
@@ -144,6 +212,7 @@ export async function withAuth<T>(
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
       },
       body: JSON.stringify({
         error: 'Internal server error',
@@ -166,6 +235,7 @@ export async function withoutAuth<T>(
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
       },
       body: JSON.stringify(result),
     }
@@ -188,6 +258,40 @@ export async function withoutAuth<T>(
       }
     }
 
+    if (error instanceof MFASetupRequiredError) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        },
+        body: JSON.stringify({
+          error: error.message,
+          code: error.code,
+          requiresMFASetup: true,
+        }),
+      }
+    }
+
+    if (error instanceof MFAVerificationRequiredError) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        },
+        body: JSON.stringify({
+          error: error.message,
+          code: error.code,
+          requiresMFAVerification: true,
+        }),
+      }
+    }
+
     return {
       statusCode: 500,
       headers: {
@@ -195,6 +299,7 @@ export async function withoutAuth<T>(
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
       },
       body: JSON.stringify({
         error: 'Internal server error',
@@ -203,7 +308,7 @@ export async function withoutAuth<T>(
   }
 }
 
-export function requireRole(allowedRoles: Array<'supplier' | 'buyer' | 'admin'>) {
+export function requireRole(allowedRoles: Array<'supplier' | 'buyer' | 'admin' | 'network'>) {
   return function <T>(
     request: ApiRequest,
     handler: (context: AuthContext, request: ApiRequest) => Promise<T>

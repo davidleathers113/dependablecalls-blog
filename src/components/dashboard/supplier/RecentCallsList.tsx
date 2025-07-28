@@ -7,7 +7,7 @@ import {
   ClockIcon,
   CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
-import { supabase } from '../../../lib/supabase'
+import { from } from '../../../lib/supabase-optimized'
 import { useRealTimeCallUpdates } from '../../../hooks/useRealTimeCallUpdates'
 
 interface RecentCallsListProps {
@@ -27,11 +27,29 @@ interface CallRecord {
 }
 
 async function fetchRecentCalls(supplierId: string): Promise<CallRecord[]> {
-  const { data, error } = await supabase
-    .from('recent_calls_view')
-    .select('*')
-    .eq('supplier_id', supplierId)
-    .order('created_at', { ascending: false })
+  const { data, error } = await from('calls')
+    .select(`
+      id,
+      started_at,
+      caller_number,
+      duration_seconds,
+      status,
+      payout_amount,
+      quality_score,
+      campaign:campaigns!inner (
+        id,
+        name,
+        supplier_id
+      ),
+      buyer_campaign:buyer_campaigns (
+        name,
+        buyer:buyers (
+          company_name
+        )
+      )
+    `)
+    .eq('campaigns.supplier_id', supplierId)
+    .order('started_at', { ascending: false })
     .limit(10)
 
   if (error) {
@@ -39,7 +57,37 @@ async function fetchRecentCalls(supplierId: string): Promise<CallRecord[]> {
     return []
   }
 
-  return data || []
+  // Map the database response to our CallRecord interface
+  return (data || []).map((call) => ({
+    id: call.id,
+    created_at: call.started_at || new Date().toISOString(), // Handle null started_at
+    caller_number: call.caller_number,
+    duration: call.duration_seconds || 0,
+    status: mapCallStatus(call.status || 'completed'),
+    buyer_name: call.buyer_campaign?.buyer?.company_name || 'Unknown Buyer',
+    campaign_name: call.campaign?.name || 'Unknown Campaign',
+    payout: call.payout_amount || 0,
+    quality_score: call.quality_score ?? undefined
+  }))
+}
+
+function mapCallStatus(dbStatus: string): 'active' | 'completed' | 'failed' {
+  switch (dbStatus) {
+    case 'in_progress':
+    case 'initiated':
+      return 'active'
+    case 'completed':
+    case 'answered':
+      return 'completed'
+    case 'failed':
+    case 'no_answer':
+    case 'busy':
+    case 'fraud':
+    case 'disputed':
+      return 'failed'
+    default:
+      return 'failed'
+  }
 }
 
 function formatDuration(seconds: number): string {

@@ -75,23 +75,8 @@ class HealthChecker {
   }
 
   async checkStripe(): Promise<{ status: 'pass' | 'fail'; message?: string }> {
-    if (!this.config.stripe.enabled) {
-      return { status: 'pass', message: 'Stripe not configured' }
-    }
-
-    try {
-      // Check if Stripe.js is loaded
-      if (typeof window !== 'undefined' && window.Stripe) {
-        return { status: 'pass' }
-      } else {
-        return { status: 'fail', message: 'Stripe.js not loaded' }
-      }
-    } catch (error) {
-      return {
-        status: 'fail',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }
-    }
+    // Stripe/billing functionality has been removed
+    return { status: 'pass', message: 'Billing functionality removed' }
   }
 
   async checkSentry(): Promise<{ status: 'pass' | 'fail'; message?: string }> {
@@ -157,16 +142,14 @@ class HealthChecker {
 
     try {
       // Run all checks in parallel
-      const [supabase, stripe, sentry, api] = await Promise.all([
+      const [supabase, sentry, api] = await Promise.all([
         this.checkSupabase(),
-        this.checkStripe(),
         this.checkSentry(),
         this.checkAPI(),
       ])
 
       const checks = {
         supabase,
-        stripe,
         sentry,
         api,
       }

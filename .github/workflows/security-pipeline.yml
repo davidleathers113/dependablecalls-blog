@@ -1,0 +1,499 @@
+name: Security Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of security scan'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - quick
+          - standard
+          - comprehensive
+      include_sast:
+        description: 'Include SAST (CodeQL) scan'
+        required: false
+        default: true
+        type: boolean
+      include_dast:
+        description: 'Include DAST (OWASP ZAP) scan'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  NODE_VERSION: '22.x'
+  SECURITY_THRESHOLD_HIGH: 0
+  SECURITY_THRESHOLD_MEDIUM: 5
+  SECURITY_THRESHOLD_LOW: 20
+
+jobs:
+  # Pre-commit security validation
+  pre-commit-security:
+    name: Pre-commit Security Validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run pre-commit secret scan
+        run: node scripts/pre-commit-secret-scan.js
+
+      - name: Lint security-related files
+        run: |
+          npm run lint -- src/lib/security/
+          npm run lint -- tests/security/
+
+      - name: Type check security modules
+        run: npm run type-check
+
+  # Static Application Security Testing (SAST)
+  sast-codeql:
+    name: Static Analysis (CodeQL)
+    runs-on: ubuntu-latest
+    if: github.event.inputs.include_sast != 'false'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript', 'typescript' ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          config-file: ./.github/codeql/codeql-config.yml
+          queries: +security-and-quality
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+
+  # Security unit tests
+  security-unit-tests:
+    name: Security Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security tests
+        run: |
+          npm run test -- tests/security/ --coverage --reporter=verbose
+          npm run test -- src/lib/security/ --coverage --reporter=verbose
+
+      - name: Upload security test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-test-results
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+
+  # Dependency security audit
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate --json > npm-audit-results.json
+        continue-on-error: true
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --json > snyk-results.json
+        continue-on-error: true
+
+      - name: Generate Software Bill of Materials (SBOM)
+        run: npm run security:sbom
+
+      - name: Upload security audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-results
+          path: |
+            npm-audit-results.json
+            snyk-results.json
+            sbom.json
+          retention-days: 30
+
+  # Build application for DAST
+  build-for-dast:
+    name: Build Application for DAST
+    runs-on: ubuntu-latest
+    if: github.event.inputs.include_dast != 'false'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Create test environment configuration
+        run: |
+          cat > .env.test << EOF
+          VITE_SUPABASE_URL=http://localhost:54321
+          VITE_SUPABASE_ANON_KEY=test-anon-key
+          VITE_STRIPE_PUBLISHABLE_KEY=pk_test_example
+          VITE_ENVIRONMENT=test
+          EOF
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-application
+          path: |
+            dist/
+            .env.test
+          retention-days: 1
+
+  # Dynamic Application Security Testing (DAST)
+  dast-owasp-zap:
+    name: Dynamic Security Testing (OWASP ZAP)
+    runs-on: ubuntu-latest
+    needs: build-for-dast
+    if: github.event.inputs.include_dast != 'false'
+    services:
+      # Start application server for testing
+      app:
+        image: nginx:alpine
+        ports:
+          - 8080:80
+        volumes:
+          - ./dist:/usr/share/nginx/html:ro
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: built-application
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase (for testing)
+        run: |
+          docker run -d \
+            --name supabase-test \
+            -p 54321:8000 \
+            -e POSTGRES_PASSWORD=postgres \
+            supabase/postgres:15.1.0.117
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for application server..."
+          timeout 60 bash -c 'until curl -f http://localhost:8080; do sleep 2; done'
+          echo "Waiting for Supabase..."
+          timeout 60 bash -c 'until curl -f http://localhost:54321/health; do sleep 2; done'
+
+      - name: Run OWASP ZAP baseline scan
+        run: |
+          docker run --rm \
+            --network host \
+            -v $(pwd)/tests/security:/zap/wrk/:rw \
+            -t owasp/zap2docker-stable:latest \
+            zap-baseline.py \
+            -t http://localhost:8080 \
+            -c tests/security/zap-config.conf \
+            -J zap-baseline-report.json \
+            -r zap-baseline-report.html
+
+      - name: Run OWASP ZAP full scan
+        if: github.event.inputs.scan_type == 'comprehensive'
+        run: |
+          docker run --rm \
+            --network host \
+            -v $(pwd)/tests/security:/zap/wrk/:rw \
+            -t owasp/zap2docker-stable:latest \
+            zap-full-scan.py \
+            -t http://localhost:8080 \
+            -c tests/security/zap-config.conf \
+            -J zap-full-report.json \
+            -r zap-full-report.html
+
+      - name: Parse ZAP results
+        run: node scripts/security/parse-zap-results.js
+
+      - name: Upload DAST results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dast-results
+          path: |
+            tests/security/zap-*.json
+            tests/security/zap-*.html
+            tests/security/parsed-results.json
+          retention-days: 30
+
+  # Container security scanning
+  container-security:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t dce-app:latest .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'dce-app:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Security regression testing
+  security-regression:
+    name: Security Regression Testing
+    runs-on: ubuntu-latest
+    needs: [security-unit-tests, dependency-audit]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download previous security baseline
+        id: download-baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: security-baseline
+          path: security-baseline/
+        continue-on-error: true
+
+      - name: Run security regression tests
+        run: node scripts/security/security-regression-test.js
+
+      - name: Generate new security baseline
+        if: github.ref == 'refs/heads/main'
+        run: node scripts/security/generate-security-baseline.js
+
+      - name: Upload security baseline
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-baseline
+          path: security-baseline/
+          retention-days: 90
+
+  # Security gate - Block deployment if security issues found
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    needs: [pre-commit-security, sast-codeql, security-unit-tests, dependency-audit, dast-owasp-zap, security-regression]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download all security results
+        uses: actions/download-artifact@v4
+        with:
+          path: security-results/
+
+      - name: Evaluate security gate
+        id: security-gate
+        run: node scripts/security/security-gate-evaluator.js
+
+      - name: Generate security report
+        run: node scripts/security/generate-security-report.js
+
+      - name: Upload comprehensive security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report/
+          retention-days: 90
+
+      - name: Post security summary to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('security-report/summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔒 Security Test Results\n\n${summary}`
+            });
+
+      - name: Fail if security gate not passed
+        if: steps.security-gate.outputs.passed != 'true'
+        run: |
+          echo "Security gate failed! Check the security report for details."
+          exit 1
+
+  # Continuous security monitoring
+  security-monitoring:
+    name: Security Monitoring
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: security-gate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update security monitoring
+        run: node scripts/security/update-security-monitoring.js
+        env:
+          SECURITY_MONITORING_WEBHOOK: ${{ secrets.SECURITY_MONITORING_WEBHOOK }}
+
+      - name: Send security metrics to monitoring system
+        run: node scripts/security/send-security-metrics.js
+        env:
+          MONITORING_API_KEY: ${{ secrets.MONITORING_API_KEY }}
+          MONITORING_ENDPOINT: ${{ secrets.MONITORING_ENDPOINT }}
+
+  # Schedule security compliance reports
+  compliance-reporting:
+    name: Security Compliance Reporting
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate compliance reports
+        run: |
+          node scripts/security/generate-owasp-compliance-report.js
+          node scripts/security/generate-pci-compliance-report.js
+
+      - name: Upload compliance reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-reports
+          path: compliance-reports/
+          retention-days: 365
+
+      - name: Send compliance notifications
+        run: node scripts/security/send-compliance-notifications.js
+        env:
+          COMPLIANCE_WEBHOOK: ${{ secrets.COMPLIANCE_WEBHOOK }}

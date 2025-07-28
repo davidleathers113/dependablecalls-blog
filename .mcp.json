@@ -43,7 +43,10 @@
                 "https://mcp.sentry.dev/mcp",
                 "--debug"
             ],
-            "env": {}
+            "env": {
+                "SENTRY_ACCESS_TOKEN": "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",
+                "SENTRY_HOST": "https://sentry.io"
+            }
         }
     }
 }
