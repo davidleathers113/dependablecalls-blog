@@ -88,3 +88,32 @@ export function extractSessionFromCookies(cookies: string): AuthSession | null {
     return null
   }
 }
+
+/**
+ * Create session cookies (adapter for Netlify functions)
+ * This is an alias for createCookie to match function expectations
+ */
+export function createSessionCookies(session: AuthSession): string[] {
+  return [
+    createCookie(AUTH_COOKIE_NAME, JSON.stringify(session), COOKIE_OPTIONS),
+    createCookie(REFRESH_COOKIE_NAME, session.refresh_token, {
+      ...COOKIE_OPTIONS,
+      maxAge: 60 * 60 * 24 * 30, // 30 days for refresh token
+    }),
+  ]
+}
+
+/**
+ * Clear session cookies (adapter for Netlify functions)
+ * This is an alias for clearAuthCookies to match function expectations
+ */
+export function clearSessionCookies(): string[] {
+  return clearAuthCookies()
+}
+
+/**
+ * Check if session is expired
+ */
+export function isSessionExpired(session: AuthSession): boolean {
+  return Date.now() >= session.expires_at
+}
