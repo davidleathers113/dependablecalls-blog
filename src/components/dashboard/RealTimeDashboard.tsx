@@ -6,7 +6,7 @@ import { CallVolumeChart } from './supplier/CallVolumeChart'
 import { RecentCallsList } from './supplier/RecentCallsList'
 import { QuickStatsBar } from './supplier/QuickStatsBar'
 import { logger } from '@/lib/logger'
-import type { Database } from '@/types/database.generated'
+import type { Database } from '@/types/database-extended'
 
 interface RealTimeDashboardProps {
   userId: string

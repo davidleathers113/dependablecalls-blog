@@ -2,7 +2,7 @@
 // Should use: import { supabase } from './supabase-optimized'
 // Status: NEEDS MIGRATION - direct client creation reduces performance
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../types/database.generated'
+import type { Database } from '../types/database-extended'
 import { extractSessionFromCookies } from './auth-cookies'
 import { mfaService } from './mfa/mfa-service'
 import { MFASetupRequiredError, MFAVerificationRequiredError } from '../types/mfa'
@@ -54,7 +54,7 @@ export async function withAuth<T>(
 ): Promise<ApiResponse> {
   try {
     let token: string | undefined
-    
+
     // First try to get token from cookies
     const cookieHeader = request.headers.cookie
     if (cookieHeader && typeof cookieHeader === 'string') {
@@ -64,7 +64,7 @@ export async function withAuth<T>(
         token = accessToken
       }
     }
-    
+
     // Fall back to Authorization header
     if (!token) {
       const authHeader = request.headers.authorization || request.headers.Authorization

@@ -1,5 +1,5 @@
 import { from } from './supabase-optimized'
-import type { Database } from '../types/database.generated'
+import type { Database } from '../types/database-extended'
 
 // Table types - using actual tables instead of non-existent views
 type SupplierStats = {
@@ -64,11 +64,11 @@ export async function getSupplierStats(supplierId?: string): Promise<SupplierSta
 
   // Group calls by supplier (using campaign_id as proxy)
   const statsMap = new Map<string, SupplierStats>()
-  
-  calls.forEach(call => {
+
+  calls.forEach((call) => {
     const id = call.campaign_id
     if (!id) return // Skip calls without campaign_id
-    
+
     if (!statsMap.has(id)) {
       statsMap.set(id, {
         supplier_id: id,
@@ -80,7 +80,7 @@ export async function getSupplierStats(supplierId?: string): Promise<SupplierSta
         quality_score: 85, // Default quality score
       })
     }
-    
+
     const stats = statsMap.get(id)!
     stats.total_calls++
     stats.total_minutes += (call.duration_seconds || 0) / 60
@@ -89,7 +89,7 @@ export async function getSupplierStats(supplierId?: string): Promise<SupplierSta
   })
 
   // Calculate averages
-  return Array.from(statsMap.values()).map(stats => ({
+  return Array.from(statsMap.values()).map((stats) => ({
     ...stats,
     average_call_duration: stats.total_calls > 0 ? stats.total_minutes / stats.total_calls : 0,
     conversion_rate: stats.total_calls > 0 ? (stats.total_calls * 0.7) / stats.total_calls : 0, // Placeholder
@@ -122,8 +122,8 @@ export async function getBuyerStats(buyerId?: string): Promise<BuyerStats[]> {
 
   // Group calls by buyer
   const statsMap = new Map<string, BuyerStats>()
-  
-  calls.forEach(call => {
+
+  calls.forEach((call) => {
     const id = call.buyer_campaign_id || 'unknown'
     if (!statsMap.has(id)) {
       statsMap.set(id, {
@@ -134,14 +134,14 @@ export async function getBuyerStats(buyerId?: string): Promise<BuyerStats[]> {
         conversion_rate: 0,
       })
     }
-    
+
     const stats = statsMap.get(id)!
     stats.total_calls++
     stats.total_spend += call.payout_amount || 0
   })
 
   // Calculate averages
-  return Array.from(statsMap.values()).map(stats => ({
+  return Array.from(statsMap.values()).map((stats) => ({
     ...stats,
     average_cpa: stats.total_calls > 0 ? stats.total_spend / stats.total_calls : 0,
     conversion_rate: 0.7, // Placeholder conversion rate
@@ -180,7 +180,7 @@ export async function getCampaignPerformance(filters?: {
   }
 
   // Get calls for these campaigns
-  const campaignIds = campaigns.map(c => c.id)
+  const campaignIds = campaigns.map((c) => c.id)
   const { data: calls, error: callsError } = await from('calls')
     .select('*')
     .in('campaign_id', campaignIds)
@@ -190,16 +190,19 @@ export async function getCampaignPerformance(filters?: {
   }
 
   // Calculate performance metrics
-  return campaigns.map(campaign => {
-    const campaignCalls = calls?.filter(c => c.campaign_id === campaign.id) || []
-    
+  return campaigns.map((campaign) => {
+    const campaignCalls = calls?.filter((c) => c.campaign_id === campaign.id) || []
+
     return {
       campaign_id: campaign.id,
       supplier_id: campaign.supplier_id || 'unknown',
       buyer_id: 'unknown', // campaigns table doesn't have buyer_id
       status: campaign.status || 'unknown',
       total_calls: campaignCalls.length,
-      total_minutes: campaignCalls.reduce((sum, call) => sum + (call.duration_seconds || 0) / 60, 0),
+      total_minutes: campaignCalls.reduce(
+        (sum, call) => sum + (call.duration_seconds || 0) / 60,
+        0
+      ),
       total_cost: campaignCalls.reduce((sum, call) => sum + (call.payout_amount || 0), 0),
       conversion_rate: 0.7, // Placeholder
     }
@@ -246,7 +249,6 @@ export async function getUserStats(userId: string): Promise<{
   return stats
 }
 
-
 // Billing functions removed - payment processing functionality is no longer available
 
 /**
@@ -274,8 +276,4 @@ export function isInsufficientFundsError(error: unknown): boolean {
 }
 
 // Re-export types for convenience
-export type {
-  SupplierStats,
-  BuyerStats,
-  CampaignPerformance,
-}
+export type { SupplierStats, BuyerStats, CampaignPerformance }

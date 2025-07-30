@@ -1,14 +1,14 @@
 /**
  * Database type mappings and converters
- * 
+ *
  * Utilities for converting between database rows and application types
- * 
+ *
  * Generated at: 2025-07-29T16:07:57.237Z
- * 
+ *
  * To regenerate: npm run generate:types
  */
 
-import type { Database } from './database.generated'
+import type { Database } from './database-extended'
 import type {
   BlogPost,
   BlogAuthor,
@@ -16,7 +16,7 @@ import type {
   BlogTag,
   BlogComment,
   BlogSEOMetadata,
-  AuthorSocialLinks
+  AuthorSocialLinks,
 } from './blog'
 import { isBlogSEOMetadata, isAuthorSocialLinks } from './blog-guards'
 
@@ -32,7 +32,7 @@ type BlogCommentRow = Database['public']['Tables']['blog_comments']['Row']
  */
 function parseJsonSafely<T>(json: unknown, validator?: (value: unknown) => value is T): T | null {
   if (!json) return null
-  
+
   try {
     const parsed = typeof json === 'string' ? JSON.parse(json) : json
     if (validator) {
@@ -48,14 +48,11 @@ function parseJsonSafely<T>(json: unknown, validator?: (value: unknown) => value
  * Convert database blog post row to application type
  */
 export function mapBlogPostRow(row: BlogPostRow): BlogPost {
-  const seoMetadata = parseJsonSafely<BlogSEOMetadata>(
-    row.seo_metadata,
-    isBlogSEOMetadata
-  )
+  const seoMetadata = parseJsonSafely<BlogSEOMetadata>(row.seo_metadata, isBlogSEOMetadata)
 
   return {
     ...row,
-    seo_metadata: seoMetadata
+    seo_metadata: seoMetadata,
   }
 }
 
@@ -63,14 +60,11 @@ export function mapBlogPostRow(row: BlogPostRow): BlogPost {
  * Convert database blog author row to application type
  */
 export function mapBlogAuthorRow(row: BlogAuthorRow): BlogAuthor {
-  const socialLinks = parseJsonSafely<AuthorSocialLinks>(
-    row.social_links,
-    isAuthorSocialLinks
-  )
+  const socialLinks = parseJsonSafely<AuthorSocialLinks>(row.social_links, isAuthorSocialLinks)
 
   return {
     ...row,
-    social_links: socialLinks
+    social_links: socialLinks,
   }
 }
 
@@ -79,7 +73,7 @@ export function mapBlogAuthorRow(row: BlogAuthorRow): BlogAuthor {
  */
 export function mapBlogCategoryRow(row: BlogCategoryRow): BlogCategory {
   return {
-    ...row
+    ...row,
   }
 }
 
@@ -88,7 +82,7 @@ export function mapBlogCategoryRow(row: BlogCategoryRow): BlogCategory {
  */
 export function mapBlogTagRow(row: BlogTagRow): BlogTag {
   return {
-    ...row
+    ...row,
   }
 }
 
@@ -97,7 +91,7 @@ export function mapBlogTagRow(row: BlogTagRow): BlogTag {
  */
 export function mapBlogCommentRow(row: BlogCommentRow): BlogComment {
   return {
-    ...row
+    ...row,
   }
 }
 
@@ -108,10 +102,10 @@ export function mapBlogPostToInsert(
   post: Partial<BlogPost>
 ): Database['public']['Tables']['blog_posts']['Insert'] {
   const { seo_metadata, ...rest } = post
-  
+
   return {
     ...rest,
-    seo_metadata: seo_metadata ? JSON.stringify(seo_metadata) : null
+    seo_metadata: seo_metadata ? JSON.stringify(seo_metadata) : null,
   }
 }
 
@@ -122,12 +116,10 @@ export function mapBlogPostToUpdate(
   post: Partial<BlogPost>
 ): Database['public']['Tables']['blog_posts']['Update'] {
   const { seo_metadata, ...rest } = post
-  
+
   return {
     ...rest,
-    seo_metadata: seo_metadata !== undefined 
-      ? JSON.stringify(seo_metadata) 
-      : undefined
+    seo_metadata: seo_metadata !== undefined ? JSON.stringify(seo_metadata) : undefined,
   }
 }
 
@@ -138,10 +130,10 @@ export function mapBlogAuthorToInsert(
   author: Partial<BlogAuthor>
 ): Database['public']['Tables']['blog_authors']['Insert'] {
   const { social_links, ...rest } = author
-  
+
   return {
     ...rest,
-    social_links: social_links ? JSON.stringify(social_links) : null
+    social_links: social_links ? JSON.stringify(social_links) : null,
   }
 }
 
@@ -152,12 +144,10 @@ export function mapBlogAuthorToUpdate(
   author: Partial<BlogAuthor>
 ): Database['public']['Tables']['blog_authors']['Update'] {
   const { social_links, ...rest } = author
-  
+
   return {
     ...rest,
-    social_links: social_links !== undefined 
-      ? JSON.stringify(social_links) 
-      : undefined
+    social_links: social_links !== undefined ? JSON.stringify(social_links) : undefined,
   }
 }
 
@@ -188,11 +178,11 @@ export function mapBlogCommentRows(rows: BlogCommentRow[]): BlogComment[] {
  * Helper to extract IDs from relations
  */
 export function extractCategoryIds(categories?: BlogCategory[]): string[] {
-  return categories?.map(c => c.id) || []
+  return categories?.map((c) => c.id) || []
 }
 
 export function extractTagIds(tags?: BlogTag[]): string[] {
-  return tags?.map(t => t.id) || []
+  return tags?.map((t) => t.id) || []
 }
 
 /**
@@ -212,16 +202,14 @@ export function generateSlug(text: string): string {
 export function generateExcerpt(content: string, maxLength = 160): string {
   // Strip HTML tags if present
   const stripped = content.replace(/<[^>]*>/g, '')
-  
+
   // Truncate at word boundary
   if (stripped.length <= maxLength) return stripped
-  
+
   const truncated = stripped.substring(0, maxLength)
   const lastSpace = truncated.lastIndexOf(' ')
-  
-  return lastSpace > 0 
-    ? truncated.substring(0, lastSpace) + '...'
-    : truncated + '...'
+
+  return lastSpace > 0 ? truncated.substring(0, lastSpace) + '...' : truncated + '...'
 }
 
 /**
