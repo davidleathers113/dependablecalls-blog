@@ -55,19 +55,19 @@ const CompliancePage = React.lazy(() =>
   import(/* webpackChunkName: "compliance" */ './pages/legal/CompliancePage')
 )
 
-// Blog Pages - SEO-optimized with prefetch
-const BlogPage = React.lazy(() => 
-  import(/* webpackPrefetch: true, webpackChunkName: "blog" */ './pages/public/BlogPage')
-)
-const BlogPostPage = React.lazy(() => 
-  import(/* webpackPrefetch: true, webpackChunkName: "blog-post" */ './pages/public/BlogPostPage')
-)
-const BlogCategoryPage = React.lazy(() => 
-  import(/* webpackChunkName: "blog-category" */ './pages/public/BlogCategoryPage')
-)
-const BlogAuthorPage = React.lazy(() => 
-  import(/* webpackChunkName: "blog-author" */ './pages/public/BlogAuthorPage')
-)
+// Blog Pages - Temporarily disabled for deployment
+// const BlogPage = React.lazy(() => 
+//   import(/* webpackPrefetch: true, webpackChunkName: "blog" */ './pages/public/BlogPage')
+// )
+// const BlogPostPage = React.lazy(() => 
+//   import(/* webpackPrefetch: true, webpackChunkName: "blog-post" */ './pages/public/BlogPostPage')
+// )
+// const BlogCategoryPage = React.lazy(() => 
+//   import(/* webpackChunkName: "blog-category" */ './pages/public/BlogCategoryPage')
+// )
+// const BlogAuthorPage = React.lazy(() => 
+//   import(/* webpackChunkName: "blog-author" */ './pages/public/BlogAuthorPage')
+// )
 
 // Demo Pages (Development Only)
 const ErrorDemoPage = import.meta.env.DEV ? React.lazy(() => 
@@ -332,8 +332,8 @@ function App() {
                         </Suspense>
                       }
                     />
-                    {/* Blog Routes */}
-                    <Route
+                    {/* Blog Routes - Temporarily disabled for deployment */}
+                    {/* <Route
                       path="blog"
                       element={
                         <Suspense fallback={<PageLoader />}>
@@ -364,7 +364,7 @@ function App() {
                           <BlogAuthorPage />
                         </Suspense>
                       }
-                    />
+                    /> */}
                     {/* Development-only demo routes */}
                     {import.meta.env.DEV && ErrorDemoPage && (
                       <Route
