@@ -13,6 +13,7 @@ DCE Platform facilitates real-time call tracking and lead management for perform
 - **Fraud Prevention** - Built-in fraud detection and quality scoring
 - **Role-based Access** - Separate interfaces for suppliers, buyers, and administrators
 - **Analytics Dashboard** - Comprehensive reporting and performance metrics
+- **Blog CMS** - Full-featured blog with categories, SEO, and content sanitization
 
 ## 🛠️ Technology Stack
 
@@ -311,6 +312,8 @@ The platform uses **Magic Link Authentication** (passwordless login) powered by 
 
 ## 📚 Documentation
 
+- **Blog Setup**: See [BLOG_QUICKSTART.md](BLOG_QUICKSTART.md) for quick blog setup
+- **Detailed Blog Guide**: [docs/BLOG_SUPABASE_SETUP.md](docs/BLOG_SUPABASE_SETUP.md)
 - See `/CLAUDE.md` files in each directory for detailed patterns
 - API documentation available at `/api/docs`
 - Component storybook (if configured) at `npm run storybook`
