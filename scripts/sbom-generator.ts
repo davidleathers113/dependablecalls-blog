@@ -13,7 +13,7 @@
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { createHash } from 'crypto';
+
 
 interface ComponentInfo {
   name: string;
@@ -57,6 +57,101 @@ interface ComponentInfo {
     contact?: string;
     url?: string;
   };
+}
+
+interface PackageJson {
+  name: string;
+  version: string;
+  description?: string;
+  homepage?: string;
+  repository?: {
+    url: string;
+  };
+  license?: string;
+  author?: string;
+  dependencies?: Record<string, string>;
+}
+
+interface PackageLock {
+  packages?: Record<string, PackageLockPackage>;
+}
+
+interface PackageLockPackage {
+  version: string;
+  integrity?: string;
+  hasInstallScript?: boolean;
+}
+
+interface NpmRegistryInfo {
+  description?: string;
+  homepage?: string;
+  repository?: {
+    url: string;
+  };
+  license?: string;
+  author?: {
+    name: string;
+  };
+  maintainers?: Array<{
+    name: string;
+    email?: string;
+  }>;
+  bugs?: {
+    url: string;
+  };
+  time?: Record<string, string>;
+}
+
+interface AuditResults {
+  vulnerabilities?: Record<string, AuditVulnerability>;
+}
+
+interface AuditVulnerability {
+  severity: string;
+  via?: Array<{
+    source?: string;
+    title?: string;
+  }>;
+  fixAvailable?: {
+    name: string;
+    version: string;
+  } | boolean;
+}
+
+interface SnykResults {
+  vulnerabilities?: SnykVulnerability[];
+}
+
+interface SnykVulnerability {
+  id: string;
+  packageName: string;
+  version: string;
+  severity: string;
+  title: string;
+  cvssScore?: number;
+  upgradePath?: string[];
+  identifiers?: {
+    CVE?: string[];
+  };
+}
+
+interface VulnerabilityResult {
+  bomRef: string;
+  id: string;
+  source: string;
+  ratings: Array<{
+    source: string;
+    severity: string;
+    score: number;
+    method: string;
+  }>;
+  description: string;
+  recommendation?: string;
+  advisories?: Array<{
+    id: string;
+    title: string;
+    url: string;
+  }>;
 }
 
 interface SBOMMetadata {
@@ -111,8 +206,8 @@ interface DCESBOMFormat {
 }
 
 class SBOMGenerator {
-  private packageJson: any;
-  private packageLock: any;
+  private packageJson: PackageJson;
+  private packageLock: PackageLock;
   private outputDir: string;
   private metadata: SBOMMetadata;
 
@@ -128,18 +223,18 @@ class SBOMGenerator {
     }
   }
 
-  private loadPackageJson(): any {
+  private loadPackageJson(): PackageJson {
     try {
-      return JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));
+      return JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as PackageJson;
     } catch (error) {
       console.error('Failed to load package.json:', error);
       process.exit(1);
     }
   }
 
-  private loadPackageLock(): any {
+  private loadPackageLock(): PackageLock {
     try {
-      return JSON.parse(readFileSync(join(process.cwd(), 'package-lock.json'), 'utf8'));
+      return JSON.parse(readFileSync(join(process.cwd(), 'package-lock.json'), 'utf8')) as PackageLock;
     } catch (error) {
       console.error('Failed to load package-lock.json:', error);
       process.exit(1);
@@ -222,7 +317,7 @@ class SBOMGenerator {
     });
 
     // Process all dependencies
-    for (const [packagePath, packageInfo] of Object.entries(packages) as [string, any][]) {
+    for (const [packagePath, packageInfo] of Object.entries(packages)) {
       if (!packagePath || packagePath === '') continue;
 
       const componentName = packagePath.replace(/^(node_modules\/)+/, '');
@@ -241,13 +336,13 @@ class SBOMGenerator {
     return components;
   }
 
-  private async createComponentInfo(name: string, packageInfo: any): Promise<ComponentInfo | null> {
+  private async createComponentInfo(name: string, packageInfo: PackageLockPackage): Promise<ComponentInfo | null> {
     try {
       // Get detailed package information from npm registry
-      let registryInfo: any = {};
+      let registryInfo: NpmRegistryInfo = {};
       try {
         const registryData = execSync(`npm view ${name} --json`, { encoding: 'utf8' });
-        registryInfo = JSON.parse(registryData);
+        registryInfo = JSON.parse(registryData) as NpmRegistryInfo;
       } catch {
         // Continue with available information
       }
@@ -317,18 +412,22 @@ class SBOMGenerator {
     return hashes;
   }
 
-  private async scanVulnerabilities(components: ComponentInfo[]): Promise<any[]> {
+  private async scanVulnerabilities(_components: ComponentInfo[]): Promise<VulnerabilityResult[]> {
     console.log('🔍 Scanning for vulnerabilities...');
 
-    const vulnerabilities: any[] = [];
+    const vulnerabilities: VulnerabilityResult[] = [];
 
     try {
       // Run npm audit
       const auditOutput = execSync('npm audit --json', { encoding: 'utf8' });
-      const auditResults = JSON.parse(auditOutput);
+      const auditResults = JSON.parse(auditOutput) as AuditResults;
 
       if (auditResults.vulnerabilities) {
-        for (const [packageName, vulnInfo] of Object.entries(auditResults.vulnerabilities) as [string, any][]) {
+        for (const [packageName, vulnInfo] of Object.entries(auditResults.vulnerabilities)) {
+          const fixRec = typeof vulnInfo.fixAvailable === 'object' && vulnInfo.fixAvailable 
+            ? `Update to ${vulnInfo.fixAvailable.name}@${vulnInfo.fixAvailable.version}` 
+            : 'Review and patch manually';
+            
           vulnerabilities.push({
             bomRef: `pkg:npm/${packageName}`,
             id: vulnInfo.via?.[0]?.source || 'NPM-AUDIT',
@@ -340,11 +439,11 @@ class SBOMGenerator {
               method: 'CVSSv3'
             }],
             description: vulnInfo.via?.[0]?.title || 'Security vulnerability detected',
-            recommendation: vulnInfo.fixAvailable ? `Update to ${vulnInfo.fixAvailable.name}@${vulnInfo.fixAvailable.version}` : 'Review and patch manually'
+            recommendation: fixRec
           });
         }
       }
-    } catch (error) {
+    } catch {
       console.warn('  ⚠️  npm audit failed, continuing without vulnerability data');
     }
 
@@ -355,10 +454,10 @@ class SBOMGenerator {
         execSync(`snyk auth ${process.env.SNYK_TOKEN}`, { stdio: 'pipe' });
         
         const snykOutput = execSync('snyk test --json', { encoding: 'utf8' });
-        const snykResults = JSON.parse(snykOutput);
+        const snykResults = JSON.parse(snykOutput) as SnykResults;
 
         if (snykResults.vulnerabilities) {
-          snykResults.vulnerabilities.forEach((vuln: any) => {
+          snykResults.vulnerabilities.forEach((vuln: SnykVulnerability) => {
             vulnerabilities.push({
               bomRef: `pkg:npm/${vuln.packageName}@${vuln.version}`,
               id: vuln.id,
@@ -371,7 +470,7 @@ class SBOMGenerator {
               }],
               description: vuln.title,
               recommendation: vuln.upgradePath?.join(' -> ') || 'Review Snyk recommendations',
-              advisories: vuln.identifiers?.CVE ? vuln.identifiers.CVE.map((cve: string) => ({
+              advisories: vuln.identifiers?.CVE ? vuln.identifiers.CVE.map((cve) => ({
                 id: cve,
                 title: `CVE Reference: ${cve}`,
                 url: `https://cve.mitre.org/cgi-bin/cvename.cgi?name=${cve}`
@@ -380,7 +479,7 @@ class SBOMGenerator {
           });
         }
       }
-    } catch (error) {
+    } catch {
       console.warn('  ⚠️  Snyk scan failed, continuing with npm audit data only');
     }
 
@@ -400,7 +499,7 @@ class SBOMGenerator {
     return scores[severity.toLowerCase()] || 0.0;
   }
 
-  private async generateCycloneDX(components: ComponentInfo[], vulnerabilities: any[]): Promise<void> {
+  private async generateCycloneDX(components: ComponentInfo[], vulnerabilities: VulnerabilityResult[]): Promise<void> {
     console.log('📄 Generating CycloneDX SBOM...');
 
     try {
@@ -409,7 +508,7 @@ class SBOMGenerator {
       execSync('npx @cyclonedx/cyclonedx-npm --output ./sbom/cyclonedx.xml --output-format xml', { stdio: 'pipe' });
       
       console.log('  ✅ CycloneDX SBOM generated (JSON and XML)');
-    } catch (error) {
+    } catch {
       console.warn('  ⚠️  CycloneDX generation failed, creating basic version');
       
       // Create basic CycloneDX format
@@ -481,7 +580,7 @@ class SBOMGenerator {
         supplier: comp.supplier ? `Person: ${comp.supplier.name}` : 'NOASSERTION',
         homepage: comp.homepage || 'NOASSERTION',
         description: comp.description || '',
-        externalRefs: comp.externalReferences?.map(ref => ({
+        externalRefs: comp.externalReferences?.map((_ref) => ({
           referenceCategory: 'PACKAGE-MANAGER',
           referenceType: 'purl',
           referenceLocator: comp.purl
@@ -498,7 +597,7 @@ class SBOMGenerator {
     console.log('  ✅ SPDX SBOM generated');
   }
 
-  private async generateDCEFormat(components: ComponentInfo[], vulnerabilities: any[]): Promise<void> {
+  private async generateDCEFormat(components: ComponentInfo[], vulnerabilities: VulnerabilityResult[]): Promise<void> {
     console.log('📄 Generating DCE Custom SBOM...');
 
     const dceSBOM: DCESBOMFormat = {
@@ -544,7 +643,7 @@ class SBOMGenerator {
     }));
   }
 
-  private calculateSecurityRiskScore(vulnerabilities: any[]): number {
+  private calculateSecurityRiskScore(vulnerabilities: VulnerabilityResult[]): number {
     if (vulnerabilities.length === 0) return 0;
 
     const totalScore = vulnerabilities.reduce((sum, vuln) => {
@@ -583,7 +682,7 @@ class SBOMGenerator {
     return Math.min(riskScore, 100);
   }
 
-  private async generateSARIF(vulnerabilities: any[]): Promise<void> {
+  private async generateSARIF(vulnerabilities: VulnerabilityResult[]): Promise<void> {
     console.log('📄 Generating SARIF security report...');
 
     const sarif = {
@@ -595,7 +694,7 @@ class SBOMGenerator {
             name: this.metadata.toolName,
             version: this.metadata.toolVersion,
             informationUri: 'https://dependablecalls.com/security',
-            rules: vulnerabilities.map((vuln, index) => ({
+            rules: vulnerabilities.map((vuln) => ({
               id: vuln.id,
               shortDescription: { text: vuln.description },
               fullDescription: { text: vuln.description },
@@ -645,7 +744,7 @@ class SBOMGenerator {
     return levels[severity?.toLowerCase()] || 'note';
   }
 
-  private async generateSummaryReport(components: ComponentInfo[], vulnerabilities: any[]): Promise<void> {
+  private async generateSummaryReport(components: ComponentInfo[], vulnerabilities: VulnerabilityResult[]): Promise<void> {
     console.log('📄 Generating summary report...');
 
     const report = `# Software Bill of Materials (SBOM) Report
@@ -706,7 +805,7 @@ ${this.generateRecommendations(components, vulnerabilities).map(rec => `- ${rec}
       .join('\n');
   }
 
-  private generateRecommendations(components: ComponentInfo[], vulnerabilities: any[]): string[] {
+  private generateRecommendations(components: ComponentInfo[], vulnerabilities: VulnerabilityResult[]): string[] {
     const recommendations: string[] = [];
 
     if (vulnerabilities.length > 0) {

@@ -30,6 +30,25 @@ interface TestAccount {
   currentBalance?: number
 }
 
+interface SupplierInsertData {
+  user_id: string
+  company_name?: string
+  business_type?: string
+  status: string
+  approved_at: string
+  credit_balance?: number
+}
+
+interface BuyerInsertData {
+  user_id: string
+  company_name?: string
+  business_type?: string
+  status: string
+  approved_at: string
+  credit_limit?: number
+  current_balance?: number
+}
+
 interface CreatedAccount extends TestAccount {
   id: string
   password: string
@@ -213,8 +232,8 @@ async function createTestAccount(account: TestAccount): Promise<CreatedAccount |
         })
       if (error) console.error(`⚠️  Failed to create admin record:`, error.message)
     } else if (account.userType === 'supplier') {
-      const supplierData: any = {
-        user_id: userId,
+      const supplierData: SupplierInsertData = {
+        user_id: authUserId,
         company_name: account.companyName,
         business_type: account.businessType,
         status: 'active',
@@ -231,8 +250,8 @@ async function createTestAccount(account: TestAccount): Promise<CreatedAccount |
         .insert(supplierData)
       if (error) console.error(`⚠️  Failed to create supplier record:`, error.message)
     } else if (account.userType === 'buyer') {
-      const buyerData: any = {
-        user_id: userId,
+      const buyerData: BuyerInsertData = {
+        user_id: authUserId,
         company_name: account.companyName,
         business_type: account.businessType,
         status: 'active',

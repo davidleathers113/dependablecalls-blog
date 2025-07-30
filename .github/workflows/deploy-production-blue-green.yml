@@ -1,0 +1,340 @@
+# Blue-Green Production Deployment Workflow
+# This workflow implements a safe production deployment using blue-green strategy
+# with manual confirmation, staging validation, smoke tests, traffic switching,
+# monitoring, and automatic rollback capabilities.
+
+name: Blue-Green Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "DEPLOY" to confirm production deployment'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '20'
+  STAGING_URL: 'https://staging.dependablecalls.com'
+  GREEN_URL: 'https://production-green.dependablecalls.com'
+  PRODUCTION_URL: 'https://dependablecalls.com'
+
+jobs:
+  validate:
+    name: Validate Deployment Request
+    if: github.event.inputs.confirm == 'DEPLOY'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate staging environment
+        run: |
+          echo "🔍 Validating staging environment..."
+          
+          # Check staging health
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/.netlify/functions/health")
+          if [ "$response" != "200" ]; then
+            echo "❌ Staging health check failed with status: $response"
+            exit 1
+          fi
+          echo "✅ Staging health check passed"
+          
+          # Check staging blog functionality
+          blog_response=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/blog")
+          if [ "$blog_response" != "200" ]; then
+            echo "❌ Staging blog check failed with status: $blog_response"
+            exit 1
+          fi
+          echo "✅ Staging blog check passed"
+          
+          # Check staging API endpoints
+          api_response=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/health")
+          if [ "$api_response" != "200" ]; then
+            echo "❌ Staging API check failed with status: $api_response"
+            exit 1
+          fi
+          echo "✅ Staging API check passed"
+
+  deploy-green:
+    name: Deploy to Green Environment
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_id: ${{ steps.deploy.outputs.deploy_id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_STRIPE_PUBLIC_KEY: ${{ secrets.STRIPE_PUBLIC_KEY }}
+          
+      - name: Deploy to production-green
+        id: deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          # Deploy to production-green alias
+          deploy_output=$(npx netlify-cli deploy --prod --alias=production-green --dir=dist --json)
+          deploy_id=$(echo $deploy_output | jq -r '.deploy_id')
+          echo "deploy_id=$deploy_id" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to green environment with ID: $deploy_id"
+          
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to be ready..."
+          sleep 30
+          
+  smoke-test-green:
+    name: Run Smoke Tests on Green
+    needs: deploy-green
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install test dependencies
+        run: npm ci
+        
+      - name: Run smoke tests
+        run: |
+          echo "🧪 Running smoke tests on green environment..."
+          npm run test:smoke -- --url="${GREEN_URL}"
+        continue-on-error: false
+        
+      - name: Verify critical paths
+        run: |
+          echo "🔍 Verifying critical application paths..."
+          
+          # Test homepage
+          curl -f "${GREEN_URL}/" || exit 1
+          echo "✅ Homepage accessible"
+          
+          # Test blog
+          curl -f "${GREEN_URL}/blog" || exit 1
+          echo "✅ Blog accessible"
+          
+          # Test API health
+          curl -f "${GREEN_URL}/api/health" || exit 1
+          echo "✅ API health check passed"
+          
+          # Test auth endpoints
+          curl -f "${GREEN_URL}/.netlify/functions/auth-status" || exit 1
+          echo "✅ Auth endpoints accessible"
+
+  switch-traffic:
+    name: Switch Traffic to Green
+    needs: smoke-test-green
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Record blue environment state
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          echo "📸 Recording current blue environment state..."
+          # Get current production deploy ID for potential rollback
+          current_deploy=$(npx netlify-cli api getSite --data '{"site_id": "'$NETLIFY_SITE_ID'"}' | jq -r '.published_deploy.id')
+          echo "BLUE_DEPLOY_ID=$current_deploy" >> $GITHUB_ENV
+          echo "Current blue deploy ID: $current_deploy"
+          
+      - name: Switch traffic to green
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          echo "🔄 Switching production traffic to green environment..."
+          # Update production to point to green deployment
+          npx netlify-cli api updateSite --data '{
+            "site_id": "'$NETLIFY_SITE_ID'",
+            "production_branch": "main",
+            "branch_deploy_custom_domain": "dependablecalls.com"
+          }'
+          echo "✅ Traffic switched to green environment"
+          
+      - name: Verify production
+        run: |
+          echo "🔍 Verifying production environment..."
+          sleep 10
+          
+          # Verify production is now serving green
+          prod_response=$(curl -s -o /dev/null -w "%{http_code}" "${PRODUCTION_URL}/")
+          if [ "$prod_response" != "200" ]; then
+            echo "❌ Production verification failed"
+            exit 1
+          fi
+          echo "✅ Production is live on green environment"
+
+  monitor-production:
+    name: Monitor Production
+    needs: switch-traffic
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install monitoring tools
+        run: npm ci
+        
+      - name: Monitor production metrics
+        id: monitor
+        run: |
+          echo "📊 Monitoring production for 15 minutes..."
+          
+          # Create monitoring script
+          cat > monitor.js << 'EOF'
+          const https = require('https');
+          const DURATION = 900; // 15 minutes in seconds
+          const CHECK_INTERVAL = 30; // Check every 30 seconds
+          const ERROR_THRESHOLD = 0.05; // 5% error rate threshold
+          
+          let checks = 0;
+          let errors = 0;
+          const startTime = Date.now();
+          
+          const checkProduction = () => {
+            https.get('${PRODUCTION_URL}/api/health', (res) => {
+              checks++;
+              if (res.statusCode !== 200) {
+                errors++;
+                console.log(`❌ Health check failed: ${res.statusCode}`);
+              } else {
+                console.log(`✅ Health check passed (${checks} checks, ${errors} errors)`);
+              }
+              
+              const errorRate = errors / checks;
+              if (errorRate > ERROR_THRESHOLD) {
+                console.error(`🚨 Error rate ${(errorRate * 100).toFixed(2)}% exceeds threshold!`);
+                process.exit(1);
+              }
+            }).on('error', (err) => {
+              errors++;
+              checks++;
+              console.error(`❌ Request failed: ${err.message}`);
+            });
+          };
+          
+          const monitor = setInterval(() => {
+            checkProduction();
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            if (elapsed >= DURATION) {
+              clearInterval(monitor);
+              console.log(`✅ Monitoring complete: ${checks} checks, ${errors} errors`);
+              process.exit(errors > 0 ? 1 : 0);
+            }
+          }, CHECK_INTERVAL * 1000);
+          
+          // Initial check
+          checkProduction();
+          EOF
+          
+          node monitor.js
+        continue-on-error: true
+        
+      - name: Check monitoring result
+        if: steps.monitor.outcome == 'failure'
+        run: |
+          echo "🚨 Production monitoring detected issues!"
+          exit 1
+
+  rollback:
+    name: Rollback to Blue
+    needs: [switch-traffic, monitor-production]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger rollback
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          echo "🔄 Rolling back to blue environment..."
+          
+          # Rollback to previous deployment
+          npx netlify-cli rollback --alias=production-blue
+          
+          echo "⚠️ Deployment rolled back to blue environment!"
+          
+      - name: Notify rollback
+        run: |
+          echo "📧 Sending rollback notifications..."
+          # In a real scenario, this would send notifications via Slack, email, etc.
+          echo "::warning::Production deployment was rolled back due to failures"
+          
+      - name: Create rollback issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Production Deployment Rollback - ${new Date().toISOString()}`,
+              body: `## Production Deployment Rollback
+              
+              The production deployment was automatically rolled back due to failures.
+              
+              **Deployment Details:**
+              - Workflow Run: ${context.runId}
+              - Triggered by: ${context.actor}
+              - Time: ${new Date().toISOString()}
+              
+              **Action Required:**
+              1. Review the workflow logs
+              2. Identify the root cause
+              3. Fix the issues
+              4. Re-attempt deployment
+              
+              cc: @${context.actor}`,
+              labels: ['bug', 'deployment', 'urgent']
+            });
+            console.log(`Created rollback issue #${issue.data.number}`);
+
+  cleanup:
+    name: Cleanup
+    needs: [monitor-production]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update blue alias
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          echo "🔄 Updating blue alias to match current green..."
+          # Update blue to match green for next deployment
+          npx netlify-cli deploy --prod --alias=production-blue
+          echo "✅ Blue environment updated"
+          
+      - name: Deployment summary
+        run: |
+          echo "🎉 Production deployment completed successfully!"
+          echo "📊 Deployment Summary:"
+          echo "- Environment: Green → Production"
+          echo "- Monitoring: 15 minutes passed"
+          echo "- Status: Success"
+          echo "- Blue environment: Updated for next deployment"

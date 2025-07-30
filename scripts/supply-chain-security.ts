@@ -12,8 +12,7 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { createHash } from 'crypto';
+import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 interface PackageInfo {
@@ -29,6 +28,45 @@ interface PackageInfo {
   publishedDate?: string;
 }
 
+interface PackageLockPackage {
+  version: string;
+  integrity?: string;
+  resolved?: string;
+  hasInstallScript?: boolean;
+  scripts?: Record<string, string>;
+}
+
+interface PackageLockJson {
+  packages: Record<string, PackageLockPackage>;
+}
+
+interface PackageJson {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
+
+interface NpmAuditSignature {
+  name: string;
+  version: string;
+}
+
+interface NpmAuditSignatureResult {
+  invalid?: NpmAuditSignature[];
+}
+
+interface NpmViewPackageInfo {
+  time?: {
+    created?: string;
+    modified?: string;
+  };
+  maintainers?: Array<{ name: string; email: string }>;
+  repository?: { type: string; url: string };
+}
+
+interface LicenseInfo {
+  licenses: string | string[];
+}
+
 interface SecurityReport {
   timestamp: string;
   totalPackages: number;
@@ -41,8 +79,8 @@ interface SecurityReport {
 }
 
 class SupplyChainSecurityChecker {
-  private packageLock: any;
-  private packageJson: any;
+  private packageLock: PackageLockJson;
+  private packageJson: PackageJson;
   private report: SecurityReport;
   
   constructor() {
@@ -60,20 +98,20 @@ class SupplyChainSecurityChecker {
     };
   }
 
-  private loadPackageLock(): any {
+  private loadPackageLock(): PackageLockJson {
     try {
       const lockPath = join(process.cwd(), 'package-lock.json');
-      return JSON.parse(readFileSync(lockPath, 'utf8'));
+      return JSON.parse(readFileSync(lockPath, 'utf8')) as PackageLockJson;
     } catch (error) {
       console.error('Failed to load package-lock.json:', error);
       process.exit(1);
     }
   }
 
-  private loadPackageJson(): any {
+  private loadPackageJson(): PackageJson {
     try {
       const packagePath = join(process.cwd(), 'package.json');
-      return JSON.parse(readFileSync(packagePath, 'utf8'));
+      return JSON.parse(readFileSync(packagePath, 'utf8')) as PackageJson;
     } catch (error) {
       console.error('Failed to load package.json:', error);
       process.exit(1);
@@ -109,11 +147,11 @@ class SupplyChainSecurityChecker {
     try {
       // Verify npm signatures
       const auditSignatures = execSync('npm audit signatures --json', { encoding: 'utf8' });
-      const signatureResults = JSON.parse(auditSignatures);
+      const signatureResults = JSON.parse(auditSignatures) as NpmAuditSignatureResult;
       
       if (signatureResults.invalid && signatureResults.invalid.length > 0) {
         this.report.integrityIssues.push(`Invalid signatures found for ${signatureResults.invalid.length} packages`);
-        signatureResults.invalid.forEach((pkg: any) => {
+        signatureResults.invalid.forEach((pkg: NpmAuditSignature) => {
           console.log(`  ⚠️  Invalid signature: ${pkg.name}@${pkg.version}`);
         });
       }
@@ -126,7 +164,7 @@ class SupplyChainSecurityChecker {
     const packages = this.packageLock.packages || {};
     let integrityIssues = 0;
 
-    Object.entries(packages).forEach(([path, info]: [string, any]) => {
+    Object.entries(packages).forEach(([path, info]: [string, PackageLockPackage]) => {
       if (path && info.integrity) {
         // In a real implementation, you would verify the integrity hash
         // against the actual package content
@@ -146,7 +184,7 @@ class SupplyChainSecurityChecker {
     const packages = this.packageLock.packages || {};
     let suspiciousCount = 0;
 
-    Object.entries(packages).forEach(([path, info]: [string, any]) => {
+    Object.entries(packages).forEach(([path, info]: [string, PackageLockPackage]) => {
       if (!path || path === '') return;
 
       const packageName = path.replace(/^(node_modules\/)+/, '');
@@ -167,7 +205,7 @@ class SupplyChainSecurityChecker {
       // Check for suspicious script content
       if (info.scripts) {
         const dangerousCommands = ['eval', 'curl', 'wget', 'rm -rf', 'sudo', 'chmod +x'];
-        Object.entries(info.scripts).forEach(([scriptName, command]: [string, any]) => {
+        Object.entries(info.scripts).forEach(([scriptName, command]: [string, string]) => {
           if (typeof command === 'string' && dangerousCommands.some(cmd => command.includes(cmd))) {
             console.log(`  🚨 Dangerous script in ${packageName}: ${scriptName}: ${command}`);
             this.report.suspiciousPackages.push({
@@ -232,7 +270,7 @@ class SupplyChainSecurityChecker {
     ];
     
     for (const [char1, char2] of commonSubs) {
-      const substituted = popular.replace(new RegExp(char1, 'g'), char2);
+      const substituted = popular.split(char1).join(char2);
       if (name === substituted) return true;
     }
     
@@ -273,7 +311,7 @@ class SupplyChainSecurityChecker {
       const disallowedLicenses = ['GPL-2.0', 'GPL-3.0', 'AGPL-1.0', 'AGPL-3.0', 'LGPL-2.0', 'LGPL-2.1', 'LGPL-3.0'];
       let conflictCount = 0;
 
-      Object.entries(licenses).forEach(([packageName, info]: [string, any]) => {
+      Object.entries(licenses).forEach(([packageName, info]: [string, LicenseInfo]) => {
         if (info.licenses) {
           const license = Array.isArray(info.licenses) ? info.licenses.join(', ') : info.licenses;
           if (disallowedLicenses.some(disallowed => license.includes(disallowed))) {
@@ -301,7 +339,7 @@ class SupplyChainSecurityChecker {
     for (const packageName of directDependencies.slice(0, 10)) { // Limit to first 10 for demo
       try {
         const packageInfo = execSync(`npm view ${packageName} --json`, { encoding: 'utf8' });
-        const info = JSON.parse(packageInfo);
+        const info = JSON.parse(packageInfo) as NpmViewPackageInfo;
 
         // Check package age and maintainer count
         const publishedDate = new Date(info.time?.created || info.time?.modified);

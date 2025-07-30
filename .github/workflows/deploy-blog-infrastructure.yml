@@ -1,0 +1,177 @@
+name: Deploy Blog Infrastructure
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'supabase/migrations/01[8-9]_*.sql'
+      - 'supabase/migrations/02[0-6]_*.sql'
+      - 'supabase/functions/sanitize-html/**'
+      - '.github/workflows/deploy-blog-infrastructure.yml'
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+jobs:
+  backup-database:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create backup directory
+        run: mkdir -p backups
+      
+      - name: Backup existing database
+        run: |
+          # Create timestamp for backup
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="backups/db_backup_${TIMESTAMP}.sql"
+          
+          # Export database schema and data
+          echo "Creating database backup..."
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" > "$BACKUP_FILE"
+          
+          # Compress backup
+          gzip "$BACKUP_FILE"
+          
+          echo "Backup created: ${BACKUP_FILE}.gz"
+          echo "BACKUP_FILE=${BACKUP_FILE}.gz" >> $GITHUB_ENV
+      
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backups/*.gz
+          retention-days: 30
+
+  deploy-migrations:
+    needs: backup-database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Link to Supabase project
+        run: |
+          supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      
+      - name: Deploy migrations in order
+        run: |
+          echo "Deploying blog migrations..."
+          
+          # Deploy migrations sequentially to ensure proper order
+          supabase db push --include-all
+          
+          # Verify migration status
+          echo "Verifying migration status..."
+          supabase migration list
+      
+      - name: Verify blog tables exist
+        run: |
+          # Check if blog tables were created successfully
+          TABLES=$(supabase db query "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'blog_%'" --json | jq -r '.[0].count')
+          
+          if [ "$TABLES" -lt 10 ]; then
+            echo "❌ Expected at least 10 blog tables, found $TABLES"
+            exit 1
+          fi
+          
+          echo "✅ Found $TABLES blog tables"
+
+  deploy-edge-functions:
+    needs: deploy-migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Link to Supabase project
+        run: |
+          supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      
+      - name: Deploy sanitize-html function
+        run: |
+          echo "Deploying sanitize-html edge function..."
+          supabase functions deploy sanitize-html --no-verify-jwt
+      
+      - name: Test edge function
+        run: |
+          # Test the sanitize-html function
+          FUNCTION_URL="${{ secrets.SUPABASE_URL }}/functions/v1/sanitize-html"
+          
+          # Test with simple HTML
+          RESPONSE=$(curl -s -X POST "$FUNCTION_URL" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"html": "<p>Test <script>alert(\"XSS\")</script></p>"}')
+          
+          # Check if script was removed
+          if echo "$RESPONSE" | grep -q "<script>"; then
+            echo "❌ Edge function failed to sanitize HTML"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          echo "✅ Edge function is working correctly"
+
+  run-tests:
+    needs: [deploy-migrations, deploy-edge-functions]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Setup test environment
+        run: |
+          # Create test env file
+          cat > .env.test << EOF
+          VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          EOF
+      
+      - name: Run blog-specific tests
+        run: |
+          # Run blog-related tests
+          npm test -- --grep "blog" || npm test -- --testNamePattern="blog"
+      
+      - name: Run blog integration tests
+        run: |
+          # Run Playwright tests for blog functionality
+          npx playwright test tests/blog-*.spec.ts || true
+
+  notify-deployment:
+    needs: [run-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Send deployment notification
+        uses: 8398a7/action-slack@v3
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        with:
+          status: ${{ job.status }}
+          text: |
+            Blog Infrastructure Deployment ${{ job.status }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

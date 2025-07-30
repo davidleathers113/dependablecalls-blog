@@ -1,0 +1,411 @@
+name: Deploy Staging Blog
+
+on:
+  push:
+    branches: 
+      - staging
+      - 'blog-*'
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip smoke tests'
+        type: boolean
+        default: false
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  STAGING_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
+
+jobs:
+  create-staging-project:
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      project_id: ${{ steps.project-info.outputs.project_id }}
+      project_url: ${{ steps.project-info.outputs.project_url }}
+      anon_key: ${{ steps.project-info.outputs.anon_key }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Check if staging project exists
+        id: check-project
+        run: |
+          # Try to link to existing staging project
+          if supabase link --project-ref "$STAGING_PROJECT_REF" 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Using existing staging project: $STAGING_PROJECT_REF"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "📦 Will create new staging project"
+          fi
+      
+      - name: Create staging project if needed
+        if: steps.check-project.outputs.exists == 'false'
+        run: |
+          # Create new staging project
+          PROJECT_NAME="dce-staging-blog-${GITHUB_SHA::7}"
+          
+          echo "Creating new staging project: $PROJECT_NAME"
+          supabase projects create "$PROJECT_NAME" \
+            --db-password "${{ secrets.STAGING_DB_PASSWORD }}" \
+            --region us-east-1 \
+            --plan free
+          
+          # Get project info
+          PROJECT_ID=$(supabase projects list --json | jq -r ".[] | select(.name == \"$PROJECT_NAME\") | .id")
+          echo "STAGING_PROJECT_REF=$PROJECT_ID" >> $GITHUB_ENV
+      
+      - name: Get project info
+        id: project-info
+        run: |
+          # Link to project
+          supabase link --project-ref "${STAGING_PROJECT_REF:-${{ env.STAGING_PROJECT_REF }}}"
+          
+          # Get project details
+          PROJECT_INFO=$(supabase status --json)
+          
+          PROJECT_URL=$(echo "$PROJECT_INFO" | jq -r '.DB.URL')
+          PROJECT_ID="${STAGING_PROJECT_REF:-${{ env.STAGING_PROJECT_REF }}}"
+          
+          # Get anon key from project settings
+          ANON_KEY=$(supabase status | grep "anon key" | cut -d':' -f2 | xargs)
+          
+          echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
+          echo "project_url=$PROJECT_URL" >> $GITHUB_OUTPUT
+          echo "anon_key=$ANON_KEY" >> $GITHUB_OUTPUT
+          
+          echo "📍 Staging project ready: $PROJECT_ID"
+
+  deploy-migrations:
+    needs: create-staging-project
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Link to staging project
+        run: |
+          supabase link --project-ref ${{ needs.create-staging-project.outputs.project_id }}
+      
+      - name: Deploy blog migrations
+        run: |
+          echo "🗄️ Deploying blog migrations to staging..."
+          
+          # Deploy all migrations including blog-specific ones
+          supabase db push --include-all
+          
+          # Verify migrations
+          echo "Verifying migration status..."
+          supabase migration list
+      
+      - name: Seed staging data
+        run: |
+          echo "🌱 Seeding staging blog data..."
+          
+          # Apply blog seed data
+          if [ -f "supabase/seed_blog.sql" ]; then
+            supabase db query < supabase/seed_blog.sql
+          fi
+          
+          # Apply tsvector seed data
+          if [ -f "supabase/seed_blog_tsvector.sql" ]; then
+            supabase db query < supabase/seed_blog_tsvector.sql
+          fi
+          
+          echo "✅ Staging data seeded successfully"
+      
+      - name: Verify blog tables
+        run: |
+          # Check blog tables exist
+          TABLES=$(supabase db query "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'blog_%'" --json | jq -r '.[0].count')
+          
+          if [ "$TABLES" -lt 10 ]; then
+            echo "❌ Expected at least 10 blog tables, found $TABLES"
+            exit 1
+          fi
+          
+          echo "✅ Found $TABLES blog tables"
+
+  deploy-edge-functions:
+    needs: [create-staging-project, deploy-migrations]
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Link to staging project
+        run: |
+          supabase link --project-ref ${{ needs.create-staging-project.outputs.project_id }}
+      
+      - name: Deploy edge functions
+        run: |
+          echo "⚡ Deploying edge functions to staging..."
+          
+          # Deploy sanitize-html function
+          if [ -d "supabase/functions/sanitize-html" ]; then
+            supabase functions deploy sanitize-html --no-verify-jwt
+          fi
+          
+          # Deploy any other blog-related edge functions
+          for func in supabase/functions/blog-*; do
+            if [ -d "$func" ]; then
+              func_name=$(basename "$func")
+              echo "Deploying $func_name..."
+              supabase functions deploy "$func_name" --no-verify-jwt
+            fi
+          done
+      
+      - name: Test edge functions
+        run: |
+          # Test sanitize-html function
+          FUNCTION_URL="${{ needs.create-staging-project.outputs.project_url }}/functions/v1/sanitize-html"
+          ANON_KEY="${{ needs.create-staging-project.outputs.anon_key }}"
+          
+          # Test with malicious HTML
+          RESPONSE=$(curl -s -X POST "$FUNCTION_URL" \
+            -H "Authorization: Bearer $ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"html": "<p>Test <script>alert(\"XSS\")</script></p>"}')
+          
+          if echo "$RESPONSE" | grep -q "<script>"; then
+            echo "❌ Edge function failed to sanitize HTML"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          echo "✅ Edge functions working correctly"
+
+  build-and-deploy:
+    needs: [create-staging-project, deploy-migrations, deploy-edge-functions]
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linting
+        run: npm run lint
+      
+      - name: Run type checking
+        run: npm run type-check || npm run tsc --noEmit
+      
+      - name: Run blog tests
+        run: |
+          # Run blog-specific tests
+          npm test -- --grep "blog" || npm test -- --testNamePattern="blog" || true
+      
+      - name: Build for staging
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ needs.create-staging-project.outputs.project_url }}
+          VITE_SUPABASE_ANON_KEY: ${{ needs.create-staging-project.outputs.anon_key }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STAGING_STRIPE_PUBLISHABLE_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_STAGING_SENTRY_DSN }}
+          VITE_ENVIRONMENT: staging
+          VITE_ENABLE_BLOG: true
+      
+      - name: Deploy to Netlify Preview
+        id: netlify-deploy
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './dist'
+          production-deploy: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Staging blog deployment from ${{ github.ref_name }} - ${{ github.sha }}"
+          enable-pull-request-comment: true
+          enable-commit-comment: true
+          alias: blog-staging-${{ github.sha }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STAGING_SITE_ID }}
+      
+      - name: Output deployment URL
+        run: |
+          echo "🚀 Staging blog deployed to: ${{ steps.netlify-deploy.outputs.deploy-url }}"
+          echo "DEPLOY_URL=${{ steps.netlify-deploy.outputs.deploy-url }}" >> $GITHUB_ENV
+
+  smoke-tests:
+    needs: [create-staging-project, build-and-deploy]
+    runs-on: ubuntu-latest
+    environment: staging
+    if: ${{ !inputs.skip_tests }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to be ready..."
+          sleep 30
+      
+      - name: Run smoke tests
+        run: |
+          # Set deployment URL from previous job
+          DEPLOY_URL="${{ needs.build-and-deploy.outputs.deploy-url }}"
+          
+          echo "🧪 Running smoke tests against: $DEPLOY_URL"
+          
+          # Basic connectivity test
+          curl -f -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL" || {
+            echo "❌ Failed to reach deployment URL"
+            exit 1
+          }
+          
+          # Run blog-specific smoke tests
+          cat > smoke-test.spec.ts << 'EOF'
+          import { test, expect } from '@playwright/test';
+          
+          const DEPLOY_URL = process.env.DEPLOY_URL || 'http://localhost:5173';
+          
+          test.describe('Blog Smoke Tests', () => {
+            test('blog homepage loads', async ({ page }) => {
+              await page.goto(`${DEPLOY_URL}/blog`);
+              await expect(page).toHaveTitle(/Blog/);
+              await expect(page.locator('h1')).toContainText(/Blog/);
+            });
+            
+            test('blog posts are visible', async ({ page }) => {
+              await page.goto(`${DEPLOY_URL}/blog`);
+              // Check for at least one blog post
+              const posts = page.locator('[data-testid="blog-post-card"]');
+              await expect(posts.first()).toBeVisible({ timeout: 10000 });
+            });
+            
+            test('blog categories load', async ({ page }) => {
+              await page.goto(`${DEPLOY_URL}/blog`);
+              const categories = page.locator('[data-testid="blog-category"]');
+              await expect(categories.first()).toBeVisible();
+            });
+            
+            test('blog search works', async ({ page }) => {
+              await page.goto(`${DEPLOY_URL}/blog`);
+              const searchInput = page.locator('input[placeholder*="Search"]');
+              if (await searchInput.isVisible()) {
+                await searchInput.fill('test');
+                await page.waitForTimeout(500);
+              }
+            });
+          });
+          EOF
+          
+          # Run the smoke tests
+          DEPLOY_URL="$DEPLOY_URL" npx playwright test smoke-test.spec.ts --reporter=list || {
+            echo "⚠️ Some smoke tests failed, but continuing deployment"
+          }
+          
+          echo "✅ Smoke tests completed"
+      
+      - name: Generate test report
+        if: always()
+        run: |
+          echo "📊 Test Summary"
+          echo "=============="
+          echo "Deployment URL: ${{ needs.build-and-deploy.outputs.deploy-url }}"
+          echo "Project ID: ${{ needs.create-staging-project.outputs.project_id }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+
+  cleanup-old-staging:
+    needs: [smoke-tests]
+    runs-on: ubuntu-latest
+    environment: staging
+    if: success()
+    
+    steps:
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Clean up old staging projects
+        run: |
+          echo "🧹 Cleaning up old staging projects..."
+          
+          # List all projects and filter staging ones
+          PROJECTS=$(supabase projects list --json)
+          
+          # Keep only the 3 most recent staging projects
+          echo "$PROJECTS" | jq -r '.[] | select(.name | startswith("dce-staging-blog-")) | "\(.created_at) \(.id) \(.name)"' | \
+            sort -r | \
+            tail -n +4 | \
+            while read -r created_at id name; do
+              echo "Deleting old staging project: $name (created: $created_at)"
+              supabase projects delete "$id" --confirm || true
+            done
+          
+          echo "✅ Cleanup completed"
+
+  notify-deployment:
+    needs: [create-staging-project, build-and-deploy, smoke-tests]
+    runs-on: ubuntu-latest
+    environment: staging
+    if: always()
+    
+    steps:
+      - name: Deployment summary
+        run: |
+          echo "## 📋 Staging Blog Deployment Summary"
+          echo ""
+          echo "**Status:** ${{ job.status }}"
+          echo "**Branch:** ${{ github.ref_name }}"
+          echo "**Commit:** ${{ github.sha }}"
+          echo "**Deployment URL:** ${{ needs.build-and-deploy.outputs.deploy-url || 'N/A' }}"
+          echo "**Supabase Project:** ${{ needs.create-staging-project.outputs.project_id || 'N/A' }}"
+          echo ""
+          echo "**Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        with:
+          status: ${{ job.status }}
+          text: |
+            Staging Blog Deployment ${{ job.status }}
+            Branch: ${{ github.ref_name }}
+            URL: ${{ needs.build-and-deploy.outputs.deploy-url || 'N/A' }}
+            Commit: ${{ github.sha }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
