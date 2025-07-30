@@ -1,0 +1,107 @@
+{
+    "mcpServers": {
+        "supabase": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@supabase/mcp-server-supabase@latest",
+                "--project-ref=your-project-ref-here"
+            ],
+            "env": {
+                "SUPABASE_ACCESS_TOKEN": "your-supabase-access-token-here"
+            }
+        },
+        "treesitter": {
+            "command": "npx",
+            "args": [
+                "treesitter_mcp"
+            ],
+            "env": {}
+        },
+        "playwright": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@executeautomation/playwright-mcp-server"
+            ],
+            "env": {}
+        },
+        "browsermcp": {
+            "command": "npx",
+            "args": [
+                "@browsermcp/mcp@latest"
+            ],
+            "env": {}
+        },
+        "Bright Data": {
+            "command": "/path/to/node",
+            "args": [
+                "/path/to/npx",
+                "@brightdata/mcp"
+            ],
+            "env": {
+                "API_TOKEN": "your-brightdata-api-token-here",
+                "WEB_UNLOCKER_ZONE": "your-zone-name-here",
+                "BROWSER_AUTH": "your-browser-auth-here"
+            }
+        },
+        "Sentry": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "mcp-remote@latest",
+                "https://mcp.sentry.dev/mcp",
+                "--debug"
+            ],
+            "env": {
+                "SENTRY_ACCESS_TOKEN": "your-sentry-access-token-here",
+                "SENTRY_HOST": "https://sentry.io"
+            }
+        },
+        "github": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "-e",
+                "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "ghcr.io/github/github-mcp-server"
+            ],
+            "env": {
+                "GITHUB_PERSONAL_ACCESS_TOKEN": "your-github-pat-here"
+            }
+        },
+        "cloudflare-observability": {
+            "command": "npx",
+            "args": ["mcp-remote", "https://observability.mcp.cloudflare.com/sse"]
+        },
+        "cloudflare-bindings": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@cloudflare/mcp-server-cloudflare@latest"
+            ],
+            "env": {
+                "CLOUDFLARE_ACCESS_TOKEN": "your-cloudflare-access-token-here",
+                "CLOUDFLARE_ACCOUNT_ID": "your-account-id-here"
+            }
+        },
+        "Ref": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "https://ref.mcp.sh"
+            ]
+        },
+        "serena": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "@serena_kdl/serena"
+            ],
+            "env": {}
+        }
+    }
+}

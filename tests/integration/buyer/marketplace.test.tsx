@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
@@ -16,7 +16,6 @@ const CallListings = () => <div>Call Listings Component</div>
 // MSW server setup
 const server = setupServer(
   rest.get('/api/v1/marketplace/search', (req, res, ctx) => {
-    const filters = Object.fromEntries(req.url.searchParams)
     
     return res(
       ctx.json({
@@ -446,7 +445,7 @@ describe('Buyer Marketplace Integration', () => {
       
       // Scroll to bottom
       const container = screen.getByTestId('listings-container')
-      fireEvent.scroll(container, { target: { scrollTop: container.scrollHeight } })
+      container.scrollTop = container.scrollHeight
       
       // Verify loading indicator
       expect(screen.getByText(/loading more/i)).toBeInTheDocument()

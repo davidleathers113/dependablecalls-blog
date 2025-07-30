@@ -19,7 +19,7 @@ describe('useAuth Hook', () => {
   beforeEach(() => {
     vi.mocked(useAuthStore).mockImplementation((selector) => {
       if (typeof selector === 'function') {
-        return selector(mockAuthStore as any)
+        return selector(mockAuthStore)
       }
       return mockAuthStore
     })
@@ -56,7 +56,7 @@ describe('useAuth Hook', () => {
           user: mockUser,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -80,7 +80,7 @@ describe('useAuth Hook', () => {
           user: supplierUser,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -103,7 +103,7 @@ describe('useAuth Hook', () => {
           user: buyerUser,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -126,7 +126,7 @@ describe('useAuth Hook', () => {
           user: adminUser,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -149,7 +149,7 @@ describe('useAuth Hook', () => {
           user: userWithoutRole,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -189,7 +189,7 @@ describe('useAuth Hook', () => {
           ...mockAuthStore,
           loading: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -205,7 +205,7 @@ describe('useAuth Hook', () => {
           ...mockAuthStore,
           error: authError,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -229,7 +229,7 @@ describe('useAuth Hook', () => {
           user: userWithPermissions,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -251,7 +251,7 @@ describe('useAuth Hook', () => {
           user: userWithoutPermissions,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -287,7 +287,7 @@ describe('useAuth Hook', () => {
           user: userWithProfile,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -314,7 +314,7 @@ describe('useAuth Hook', () => {
           user: userWithoutProfile,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -340,7 +340,7 @@ describe('useAuth Hook', () => {
           user: userWithValidSession,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -364,7 +364,7 @@ describe('useAuth Hook', () => {
           user: userWithExpiredSession,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())
@@ -385,7 +385,7 @@ describe('useAuth Hook', () => {
           user: userWithoutSession,
           isAuthenticated: true,
         }
-        return typeof selector === 'function' ? selector(state as any) : state
+        return typeof selector === 'function' ? selector(state) : state
       })
 
       const { result } = renderHook(() => useAuth())

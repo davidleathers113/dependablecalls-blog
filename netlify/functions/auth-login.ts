@@ -2,7 +2,7 @@ import type { Handler } from '@netlify/functions'
 import { withoutAuth, ApiError } from '../../src/lib/auth-middleware'
 import { withCsrfProtection } from './_shared/csrf-middleware'
 import { createSessionCookies } from '../../src/lib/auth-cookies'
-import { LoginSchema, type LoginData, safeValidate, sanitizeInput } from '../../src/lib/validation'
+import { LoginSchema, safeValidate, sanitizeInput } from '../../src/lib/validation'
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {

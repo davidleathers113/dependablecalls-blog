@@ -173,6 +173,18 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
+# Blog API redirects with path parameters
+[[redirects]]
+  from = "/api/blog/*"
+  to = "/.netlify/functions/blog-api/:splat"
+  status = 200
+
+# Uptime monitoring webhook endpoint
+[[redirects]]
+  from = "/webhooks/uptime"
+  to = "/.netlify/functions/uptime-webhook"
+  status = 200
+
 # Force HTTPS
 [[redirects]]
   from = "http://dependablecalls.com/*"

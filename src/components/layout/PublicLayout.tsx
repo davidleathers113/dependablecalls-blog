@@ -237,7 +237,10 @@ export default function PublicLayout() {
                   </button>
                 </li>
                 <li>
-                  <Link to="/blog" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
+                  <Link 
+                    to="/blog"
+                    className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]"
+                  >
                     Blog
                   </Link>
                 </li>

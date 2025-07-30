@@ -56,3 +56,6 @@ SUPABASE_SERVICE_ROLE_KEY*
 
 # Local Netlify folder
 .netlify
+
+# MCP configuration with secrets
+.mcp.json

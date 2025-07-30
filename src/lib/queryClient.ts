@@ -176,6 +176,42 @@ export const queryKeys = {
       [...queryKeys.reports.all, 'performance', timeRange] as const,
     conversion: (timeRange: string) => [...queryKeys.reports.all, 'conversion', timeRange] as const,
   },
+
+  // Blog
+  blog: {
+    all: ['blog'] as const,
+    posts: {
+      all: ['blog', 'posts'] as const,
+      lists: () => [...queryKeys.blog.posts.all, 'list'] as const,
+      list: (filters: string) => [...queryKeys.blog.posts.lists(), { filters }] as const,
+      details: () => [...queryKeys.blog.posts.all, 'detail'] as const,
+      detail: (slug: string) => [...queryKeys.blog.posts.details(), slug] as const,
+      search: (query: string) => [...queryKeys.blog.posts.all, 'search', query] as const,
+      similar: (postId: string) => [...queryKeys.blog.posts.all, 'similar', postId] as const,
+    },
+    categories: {
+      all: ['blog', 'categories'] as const,
+      detail: (slug: string) => [...queryKeys.blog.categories.all, slug] as const,
+    },
+    tags: {
+      all: ['blog', 'tags'] as const,
+      detail: (slug: string) => [...queryKeys.blog.tags.all, slug] as const,
+      popular: () => [...queryKeys.blog.tags.all, 'popular'] as const,
+    },
+    authors: {
+      all: ['blog', 'authors'] as const,
+      profile: (userId: string) => [...queryKeys.blog.authors.all, userId] as const,
+    },
+    comments: {
+      all: ['blog', 'comments'] as const,
+      list: (filters: string) => [...queryKeys.blog.comments.all, 'list', { filters }] as const,
+    },
+    statistics: {
+      all: ['blog', 'statistics'] as const,
+      author: (authorId: string) => [...queryKeys.blog.statistics.all, authorId] as const,
+      global: () => [...queryKeys.blog.statistics.all, 'global'] as const,
+    },
+  },
 } as const
 
 /**
@@ -205,6 +241,25 @@ export const mutationKeys = {
     processPayment: ['payments', 'process'] as const,
     requestPayout: ['payments', 'request-payout'] as const,
     connectStripe: ['payments', 'connect-stripe'] as const,
+  },
+
+  // Blog
+  blog: {
+    posts: {
+      create: ['blog', 'posts', 'create'] as const,
+      update: ['blog', 'posts', 'update'] as const,
+      delete: ['blog', 'posts', 'delete'] as const,
+      publish: ['blog', 'posts', 'publish'] as const,
+      archive: ['blog', 'posts', 'archive'] as const,
+    },
+    comments: {
+      create: ['blog', 'comments', 'create'] as const,
+      moderate: ['blog', 'comments', 'moderate'] as const,
+      delete: ['blog', 'comments', 'delete'] as const,
+    },
+    authors: {
+      updateProfile: ['blog', 'authors', 'update-profile'] as const,
+    },
   },
 } as const
 

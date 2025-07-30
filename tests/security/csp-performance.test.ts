@@ -90,7 +90,7 @@ describe('CSP v3 Performance Benchmarks', () => {
 
     it('should have negligible performance overhead for getCurrentNonces', () => {
       // Pre-populate edge nonces
-      ;(window as any).__CSP_NONCES__ = {
+      ;(window as Window & { __CSP_NONCES__: { script: string; style: string; timestamp: number } }).__CSP_NONCES__ = {
         script: 'cached-script-nonce',
         style: 'cached-style-nonce',
         timestamp: Date.now()

@@ -16,24 +16,26 @@ export default function BlogCategoryPage() {
   const [sortBy, setSortBy] = useState<BlogPostSort>({ by: 'published_at', order: 'desc' })
   const [currentPage, setCurrentPage] = useState(1)
 
-  if (!slug) {
-    return <Navigate to="/blog" replace />
-  }
-
-  const { data: category, isLoading: categoryLoading } = useBlogCategory(slug)
+  // Call hooks before any conditional returns
+  const { data: category, isLoading: categoryLoading } = useBlogCategory(slug || '')
   
   const { data: postsData, isLoading: postsLoading, error: postsError } = useBlogPosts({
     page: currentPage,
     limit: 12,
     filters: { 
       status: 'published',
-      categorySlug: slug
+      categorySlug: slug || ''
     },
     sort: sortBy,
     includeAuthor: true,
     includeCategories: true,
     includeTags: true
   })
+
+  // Conditional returns after hooks
+  if (!slug) {
+    return <Navigate to="/blog" replace />
+  }
 
   if (categoryLoading) {
     return (
@@ -125,8 +127,8 @@ export default function BlogCategoryPage() {
               id="sort"
               value={`${sortBy.by}-${sortBy.order}`}
               onChange={(e) => {
-                const [by, order] = e.target.value.split('-') as [any, 'asc' | 'desc']
-                setSortBy({ by, order })
+                const [by, order] = e.target.value.split('-') as [string, 'asc' | 'desc']
+                setSortBy({ by: by as 'published_at' | 'created_at' | 'updated_at' | 'title' | 'view_count', order })
                 setCurrentPage(1)
               }}
               className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"

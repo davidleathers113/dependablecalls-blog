@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { throttleAdvanced } from '@/utils/throttle'
 import { useSupabase } from './useSupabase'
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
+import type { Database } from '@/types/database.generated'
 
 type Tables = Database['public']['Tables']
 type TableName = keyof Tables

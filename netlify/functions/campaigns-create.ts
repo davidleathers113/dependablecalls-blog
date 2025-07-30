@@ -1,8 +1,7 @@
 import type { Handler } from '@netlify/functions'
 import { requireRole, ApiError } from '../../src/lib/auth-middleware'
 import { withCsrfProtection } from './_shared/csrf-middleware'
-import { withValidation, ValidationError } from '../../src/lib/validation-middleware'
-import { CreateCampaignSchema, type CreateCampaignData } from '../../src/lib/validation'
+import { z } from 'zod'
 
 const createCampaignSchema = z.object({
   name: z

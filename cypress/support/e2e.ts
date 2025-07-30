@@ -21,7 +21,7 @@ beforeEach(() => {
   
   // Mock WebSocket connections
   cy.window().then((win) => {
-    // @ts-ignore
+    // @ts-expect-error - Overriding WebSocket for testing purposes to mock real-time connections
     win.WebSocket = class MockWebSocket {
       constructor(url: string) {
         console.log('WebSocket connection to:', url)
@@ -42,7 +42,7 @@ afterEach(() => {
 })
 
 // Error handling
-Cypress.on('uncaught:exception', (err, runnable) => {
+Cypress.on('uncaught:exception', (err) => {
   // Ignore ResizeObserver errors
   if (err.message.includes('ResizeObserver')) {
     return false

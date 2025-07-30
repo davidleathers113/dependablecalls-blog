@@ -20,12 +20,6 @@ import AppLayout from './components/layout/AppLayout'
 const HomePage = React.lazy(() => 
   import(/* webpackPrefetch: true, webpackChunkName: "home" */ './pages/public/HomePage')
 )
-const BlogPage = React.lazy(() => 
-  import(/* webpackPrefetch: true, webpackChunkName: "blog" */ './pages/public/BlogPage')
-)
-const BlogPostPage = React.lazy(() => 
-  import(/* webpackChunkName: "blog-post" */ './pages/public/BlogPostPage')
-)
 const ContactPage = React.lazy(() => 
   import(/* webpackPrefetch: true, webpackChunkName: "contact" */ './pages/public/ContactPage')
 )
@@ -59,6 +53,20 @@ const TermsPage = React.lazy(() =>
 )
 const CompliancePage = React.lazy(() => 
   import(/* webpackChunkName: "compliance" */ './pages/legal/CompliancePage')
+)
+
+// Blog Pages - SEO-optimized with prefetch
+const BlogPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "blog" */ './pages/public/BlogPage')
+)
+const BlogPostPage = React.lazy(() => 
+  import(/* webpackPrefetch: true, webpackChunkName: "blog-post" */ './pages/public/BlogPostPage')
+)
+const BlogCategoryPage = React.lazy(() => 
+  import(/* webpackChunkName: "blog-category" */ './pages/public/BlogCategoryPage')
+)
+const BlogAuthorPage = React.lazy(() => 
+  import(/* webpackChunkName: "blog-author" */ './pages/public/BlogAuthorPage')
 )
 
 // Demo Pages (Development Only)
@@ -285,22 +293,6 @@ function App() {
                       }
                     />
                     <Route
-                      path="blog"
-                      element={
-                        <Suspense fallback={<PageLoader />}>
-                          <BlogPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route
-                      path="blog/:slug"
-                      element={
-                        <Suspense fallback={<PageLoader />}>
-                          <BlogPostPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route
                       path="contact"
                       element={
                         <Suspense fallback={<PageLoader />}>
@@ -337,6 +329,39 @@ function App() {
                       element={
                         <Suspense fallback={<PageLoader />}>
                           <CompliancePage />
+                        </Suspense>
+                      }
+                    />
+                    {/* Blog Routes */}
+                    <Route
+                      path="blog"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <BlogPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="blog/post/:slug"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <BlogPostPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="blog/category/:slug"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <BlogCategoryPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="blog/author/:slug"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <BlogAuthorPage />
                         </Suspense>
                       }
                     />

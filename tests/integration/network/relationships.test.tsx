@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest'
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -182,7 +182,7 @@ const server = setupServer(
   }),
   
   rest.post('/api/v1/network/commission/calculate', (req, res, ctx) => {
-    const { relationship_id, period } = req.body as any
+    const { relationship_id, period } = req.body as { relationship_id: string; period: string }
     
     return res(
       ctx.json({

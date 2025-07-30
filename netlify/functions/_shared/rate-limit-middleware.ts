@@ -100,7 +100,7 @@ export async function withRateLimit(
 
     // Behavioral analysis for suspicious patterns
     if (enableBehavioralAnalysis) {
-      await analyzeBehavioralPatterns(requestInfo, result);
+      await analyzeBehavioralPatterns(requestInfo);
     }
 
     // Execute the original handler
@@ -261,7 +261,7 @@ function generateIdentifier(context: UserContext): string {
 /**
  * Generate rate limit headers for response
  */
-function generateRateLimitHeaders(result: RateLimitResult, config: any): RateLimitHeaders {
+function generateRateLimitHeaders(result: RateLimitResult, config: { maxRequests: number }): RateLimitHeaders {
   const headers: RateLimitHeaders = {
     'X-RateLimit-Limit': config.maxRequests.toString(),
     'X-RateLimit-Remaining': result.remaining.toString(),
@@ -358,7 +358,7 @@ async function shouldTriggerCaptcha(context: UserContext, result: RateLimitResul
 /**
  * Analyze behavioral patterns for suspicious activity
  */
-async function analyzeBehavioralPatterns(context: UserContext, result: RateLimitResult): Promise<void> {
+async function analyzeBehavioralPatterns(context: UserContext): Promise<void> {
   // Track request patterns
   const patternKey = `pattern:${context.ipAddress}`;
   const now = Date.now();

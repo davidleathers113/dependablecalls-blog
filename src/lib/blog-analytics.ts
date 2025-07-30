@@ -754,7 +754,7 @@ class BlogAnalytics {
 
       if (error) throw error
 
-      return data.map((post: any) => ({
+      return data.map((post) => ({
         slug: post.slug,
         title: post.title,
         viewCount: post.view_count,
@@ -770,7 +770,7 @@ class BlogAnalytics {
       })
       return []
     } finally {
-      ;(transaction as any)?.finish?.()
+      // Transaction finish is handled by Sentry internally
     }
   }
 
@@ -817,7 +817,7 @@ class BlogAnalytics {
       })
       return null
     } finally {
-      ;(transaction as any)?.finish?.()
+      // Transaction finish is handled by Sentry internally
     }
   }
 
@@ -897,7 +897,7 @@ class BlogAnalytics {
     return timeAgo.toISOString()
   }
 
-  private calculateEngagementScore(post: any): number {
+  private calculateEngagementScore(post: { view_count: number; published_at: string }): number {
     // Simple engagement score calculation
     // In a real implementation, this would factor in multiple metrics
     return post.view_count * 0.1 // Placeholder calculation
@@ -947,7 +947,7 @@ class BlogAnalytics {
   // Supabase Storage Methods
   // =====================================================
 
-  private async storePageView(data: any): Promise<void> {
+  private async storePageView(data: PageViewData & { sessionId: string; visitorId: string; timestamp: Date; isUniqueView: boolean }): Promise<void> {
     // Store in analytics table (would need to be created)
     logger.info('Page view stored', {
       component: 'blog-analytics',
@@ -971,7 +971,7 @@ class BlogAnalytics {
     }
   }
 
-  private async storeReadingProgress(data: any): Promise<void> {
+  private async storeReadingProgress(data: ReadingProgressData & { timestamp: Date }): Promise<void> {
     // Store in reading_progress table (would need to be created)
     logger.debug('Reading progress stored', {
       component: 'blog-analytics',
@@ -980,7 +980,7 @@ class BlogAnalytics {
     })
   }
 
-  private async storeEngagementEvent(data: any): Promise<void> {
+  private async storeEngagementEvent(data: EngagementEventData & { timestamp: Date }): Promise<void> {
     // Store in engagement_events table (would need to be created)
     logger.info('Engagement event stored', {
       component: 'blog-analytics',
@@ -988,7 +988,7 @@ class BlogAnalytics {
     })
   }
 
-  private async storeSearchAnalytics(data: any): Promise<void> {
+  private async storeSearchAnalytics(data: SearchAnalyticsData & { timestamp: Date }): Promise<void> {
     // Store in search_analytics table (would need to be created)
     logger.info('Search analytics stored', {
       component: 'blog-analytics',
@@ -996,7 +996,7 @@ class BlogAnalytics {
     })
   }
 
-  private async storePerformanceMetric(data: any): Promise<void> {
+  private async storePerformanceMetric(data: PerformanceMetricData & { timestamp: Date }): Promise<void> {
     // Store in performance_metrics table (would need to be created)
     logger.debug('Performance metric stored', {
       component: 'blog-analytics',
@@ -1005,7 +1005,7 @@ class BlogAnalytics {
     })
   }
 
-  private async storeABTestEvent(data: any): Promise<void> {
+  private async storeABTestEvent(data: ABTestEventData & { timestamp: Date }): Promise<void> {
     // Store in ab_test_events table (would need to be created)
     logger.info('A/B test event stored', {
       component: 'blog-analytics',

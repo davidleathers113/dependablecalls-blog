@@ -46,7 +46,7 @@ const localStorageMock = {
   length: 0,
   key: vi.fn(),
 }
-global.localStorage = localStorageMock as any
+global.localStorage = localStorageMock as Storage
 
 // Mock sessionStorage
 const sessionStorageMock = {
@@ -57,7 +57,7 @@ const sessionStorageMock = {
   length: 0,
   key: vi.fn(),
 }
-global.sessionStorage = sessionStorageMock as any
+global.sessionStorage = sessionStorageMock as Storage
 
 // Mock fetch
 global.fetch = vi.fn()
@@ -77,7 +77,7 @@ global.cancelAnimationFrame = vi.fn((id) => clearTimeout(id))
 // Mock crypto for secure operations
 Object.defineProperty(global, 'crypto', {
   value: {
-    getRandomValues: (arr: any) => {
+    getRandomValues: (arr: Uint8Array) => {
       for (let i = 0; i < arr.length; i++) {
         arr[i] = Math.floor(Math.random() * 256)
       }
@@ -104,7 +104,7 @@ beforeAll(() => {
 export const waitForAsync = (ms: number = 0) => 
   new Promise(resolve => setTimeout(resolve, ms))
 
-export const mockApiResponse = (data: any, status = 200) => {
+export const mockApiResponse = (data: unknown, status = 200) => {
   return Promise.resolve({
     ok: status >= 200 && status < 300,
     status,

@@ -16,7 +16,7 @@ import type {
   ListingStatus,
   SaleStatus,
 } from '../types/supplier'
-import type { Database, Json } from '../types/database'
+import type { Database, Json } from '../types/database.generated'
 
 // Helper function to map call status to sale status
 const mapCallStatusToSaleStatus = (callStatus: Database['public']['Enums']['call_status'] | null): SaleStatus => {

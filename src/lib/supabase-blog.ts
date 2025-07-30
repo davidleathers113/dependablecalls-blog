@@ -66,7 +66,7 @@ export const channelBlog = (name: string) => blogClient.channel(name)
 /**
  * Remove realtime channels
  */
-export const removeChannelBlog = (channel: any) => blogClient.removeChannel(channel)
+export const removeChannelBlog = (channel: ReturnType<typeof blogClient.channel>) => blogClient.removeChannel(channel)
 
 /**
  * Get current session info (mainly for debugging)

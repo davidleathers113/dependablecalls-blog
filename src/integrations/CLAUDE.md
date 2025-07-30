@@ -112,7 +112,7 @@ export class StripeService {
 
 ```tsx
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/types/database';
+import { Database } from '@/types/database.generated';
 
 export const supabase: SupabaseClient<Database> = createClient(
   import.meta.env.VITE_SUPABASE_URL,

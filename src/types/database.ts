@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          operationName?: string
           variables?: Json
-          extensions?: Json
           query?: string
+          operationName?: string
+          extensions?: Json
         }
         Returns: Json
       }
@@ -180,6 +180,307 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      blog_authors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          display_name: string
+          id: string
+          social_links: Json | null
+          storage_quota_mb: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name: string
+          id?: string
+          social_links?: Json | null
+          storage_quota_mb?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          social_links?: Json | null
+          storage_quota_mb?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_authors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          name: string
+          parent_id: string | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "blog_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_comments: {
+        Row: {
+          content: string
+          content_sanitized: string | null
+          created_at: string | null
+          id: string
+          ip_address: unknown | null
+          parent_id: string | null
+          post_id: string | null
+          status: string | null
+          updated_at: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          content_sanitized?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          parent_id?: string | null
+          post_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          content_sanitized?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          parent_id?: string | null
+          post_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "blog_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_post_categories: {
+        Row: {
+          category_id: string
+          post_id: string
+        }
+        Insert: {
+          category_id: string
+          post_id: string
+        }
+        Update: {
+          category_id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_post_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "blog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_post_categories_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_post_tags: {
+        Row: {
+          post_id: string
+          tag_id: string
+        }
+        Insert: {
+          post_id: string
+          tag_id: string
+        }
+        Update: {
+          post_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_post_tags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_post_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "blog_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_posts: {
+        Row: {
+          author_id: string
+          content: string
+          content_sanitized: string | null
+          created_at: string | null
+          embedding: string | null
+          excerpt: string | null
+          featured_image_url: string | null
+          id: string
+          metadata: Json | null
+          published_at: string | null
+          reading_time_minutes: number | null
+          search_vector: unknown | null
+          slug: string
+          status: string | null
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+          view_count: number | null
+        }
+        Insert: {
+          author_id: string
+          content: string
+          content_sanitized?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          excerpt?: string | null
+          featured_image_url?: string | null
+          id?: string
+          metadata?: Json | null
+          published_at?: string | null
+          reading_time_minutes?: number | null
+          search_vector?: unknown | null
+          slug: string
+          status?: string | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          content_sanitized?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          excerpt?: string | null
+          featured_image_url?: string | null
+          id?: string
+          metadata?: Json | null
+          published_at?: string | null
+          reading_time_minutes?: number | null
+          search_vector?: unknown | null
+          slug?: string
+          status?: string | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "blog_authors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_tags: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
       }
       breach_detection_rules: {
         Row: {
@@ -3441,7 +3742,7 @@ export type Database = {
     }
     Functions: {
       add_buyer_credit: {
-        Args: { amount: number; buyer_id: string; transaction_id: string }
+        Args: { buyer_id: string; amount: number; transaction_id: string }
         Returns: undefined
       }
       analyze_data_access_patterns: {
@@ -3454,21 +3755,25 @@ export type Database = {
         }[]
       }
       analyze_query_security: {
-        Args: { query_text: string; user_uuid?: string }
+        Args: { user_uuid?: string; query_text: string }
         Returns: Json
       }
       assign_user_role: {
         Args: {
           assigned_by_user_id?: string
+          expires_at_param?: string
           target_role_name: string
           target_user_id: string
-          expires_at_param?: string
         }
         Returns: boolean
       }
       auto_block_suspicious_query: {
-        Args: { user_uuid?: string; query_hash: string; risk_score: number }
+        Args: { user_uuid?: string; risk_score: number; query_hash: string }
         Returns: boolean
+      }
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
       }
       calculate_buyer_balance: {
         Args: { buyer_uuid: string }
@@ -3477,8 +3782,8 @@ export type Database = {
       calculate_call_billing: {
         Args: {
           campaign_id: string
-          call_duration: number
           quality_score: number
+          call_duration: number
           buyer_campaign_id: string
         }
         Returns: Json
@@ -3492,20 +3797,20 @@ export type Database = {
         Returns: number
       }
       check_user_permission: {
-        Args: { action_name: string; resource_name: string; user_uuid: string }
+        Args: { action_name: string; user_uuid: string; resource_name: string }
         Returns: boolean
       }
       check_user_permission_with_context: {
         Args: {
-          resource_name: string
-          context_data?: Json
           user_uuid: string
           action_name: string
+          context_data?: Json
+          resource_name: string
         }
         Returns: boolean
       }
       check_velocity_limits: {
-        Args: { buyer_id: string; amount: number }
+        Args: { amount: number; buyer_id: string }
         Returns: Json
       }
       cleanup_audit_logs: {
@@ -3526,27 +3831,27 @@ export type Database = {
       }
       create_full_user: {
         Args: {
-          p_business_type?: string
-          p_credit_limit?: number
-          p_current_balance?: number
           p_email: string
           p_password: string
           p_first_name: string
+          p_credit_balance?: number
           p_last_name: string
           p_user_type: string
           p_company?: string
-          p_credit_balance?: number
+          p_business_type?: string
+          p_credit_limit?: number
+          p_current_balance?: number
         }
         Returns: string
       }
       create_security_incident: {
         Args: {
-          evidence?: Json
-          incident_type: string
-          severity: string
           title: string
-          description: string
+          incident_type: string
+          evidence?: Json
           auto_response?: boolean
+          description: string
+          severity: string
         }
         Returns: string
       }
@@ -3556,21 +3861,21 @@ export type Database = {
       }
       detect_fraud_indicators: {
         Args: {
+          caller_number: string
           call_duration: number
           caller_location?: Json
           call_metadata?: Json
-          caller_number: string
         }
         Returns: Json
       }
       detect_suspicious_logins: {
         Args: Record<PropertyKey, never>
         Returns: {
-          user_id: string
           details: Json
           time_window: unknown
-          event_count: number
+          user_id: string
           suspicious_pattern: string
+          event_count: number
         }[]
       }
       escalate_security_incident: {
@@ -3583,16 +3888,20 @@ export type Database = {
       }
       find_matching_buyer_campaigns: {
         Args: {
-          supplier_campaign_id: string
-          caller_location?: Json
           call_time?: string
+          caller_location?: Json
+          supplier_campaign_id: string
         }
         Returns: {
-          buyer_id: string
           match_score: number
-          buyer_campaign_id: string
           max_bid: number
+          buyer_id: string
+          buyer_campaign_id: string
         }[]
+      }
+      generate_blog_slug: {
+        Args: { title: string }
+        Returns: string
       }
       generate_secure_password: {
         Args: Record<PropertyKey, never>
@@ -3606,9 +3915,20 @@ export type Database = {
         Args: { key_type_param?: string }
         Returns: {
           created_at: string
-          expires_at: string
-          algorithm: string
           key_id: string
+          algorithm: string
+          expires_at: string
+        }[]
+      }
+      get_blog_statistics: {
+        Args: { author_id_param?: string }
+        Returns: {
+          total_posts: number
+          published_posts: number
+          draft_posts: number
+          total_views: number
+          total_comments: number
+          avg_reading_time: number
         }[]
       }
       get_buyer_id: {
@@ -3624,54 +3944,54 @@ export type Database = {
         Returns: Json
       }
       get_data_classification: {
-        Args: { table_name: string; column_name?: string }
+        Args: { column_name?: string; table_name: string }
         Returns: string
       }
       get_database_connections: {
         Args: Record<PropertyKey, never>
         Returns: {
-          ssl_version: string
-          query_start: string
-          state_change: string
-          state: string
-          query: string
-          wait_event_type: string
-          wait_event: string
-          ssl: boolean
-          ssl_cipher: string
-          pid: number
-          client_addr: unknown
-          client_hostname: string
           client_port: number
           datname: string
           usename: string
           application_name: string
           backend_start: string
+          query_start: string
+          state_change: string
+          state: string
+          query: string
+          wait_event: string
+          wait_event_type: string
+          ssl: boolean
+          ssl_version: string
+          ssl_cipher: string
+          client_hostname: string
+          client_addr: unknown
+          pid: number
         }[]
       }
       get_long_running_queries: {
         Args: Record<PropertyKey, never>
         Returns: {
-          query: string
-          duration: unknown
-          query_start: string
-          client_addr: unknown
-          state: string
+          usename: string
           pid: number
           datname: string
-          usename: string
+          client_addr: unknown
+          query_start: string
+          duration: unknown
+          state: string
+          query: string
         }[]
       }
       get_recent_queries: {
         Args: { time_window_minutes?: number }
         Returns: {
-          mean_time: number
-          first_seen: string
-          query_text: string
-          user_id: string
           calls: number
-          total_time: number
+          mean_time: number
           rows: number
+          first_seen: string
+          user_id: string
+          query_text: string
+          total_time: number
         }[]
       }
       get_service_account_usage_stats: {
@@ -3683,17 +4003,17 @@ export type Database = {
           successful_requests: number
           failed_requests: number
           success_rate: number
-          last_used: string
           unique_functions: number
+          last_used: string
         }[]
       }
       get_service_accounts_due_for_rotation: {
         Args: Record<PropertyKey, never>
         Returns: {
+          id: string
           name: string
           rotation_due_at: string
           days_overdue: number
-          id: string
         }[]
       }
       get_supplier_id: {
@@ -3707,12 +4027,64 @@ export type Database = {
       get_user_roles: {
         Args: { user_uuid: string }
         Returns: {
-          assigned_at: string
-          role_id: string
-          role_name: string
           role_description: string
           expires_at: string
+          assigned_at: string
+          role_name: string
+          role_id: string
         }[]
+      }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
       }
       is_admin: {
         Args: { user_uuid?: string }
@@ -3730,52 +4102,72 @@ export type Database = {
         Args: { user_uuid?: string }
         Returns: boolean
       }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: string
+      }
       log_data_access: {
         Args: {
-          new_values?: Json
-          operation: string
-          classification_level?: string
-          table_name: string
+          user_uuid: string
           record_ids?: string[]
+          operation: string
+          table_name: string
+          classification_level?: string
+          new_values?: Json
           old_values?: Json
           column_names?: string[]
-          user_uuid: string
         }
         Returns: string
       }
       log_security_event: {
         Args: {
-          event_data?: Json
-          user_uuid: string
           event_type: string
-          resource_type: string
-          resource_id: string
           risk_level?: string
+          event_data?: Json
+          resource_id: string
+          resource_type: string
+          user_uuid: string
         }
         Returns: string
       }
       log_security_incident: {
         Args: {
-          description_param: string
-          client_ip_param?: unknown
-          field_name_param?: string
-          table_name_param?: string
-          key_id_param?: string
           severity_param: string
-          user_id_param?: string
           incident_type_param: string
+          description_param: string
+          user_id_param?: string
+          key_id_param?: string
+          table_name_param?: string
+          field_name_param?: string
+          client_ip_param?: unknown
         }
         Returns: string
       }
       log_service_account_access: {
         Args: {
-          action: string
+          service_account_uuid: string
+          function_name: string
           resource: string
+          action: string
           access_granted: boolean
           denial_reason?: string
           context_data?: Json
-          service_account_uuid: string
-          function_name: string
         }
         Returns: string
       }
@@ -3787,6 +4179,44 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      search_similar_posts: {
+        Args: {
+          query_embedding: string
+          match_count?: number
+          threshold?: number
+        }
+        Returns: {
+          id: string
+          title: string
+          slug: string
+          excerpt: string
+          similarity: number
+        }[]
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
       validate_campaign_targeting: {
         Args: { targeting: Json }
         Returns: boolean
@@ -3796,7 +4226,7 @@ export type Database = {
         Returns: boolean
       }
       validate_permission_conditions: {
-        Args: { context_data: Json; conditions: Json }
+        Args: { conditions: Json; context_data: Json }
         Returns: boolean
       }
       validate_phone_number: {
@@ -3805,17 +4235,41 @@ export type Database = {
       }
       validate_service_account_permission: {
         Args: {
-          context_data?: Json
-          action: string
-          resource: string
-          function_name: string
           service_account_uuid: string
+          function_name: string
+          resource: string
+          action: string
+          context_data?: Json
         }
         Returns: Json
       }
       validate_time_range_condition: {
         Args: { time_range: Json; check_time: string }
         Returns: boolean
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
     }
     Enums: {
@@ -3843,25 +4297,21 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -3879,16 +4329,14 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -3904,16 +4352,14 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -3929,16 +4375,14 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -3946,16 +4390,14 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never

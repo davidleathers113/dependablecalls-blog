@@ -1,5 +1,5 @@
 import { from } from './supabase-optimized'
-import type { Database } from '../types/database'
+import type { Database } from '../types/database.generated'
 
 // Table types - using actual tables instead of non-existent views
 type SupplierStats = {

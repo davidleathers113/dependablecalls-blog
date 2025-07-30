@@ -38,16 +38,18 @@ export const handler: Handler = async (event) => {
       const { action, ...params } = body
 
       switch (action) {
-        case 'setup_totp':
+        case 'setup_totp': {
           const setupData = await mfaService.setupTOTP(context.user.id, context.user.email)
           return { setupData }
+        }
 
-        case 'verify_totp_setup':
+        case 'verify_totp_setup': {
           const { code } = params
           const result = await mfaService.verifyTOTPSetup(context.user.id, code)
           return { result }
+        }
 
-        case 'setup_sms':
+        case 'setup_sms': {
           const { phoneNumber } = params
           const smsResult = await mfaService.setupSMSBackup(
             context.user.id,
@@ -56,6 +58,7 @@ export const handler: Handler = async (event) => {
             request.headers['x-forwarded-for'] || '127.0.0.1'
           )
           return { result: smsResult }
+        }
 
         default:
           throw new Error('Invalid action')

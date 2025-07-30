@@ -1,3 +1,4 @@
+import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -15,7 +16,7 @@ vi.mock('../../src/services/token')
 const mockAuthService = vi.mocked(authService)
 const mockTokenService = vi.mocked(tokenService)
 
-const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -260,7 +261,9 @@ describe('Authentication Security Tests', () => {
       mockTokenService.getToken.mockReturnValue(null)
       mockTokenService.isTokenValid.mockReturnValue(false)
 
-      const DashboardComponent = () => <div>Dashboard</div>
+      const DashboardComponent: React.FC = () => (
+        <div>Dashboard</div>
+      )
 
       render(
         <TestWrapper>
@@ -278,7 +281,9 @@ describe('Authentication Security Tests', () => {
       mockTokenService.getToken.mockReturnValue('valid-token')
       mockTokenService.isTokenValid.mockReturnValue(true)
 
-      const DashboardComponent = () => <div>Dashboard</div>
+      const DashboardComponent: React.FC = () => (
+        <div>Dashboard</div>
+      )
 
       render(
         <TestWrapper>
@@ -296,7 +301,9 @@ describe('Authentication Security Tests', () => {
       mockTokenService.isTokenValid.mockReturnValue(true)
       mockTokenService.getUserRole.mockReturnValue('buyer')
 
-      const AdminComponent = () => <div>Admin Panel</div>
+      const AdminComponent: React.FC = () => (
+        <div>Admin Panel</div>
+      )
 
       render(
         <TestWrapper>
@@ -462,7 +469,7 @@ describe('Authentication Security Tests', () => {
 
       const hashedPassword = await authService.hashPassword(password)
       
-      expect(hashedPassword).toMatch(/^\$2b\$/) // bcrypt format
+      expect(hashedPassword).toStartWith('$2b$') // bcrypt format
       expect(hashedPassword).not.toContain(password) // Original password not visible
     })
   })
@@ -560,10 +567,10 @@ describe('Authentication Security Tests', () => {
 // Helper functions
 function validatePassword(password: string): boolean {
   const minLength = 8
-  const hasUpperCase = /[A-Z]/.test(password)
-  const hasLowerCase = /[a-z]/.test(password)
-  const hasNumbers = /\d/.test(password)
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  const hasUpperCase = password !== password.toLowerCase()
+  const hasLowerCase = password !== password.toUpperCase()
+  const hasNumbers = password.split('').some(char => char >= '0' && char <= '9')
+  const hasSpecialChar = password.split('').some(char => '!@#$%^&*(),.?":{}|<>'.includes(char))
 
   return password.length >= minLength &&
          hasUpperCase &&

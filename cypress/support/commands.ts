@@ -35,7 +35,16 @@ Cypress.Commands.add('logout', () => {
 
 // Seed test data for specific scenarios
 Cypress.Commands.add('seedTestData', (scenario: string) => {
-  const scenarios: Record<string, any> = {
+  interface ScenarioData {
+    calls: number
+    buyers: number
+    suppliers: number
+    priceRange?: [number, number]
+    transactions?: number
+    budget?: number
+  }
+  
+  const scenarios: Record<string, ScenarioData> = {
     'marketplace-with-calls': {
       calls: 50,
       buyers: 10,
@@ -66,7 +75,14 @@ Cypress.Commands.add('seedTestData', (scenario: string) => {
 
 // Accessibility check command
 Cypress.Commands.add('checkAccessibility', (context, options) => {
-  const terminalLog = (violations: any[]) => {
+  interface AccessibilityViolation {
+    id: string
+    impact: string
+    description: string
+    nodes: { length: number }
+  }
+  
+  const terminalLog = (violations: AccessibilityViolation[]) => {
     cy.task(
       'log',
       `${violations.length} accessibility violation${violations.length === 1 ? '' : 's'} ${
@@ -119,7 +135,7 @@ Cypress.Commands.add('measurePerformance', (name: string) => {
 })
 
 // API interceptor helper
-Cypress.Commands.add('interceptAPI', (alias: string, response?: any) => {
+Cypress.Commands.add('interceptAPI', (alias: string, response?: unknown) => {
   const apiMap: Record<string, string> = {
     'dashboard': '/api/v1/*/dashboard/stats',
     'marketplace': '/api/v1/marketplace/search*',

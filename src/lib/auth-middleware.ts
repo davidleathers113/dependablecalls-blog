@@ -2,7 +2,7 @@
 // Should use: import { supabase } from './supabase-optimized'
 // Status: NEEDS MIGRATION - direct client creation reduces performance
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../types/database'
+import type { Database } from '../types/database.generated'
 import { extractSessionFromCookies } from './auth-cookies'
 import { mfaService } from './mfa/mfa-service'
 import { MFASetupRequiredError, MFAVerificationRequiredError } from '../types/mfa'

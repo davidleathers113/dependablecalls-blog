@@ -6,8 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Redis from 'ioredis';
-import { RedisRateLimiter, RateLimitTier, UserContext } from '../../../src/lib/security/rate-limiter';
+import { RedisRateLimiter, UserContext } from '../../../src/lib/security/rate-limiter';
 import { GeoIPAnalyzer } from '../../../src/lib/security/geo-ip-analyzer';
 import { BehavioralAnalyzer } from '../../../src/lib/security/behavioral-analyzer';
 import { CaptchaSystem } from '../../../src/lib/security/captcha-system';
@@ -18,7 +17,15 @@ vi.mock('ioredis');
 
 describe('RedisRateLimiter', () => {
   let rateLimiter: RedisRateLimiter;
-  let mockRedis: any;
+  let mockRedis: {
+    pipeline: ReturnType<typeof vi.fn>;
+    zrem: ReturnType<typeof vi.fn>;
+    setex: ReturnType<typeof vi.fn>;
+    sadd: ReturnType<typeof vi.fn>;
+    sismember: ReturnType<typeof vi.fn>;
+    keys: ReturnType<typeof vi.fn>;
+    del: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     mockRedis = {
@@ -177,7 +184,12 @@ describe('RedisRateLimiter', () => {
 
 describe('GeoIPAnalyzer', () => {
   let geoAnalyzer: GeoIPAnalyzer;
-  let mockRedis: any;
+  let mockRedis: {
+    get: ReturnType<typeof vi.fn>;
+    setex: ReturnType<typeof vi.fn>;
+    exists: ReturnType<typeof vi.fn>;
+    set: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     mockRedis = {
@@ -291,7 +303,17 @@ describe('GeoIPAnalyzer', () => {
 
 describe('BehavioralAnalyzer', () => {
   let behavioralAnalyzer: BehavioralAnalyzer;
-  let mockRedis: any;
+  let mockRedis: {
+    zadd: ReturnType<typeof vi.fn>;
+    zremrangebyscore: ReturnType<typeof vi.fn>;
+    zcard: ReturnType<typeof vi.fn>;
+    zrange: ReturnType<typeof vi.fn>;
+    expire: ReturnType<typeof vi.fn>;
+    setex: ReturnType<typeof vi.fn>;
+    sadd: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    keys: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     mockRedis = {
@@ -469,7 +491,15 @@ describe('BehavioralAnalyzer', () => {
 
 describe('CaptchaSystem', () => {
   let captchaSystem: CaptchaSystem;
-  let mockRedis: any;
+  let mockRedis: {
+    setex: ReturnType<typeof vi.fn>;
+    zadd: ReturnType<typeof vi.fn>;
+    expire: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    del: ReturnType<typeof vi.fn>;
+    zcount: ReturnType<typeof vi.fn>;
+    sismember: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     mockRedis = {
@@ -587,7 +617,7 @@ describe('CaptchaSystem', () => {
         Promise.resolve({
           json: () => Promise.resolve({ success: true })
         })
-      ) as any;
+      ) as typeof fetch;
 
       const context: UserContext = {
         isAuthenticated: false,
@@ -620,7 +650,7 @@ describe('CaptchaSystem', () => {
         Promise.resolve({
           json: () => Promise.resolve({ success: false, 'error-codes': ['invalid-input-response'] })
         })
-      ) as any;
+      ) as typeof fetch;
 
       const context: UserContext = {
         isAuthenticated: false,
@@ -669,7 +699,23 @@ describe('CaptchaSystem', () => {
 
 describe('BypassProtection', () => {
   let bypassProtection: BypassProtection;
-  let mockRedis: any;
+  let mockRedis: {
+    sadd: ReturnType<typeof vi.fn>;
+    scard: ReturnType<typeof vi.fn>;
+    smembers: ReturnType<typeof vi.fn>;
+    expire: ReturnType<typeof vi.fn>;
+    lpush: ReturnType<typeof vi.fn>;
+    ltrim: ReturnType<typeof vi.fn>;
+    lrange: ReturnType<typeof vi.fn>;
+    zadd: ReturnType<typeof vi.fn>;
+    zcount: ReturnType<typeof vi.fn>;
+    zrange: ReturnType<typeof vi.fn>;
+    zrangebyscore: ReturnType<typeof vi.fn>;
+    setex: ReturnType<typeof vi.fn>;
+    keys: ReturnType<typeof vi.fn>;
+    zrevrange: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     mockRedis = {
@@ -685,7 +731,9 @@ describe('BypassProtection', () => {
       zrange: vi.fn(() => Promise.resolve([])),
       zrangebyscore: vi.fn(() => Promise.resolve([])),
       setex: vi.fn(),
-      keys: vi.fn(() => Promise.resolve([]))
+      keys: vi.fn(() => Promise.resolve([])),
+      zrevrange: vi.fn(() => Promise.resolve([])),
+      get: vi.fn()
     };
 
     bypassProtection = new (class extends BypassProtection {
@@ -813,7 +861,7 @@ describe('BypassProtection', () => {
       ];
 
       // Mock the getBypassAttempts method
-      vi.spyOn(bypassProtection, 'getBypassAttempts').mockResolvedValue(mockAttempts as any);
+      vi.spyOn(bypassProtection, 'getBypassAttempts').mockResolvedValue(mockAttempts);
 
       const stats = await bypassProtection.getStats('day');
 

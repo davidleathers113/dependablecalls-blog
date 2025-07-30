@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRealtimeSubscription } from './useRealtimeSubscription'
 import { blogQueryKeys } from './useBlog'
-import type { BlogPost, BlogComment } from '../types/blog'
+import type { BlogPost, BlogComment, BlogAuthor } from '../types/blog'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 /**
@@ -180,13 +180,13 @@ export function useBlogComments(postId: string, options?: {
  */
 export function useAuthorUpdates(authorId: string, options?: {
   enabled?: boolean
-  onUpdate?: (author: any) => void
+  onUpdate?: (author: BlogAuthor) => void
 }) {
   const queryClient = useQueryClient()
   const { enabled = true, onUpdate } = options || {}
 
   const handleUpdate = useCallback(
-    (payload: RealtimePostgresChangesPayload<any>) => {
+    (payload: RealtimePostgresChangesPayload<BlogAuthor>) => {
       if (payload.new) {
         // Call custom handler if provided
         onUpdate?.(payload.new)

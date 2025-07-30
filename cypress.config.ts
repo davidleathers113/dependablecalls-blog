@@ -3,6 +3,30 @@ import codeCoverageTask from '@cypress/code-coverage/task'
 import { lighthouse, prepareAudit } from '@cypress-audit/lighthouse'
 import { pa11y } from '@cypress-audit/pa11y'
 
+// Type definitions for Cypress tasks
+interface DatabaseSeedData {
+  tables: Record<string, unknown[]>
+  scenario?: string
+}
+
+interface PerformanceMetrics {
+  name: string
+  value: number
+  timestamp: number
+  type: 'timing' | 'counter' | 'gauge'
+}
+
+interface AccessibilityOptions {
+  rules?: Record<string, unknown>
+  tags?: string[]
+}
+
+interface APIResponseData {
+  status: number
+  body: unknown
+  headers?: Record<string, string>
+}
+
 export default defineConfig({
   e2e: {
     baseUrl: 'http://localhost:5173',
@@ -41,7 +65,7 @@ export default defineConfig({
         pa11y: pa11y(),
         
         // Custom task for database seeding
-        seedDatabase(data: any) {
+        seedDatabase(data: DatabaseSeedData) {
           // Implementation would connect to test database
           console.log('Seeding database with:', data)
           return null
@@ -54,7 +78,7 @@ export default defineConfig({
         },
         
         // Performance metrics collection
-        logPerformanceMetrics(metrics: any) {
+        logPerformanceMetrics(metrics: PerformanceMetrics) {
           console.log('Performance metrics:', metrics)
           return null
         },
@@ -79,14 +103,15 @@ export default defineConfig({
 
 // Type definitions for custom commands
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Cypress {
     interface Chainable {
       login(role: 'buyer' | 'supplier' | 'network' | 'admin'): Chainable<void>
       logout(): Chainable<void>
       seedTestData(scenario: string): Chainable<void>
-      checkAccessibility(context?: any, options?: any): Chainable<void>
+      checkAccessibility(context?: Element, options?: AccessibilityOptions): Chainable<void>
       measurePerformance(name: string): Chainable<void>
-      interceptAPI(alias: string, response?: any): Chainable<void>
+      interceptAPI(alias: string, response?: APIResponseData): Chainable<void>
       waitForRealtime(event: string): Chainable<void>
       selectDateRange(start: string, end: string): Chainable<void>
       uploadFile(fileName: string, selector: string): Chainable<void>

@@ -1,3 +1,4 @@
+import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -12,7 +13,7 @@ import { campaignService } from '../../src/services/campaigns'
 vi.mock('../../src/services/campaigns')
 const mockCampaignService = vi.mocked(campaignService)
 
-const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },

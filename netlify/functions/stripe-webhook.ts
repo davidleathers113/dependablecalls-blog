@@ -10,7 +10,6 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database'
 import { z } from 'zod'
 import Stripe from 'stripe'
-import crypto from 'crypto'
 
 // Initialize Stripe with security settings
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -390,7 +389,7 @@ export const handler: Handler = async (event) => {
         await handlePaymentIntentEvent(stripeEvent)
         break
         
-      case 'setup_intent.succeeded':
+      case 'setup_intent.succeeded': {
         // Handle setup intent for saving payment methods
         const setupIntent = setupIntentSchema.parse(stripeEvent.data.object)
         await logSecurityEvent('webhook_received', {
@@ -398,6 +397,7 @@ export const handler: Handler = async (event) => {
           setup_intent_id: setupIntent.id,
         })
         break
+      }
         
       default:
         // Log unhandled event types for monitoring

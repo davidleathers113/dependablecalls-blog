@@ -125,7 +125,7 @@ describe('AuthStore', () => {
     })
 
     it('should set loading state during login', async () => {
-      let resolveLogin: (value: any) => void
+      let resolveLogin: (value: { data: { user: unknown; session: unknown }; error: { message: string } | null }) => void
       const loginPromise = new Promise((resolve) => {
         resolveLogin = resolve
       })

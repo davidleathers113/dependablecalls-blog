@@ -18,7 +18,7 @@ declare global {
       action: string,
       parameters?: Record<string, any>
     ) => void
-    dataLayer?: any[]
+    dataLayer?: unknown[]
   }
 }
 
@@ -109,7 +109,7 @@ class BlogAnalyticsProduction {
   /**
    * Handle Core Web Vitals measurements
    */
-  private handleWebVital(metric: any): void {
+  private handleWebVital(metric: { name: string; value: number; entries?: PerformanceEntry[] }): void {
     const { name, value, id, delta, entries } = metric
 
     // Send to Google Analytics

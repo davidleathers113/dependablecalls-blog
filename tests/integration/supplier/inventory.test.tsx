@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest'
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -217,7 +217,7 @@ describe('Supplier Inventory Management Integration', () => {
       // Verify order
       await waitFor(() => {
         const revenues = screen.getAllByTestId('item-revenue')
-        const values = revenues.map(r => parseFloat(r.textContent?.replace(/[\$,]/g, '') || '0'))
+        const values = revenues.map(r => parseFloat(r.textContent?.replace(/[$,]/g, '') || '0'))
         expect(values).toEqual([...values].sort((a, b) => b - a))
       })
     })
@@ -461,7 +461,7 @@ describe('Supplier Inventory Management Integration', () => {
       renderWithProviders(<InventoryManagement />)
       
       // Select multiple listings
-      await user.click(screen.getAllByRole('checkbox')[1]) // Select all checkbox
+      await user.click(screen.getAllByRole('checkbox')[1])
       await user.click(screen.getAllByRole('checkbox')[2])
       
       // Open comparison
@@ -486,7 +486,6 @@ describe('Supplier Inventory Management Integration', () => {
       })
       
       const firstItem = screen.getAllByTestId('inventory-item')[0]
-      const initialSold = within(firstItem).getByText(/sold: 87/i)
       
       // Simulate WebSocket update
       const wsMessage = {

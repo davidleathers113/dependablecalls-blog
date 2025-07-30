@@ -5,6 +5,7 @@
  * with third-party services (Stripe, Supabase, etc.)
  */
 
+import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { CSPProvider } from '../../src/lib/CSPProvider'
@@ -83,7 +84,14 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
       expect(nonce1.length).toBeGreaterThanOrEqual(16)
       
       // Should be base64url format
-      expect(nonce1).toMatch(/^[A-Za-z0-9_-]+$/)
+      const isBase64url = nonce1.split('').every(char => 
+        (char >= 'A' && char <= 'Z') || 
+        (char >= 'a' && char <= 'z') || 
+        (char >= '0' && char <= '9') || 
+        char === '_' || 
+        char === '-'
+      )
+      expect(isBase64url).toBe(true)
     })
 
     it('should use edge function nonces when available', () => {
@@ -339,8 +347,8 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
       const styleNonce = 'style-nonce-456'
       
       const processed = html
-        .replace(/\{\{SCRIPT_NONCE\}\}/g, scriptNonce)
-        .replace(/\{\{STYLE_NONCE\}\}/g, styleNonce)
+        .replaceAll('{{SCRIPT_NONCE}}', scriptNonce)
+        .replaceAll('{{STYLE_NONCE}}', styleNonce)
       
       expect(processed).toContain(`nonce="${scriptNonce}"`)
       expect(processed).toContain(`nonce="${styleNonce}"`)

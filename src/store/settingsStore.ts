@@ -15,7 +15,7 @@ import {
   isNetworkSettings
 } from '../types/settings'
 import { useAuthStore } from './authStore'
-import type { Json } from '../types/database'
+import type { Json } from '../types/database.generated'
 
 interface SettingsState {
   // Settings data

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react'
 import { useAuth } from './useAuth'
-import { blogAnalytics, useBlogAnalytics as useAnalyticsUtils } from '../lib/blog-analytics'
+import { useBlogAnalytics as useAnalyticsUtils } from '../lib/blog-analytics'
 import type { 
   AnalyticsTimeWindow, 
   PopularPost, 
@@ -52,7 +52,7 @@ interface UseBlogAnalyticsOptions {
 interface BlogAnalyticsHook {
   // Tracking methods
   trackPageView: (postSlug: string, additionalData?: Record<string, unknown>) => Promise<void>
-  trackEngagement: (eventType: string, metadata?: Record<string, unknown>) => Promise<void>
+  trackEngagement: (eventType: 'cta_click' | 'newsletter_signup' | 'comment_posted' | 'share_click', metadata?: Record<string, unknown>) => Promise<void>
   trackSearch: (query: string, resultsCount: number, selectedIndex?: number) => Promise<void>
   trackNewsletter: (email: string, location: string) => Promise<void>
   
@@ -90,7 +90,6 @@ export function useBlogAnalytics(
   const scrollTimerRef = useRef<NodeJS.Timeout | null>(null)
   const readingStartTime = useRef<number>(0)
   const lastScrollDepth = useRef<number>(0)
-  const performanceMarks = useRef<Map<string, number>>(new Map())
 
   // Generate session ID on mount
   useEffect(() => {
@@ -161,7 +160,7 @@ export function useBlogAnalytics(
             postSlug,
             value: entry.loadEventEnd - entry.loadEventStart,
             userAgent: navigator.userAgent,
-            connectionType: (navigator as any).connection?.effectiveType
+            connectionType: (navigator as unknown as { connection?: { effectiveType?: string } }).connection?.effectiveType
           })
 
           // Track Core Web Vitals
@@ -259,14 +258,14 @@ export function useBlogAnalytics(
   }, [analytics, user?.id])
 
   const trackEngagement = useCallback(async (
-    eventType: string,
+    eventType: 'cta_click' | 'newsletter_signup' | 'comment_posted' | 'share_click',
     metadata: Record<string, unknown> = {}
   ) => {
     if (!sessionIdRef.current || !postSlug) return
 
     try {
       await analytics.trackEngagementEvent({
-        eventType: eventType as any,
+        eventType: eventType as 'cta_click' | 'newsletter_signup' | 'comment_posted' | 'share_click',
         postSlug,
         sessionId: sessionIdRef.current,
         metadata
