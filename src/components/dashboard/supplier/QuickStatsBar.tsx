@@ -20,64 +20,23 @@ interface DashboardStats {
 }
 
 async function fetchSupplierStats(supplierId: string, timeRange: string): Promise<DashboardStats> {
-  // For demo purposes, we'll calculate stats from the calls table
-  console.log('Fetching stats for time range:', timeRange)
+  // TEMPORARY: Return mock stats while platform database tables are being set up
+  // TODO: Replace with actual Supabase query once calls table exists
+  
+  console.info('Loading stats with mock data - platform tables not yet available', { supplierId, timeRange })
 
-  // Calculate date range based on timeRange parameter
-  const now = new Date()
-  const startDate = new Date()
-  switch (timeRange) {
-    case '24h':
-      startDate.setDate(now.getDate() - 1)
-      break
-    case '7d':
-      startDate.setDate(now.getDate() - 7)
-      break
-    case '30d':
-      startDate.setDate(now.getDate() - 30)
-      break
-  }
-
-  // Fetch calls for the supplier in the time range
-  const { data: calls, error } = await from('calls')
-    .select('*')
-    .eq('campaign_id', supplierId) // Using campaign_id as a proxy for supplier
-    .gte('created_at', startDate.toISOString())
-    .lte('created_at', now.toISOString())
-
-  if (error || !calls) {
-    console.error('Error fetching supplier stats:', error)
-    // Return default stats if query fails
-    return {
-      totalCalls: 0,
-      callsTrend: 0,
-      totalMinutes: 0,
-      minutesTrend: 0,
-      conversionRate: 0,
-      conversionTrend: 0,
-      qualityScore: 85,
-      qualityTrend: 0,
-    }
-  }
-
-  // Calculate stats from calls data
-  const totalCalls = calls.length
-  const totalMinutes = calls.reduce((sum, call) => sum + (call.duration_seconds || 0) / 60, 0)
-  const completedCalls = calls.filter(call => call.status === 'completed').length
-  const conversionRate = totalCalls > 0 ? (completedCalls / totalCalls) * 100 : 0
-  const qualityScore = calls.reduce((sum, call) => sum + (call.quality_score || 85), 0) / (calls.length || 1)
-
-  // For trends, we'd need to fetch previous period data
-  // For now, returning static trends
+  // Generate realistic mock data based on time range
+  const multiplier = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : 30
+  
   return {
-    totalCalls,
-    callsTrend: 5.2,
-    totalMinutes: Math.round(totalMinutes),
-    minutesTrend: 3.8,
-    conversionRate: Math.round(conversionRate * 10) / 10,
-    conversionTrend: 2.1,
-    qualityScore: Math.round(qualityScore),
-    qualityTrend: 1.5,
+    totalCalls: Math.floor(Math.random() * 50 + 20) * multiplier,
+    callsTrend: Math.round((Math.random() * 10 - 5) * 10) / 10, // -5 to +5
+    totalMinutes: Math.floor(Math.random() * 400 + 200) * multiplier,
+    minutesTrend: Math.round((Math.random() * 8 - 4) * 10) / 10, // -4 to +4
+    conversionRate: Math.round((Math.random() * 20 + 10) * 10) / 10, // 10-30%
+    conversionTrend: Math.round((Math.random() * 4 - 2) * 10) / 10, // -2 to +2
+    qualityScore: Math.floor(Math.random() * 20 + 80), // 80-100
+    qualityTrend: Math.round((Math.random() * 2 - 1) * 10) / 10, // -1 to +1
   }
 }
 
