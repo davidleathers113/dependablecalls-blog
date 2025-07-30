@@ -48,7 +48,7 @@ function parseJsonSafely<T>(json: unknown, validator?: (value: unknown) => value
  * Convert database blog post row to application type
  */
 export function mapBlogPostRow(row: BlogPostRow): BlogPost {
-  const seoMetadata = parseJsonSafely<BlogSEOMetadata>(row.seo_metadata, isBlogSEOMetadata)
+  const seoMetadata = parseJsonSafely<BlogSEOMetadata>(row.metadata, isBlogSEOMetadata)
 
   return {
     ...row,
@@ -105,7 +105,7 @@ export function mapBlogPostToInsert(
 
   return {
     ...rest,
-    seo_metadata: seo_metadata ? JSON.stringify(seo_metadata) : null,
+    metadata: seo_metadata ? JSON.stringify(seo_metadata) : null,
   }
 }
 
@@ -119,7 +119,7 @@ export function mapBlogPostToUpdate(
 
   return {
     ...rest,
-    seo_metadata: seo_metadata !== undefined ? JSON.stringify(seo_metadata) : undefined,
+    metadata: seo_metadata !== undefined ? JSON.stringify(seo_metadata) : undefined,
   }
 }
 
@@ -133,6 +133,8 @@ export function mapBlogAuthorToInsert(
 
   return {
     ...rest,
+    display_name: author.display_name || 'Unknown Author',
+    email: author.email || '',
     social_links: social_links ? JSON.stringify(social_links) : null,
   }
 }

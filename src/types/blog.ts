@@ -33,6 +33,7 @@ export interface BlogPost extends BlogPostRow {
   categories?: BlogCategory[]
   tags?: BlogTag[]
   comments?: BlogComment[]
+  seo_metadata?: BlogSEOMetadata | null
 }
 
 export interface BlogAuthor extends BlogAuthorRow {
@@ -45,6 +46,7 @@ export interface BlogAuthor extends BlogAuthorRow {
     email: string
     username?: string
   }
+  social_links?: AuthorSocialLinks | null
 }
 
 export interface BlogCategory extends BlogCategoryRow {
@@ -197,7 +199,7 @@ export interface BlogSEOMetadata {
   noFollow?: boolean
 }
 
-// Author social links type
+// Author social links types
 export interface AuthorSocialLinks {
   twitter?: string
   linkedin?: string
