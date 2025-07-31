@@ -219,7 +219,7 @@ export class PostService {
     // Map posts with their relationships
     const posts: BlogPost[] = (data as unknown as RawPostWithAuthor[]).map((post) => ({
       ...post,
-      author: post.author || null,
+      author: post.author || undefined,
       categories: categoriesByPostId.get(post.id) || [],
       tags: tagsByPostId.get(post.id) || [],
     }))
@@ -641,7 +641,7 @@ export class PostService {
     // Map posts with their relationships
     const posts: BlogPost[] = (data as unknown as RawPostWithAuthor[]).map((post) => ({
       ...post,
-      author: post.author || null,
+      author: post.author || undefined,
       categories: categoriesByPostId.get(post.id) || [],
       tags: tagsByPostId.get(post.id) || [],
     }))

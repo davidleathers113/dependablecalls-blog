@@ -279,12 +279,13 @@ export function isValidationError(error: BlogError): boolean {
 }
 
 export function isAuthError(error: BlogError): boolean {
-  return [
+  const authErrorTypes = [
     BlogErrorType.UNAUTHORIZED,
     BlogErrorType.FORBIDDEN,
     BlogErrorType.INVALID_TOKEN,
     BlogErrorType.SESSION_EXPIRED
-  ].includes(error.type)
+  ] as const
+  return authErrorTypes.includes(error.type as typeof authErrorTypes[number])
 }
 
 // Supabase error interface for type safety
