@@ -28,7 +28,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview",
-    "prepare": "husky",
+    "prepare": "husky || true",
     "size": "size-limit",
     "analyze": "size-limit --why",
     "migrate:encryption": "tsx scripts/migrate-encryption.ts",
