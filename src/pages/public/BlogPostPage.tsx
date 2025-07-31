@@ -22,12 +22,9 @@ export default function BlogPostPage() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
   const [commentSuccess, setCommentSuccess] = useState(false)
 
-  if (!slug) {
-    return <Navigate to="/blog" replace />
-  }
-
+  // All hooks must be called at the top level before any conditionals
   const { data: post, isLoading: postLoading, error: postError } = useBlogPost({
-    slug,
+    slug: slug || '', // Pass empty string if slug is undefined, hook should handle gracefully
     includeAuthor: true,
     includeCategories: true,
     includeTags: true,
@@ -35,7 +32,7 @@ export default function BlogPostPage() {
   })
 
   const { data: commentsData } = useComments({
-    postId: post?.id,
+    postId: post?.id, // Will be undefined initially, hook should handle this gracefully
     status: 'approved',
     parentId: null,
     page: 1,
@@ -45,6 +42,11 @@ export default function BlogPostPage() {
   const { data: similarPosts = [] } = useSimilarPosts(post?.id || '', 4)
 
   const createCommentMutation = useCreateComment()
+
+  // Conditional logic comes after all hooks are called
+  if (!slug) {
+    return <Navigate to="/blog" replace />
+  }
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,8 +75,9 @@ export default function BlogPostPage() {
           title: post?.title,
           url: window.location.href
         })
-      } catch (error) {
-        // User cancelled share
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
+        // User cancelled share - error intentionally unused
       }
     } else {
       // Fallback to copying URL
@@ -170,7 +173,7 @@ export default function BlogPostPage() {
                 <div className="flex items-center">
                   <UserIcon className="h-4 w-4 mr-2" />
                   <Link
-                    to={`/blog/author/${post.author.slug || post.author.user_id}`}
+                    to={`/blog/author/${post.author.id}`}
                     className="hover:text-primary-600 transition-colors font-medium"
                   >
                     {post.author.display_name}
@@ -181,16 +184,16 @@ export default function BlogPostPage() {
               {/* Date */}
               <div className="flex items-center">
                 <CalendarIcon className="h-4 w-4 mr-2" />
-                <time dateTime={post.published_at || post.created_at}>
-                  {format(new Date(post.published_at || post.created_at), 'MMMM d, yyyy')}
+                <time dateTime={post.published_at || post.created_at || ''}>
+                  {format(new Date(post.published_at || post.created_at || new Date()), 'MMMM d, yyyy')}
                 </time>
               </div>
 
               {/* Views */}
-              {post.view_count > 0 && (
+              {post.view_count && post.view_count > 0 && (
                 <div className="flex items-center">
                   <EyeIcon className="h-4 w-4 mr-2" />
-                  <span>{post.view_count.toLocaleString()} views</span>
+                  <span>{post.view_count?.toLocaleString() || 0} views</span>
                 </div>
               )}
 
@@ -261,7 +264,7 @@ export default function BlogPostPage() {
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   <Link
-                    to={`/blog/author/${post.author.slug || post.author.user_id}`}
+                    to={`/blog/author/${post.author.id}`}
                     className="hover:text-primary-600 transition-colors"
                   >
                     {post.author.display_name}
@@ -367,7 +370,7 @@ export default function BlogPostPage() {
                           {comment.user?.username || comment.user?.email || 'Anonymous'}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {format(new Date(comment.created_at), 'MMM d, yyyy at h:mm a')}
+                          {format(new Date(comment.created_at || new Date()), 'MMM d, yyyy at h:mm a')}
                         </p>
                       </div>
                     </div>
@@ -416,7 +419,7 @@ export default function BlogPostPage() {
                       </Link>
                     </h3>
                     <p className="text-xs text-gray-500">
-                      {format(new Date(relatedPost.published_at || relatedPost.created_at), 'MMM d, yyyy')}
+                      {format(new Date(relatedPost.published_at || relatedPost.created_at || new Date()), 'MMM d, yyyy')}
                     </p>
                   </div>
                 </article>

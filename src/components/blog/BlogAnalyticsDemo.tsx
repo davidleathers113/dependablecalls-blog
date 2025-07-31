@@ -103,7 +103,7 @@ export function BlogAnalyticsDemo({ postSlug, postTitle }: BlogAnalyticsDemoProp
     window.open(urls[platform], '_blank', 'width=600,height=400')
   }
 
-  const handleEngagementEvent = async (eventType: string, metadata?: Record<string, unknown>) => {
+  const handleEngagementEvent = async (eventType: 'cta_click' | 'newsletter_signup' | 'comment_posted' | 'share_click', metadata?: Record<string, unknown>) => {
     await analytics.trackEngagement(eventType, metadata)
   }
 
@@ -234,14 +234,14 @@ export function BlogAnalyticsDemo({ postSlug, postTitle }: BlogAnalyticsDemoProp
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleEngagementEvent('like', { action: 'manual_like' })}
+              onClick={() => handleEngagementEvent('cta_click', { action: 'like' })}
             >
               Like Post
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleEngagementEvent('bookmark', { action: 'manual_bookmark' })}
+              onClick={() => handleEngagementEvent('cta_click', { action: 'bookmark' })}
             >
               Bookmark
             </Button>
@@ -371,12 +371,12 @@ export function SimpleBlogPost({ slug, title, content }: { slug: string; title: 
   const { trackShare } = useShareTracking(slug)
 
   const handleLike = () => {
-    trackEngagement('like')
+    trackEngagement('cta_click', { action: 'like' })
     // Update UI to show liked state
   }
 
   const handleBookmark = () => {
-    trackEngagement('bookmark')
+    trackEngagement('cta_click', { action: 'bookmark' })
     // Update UI to show bookmarked state
   }
 

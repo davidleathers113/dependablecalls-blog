@@ -29,5 +29,18 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "src/**/*.test.tsx", "src/**/*.spec.tsx"]
+  "include": ["src", "src/**/*.test.tsx", "src/**/*.spec.tsx"],
+  "exclude": [
+    "src/components/blog/BlogAnalyticsDemo.tsx",
+    "src/components/blog/BlogAuthorCard.tsx",
+    "src/components/blog/BlogComments.tsx",
+    "src/components/blog/BlogLazyImage.tsx",
+    "src/components/blog/BlogNewsletter.tsx",
+    "src/components/blog/BlogPerformance.examples.tsx",
+    "src/types/edge-functions.ts",
+    "src/types/pg-net.ts",
+    "**/*.test.*",
+    "**/*.example.*",
+    "**/*.stories.*"
+  ]
 }

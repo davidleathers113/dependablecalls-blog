@@ -192,7 +192,7 @@ export default function BlogPage() {
               <select
                 value={`${sortBy.by}-${sortBy.order}`}
                 onChange={(e) => {
-                  const [by, order] = e.target.value.split('-') as [any, 'asc' | 'desc']
+                  const [by, order] = e.target.value.split('-') as ['published_at' | 'title' | 'view_count', 'asc' | 'desc']
                   setSortBy({ by, order })
                   setCurrentPage(1)
                 }}
@@ -271,15 +271,15 @@ export default function BlogPage() {
                     <div className="p-6">
                       <div className="flex items-center text-sm text-gray-500 mb-3">
                         <CalendarIcon className="h-4 w-4 mr-1" />
-                        <time dateTime={post.published_at || post.created_at}>
-                          {format(new Date(post.published_at || post.created_at), 'MMM d, yyyy')}
+                        <time dateTime={post.published_at || post.created_at || ''}>
+                          {format(new Date(post.published_at || post.created_at || new Date()), 'MMM d, yyyy')}
                         </time>
                         {post.author && (
                           <>
                             <span className="mx-2">•</span>
                             <UserIcon className="h-4 w-4 mr-1" />
                             <Link
-                              to={`/blog/author/${post.author.slug || post.author.user_id}`}
+                              to={`/blog/author/${post.author.id}`}
                               className="hover:text-primary-600 transition-colors"
                             >
                               {post.author.display_name}

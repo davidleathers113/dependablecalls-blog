@@ -25,7 +25,7 @@ export { BlogLazyImage } from './BlogLazyImage'
 export { Breadcrumb } from './Breadcrumb'
 
 // Error handling
-export { BlogErrorBoundary, withBlogErrorBoundary } from './BlogErrorBoundary'
+export { BlogErrorBoundary } from './BlogErrorBoundary'
 
 // SEO and structured data
 export { BlogSEO } from './BlogSEO'
@@ -34,17 +34,12 @@ export {
   FAQStructuredData,
   HowToStructuredData,
   ArticleSeriesStructuredData,
-  useFAQStructuredData,
-  useHowToStructuredData,
-  useArticleSeriesStructuredData
 } from './BlogStructuredData'
 
 // Performance monitoring
 export { 
   BlogPerformance, 
-  useBlogPerformance, 
-  useBlogMetrics, 
-  withBlogPerformance 
+ 
 } from './BlogPerformance'
 
 // Analytics and tracking

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { PhoneIcon, CurrencyDollarIcon, ChartBarIcon, StarIcon } from '@heroicons/react/24/outline'
-import { from } from '../../../lib/supabase-optimized'
-import { useRealTimeStats } from '../../../hooks/useRealTimeStats'
+import { MockDataService } from '../../../lib/mock-data-service'
 
 interface QuickStatsBarProps {
   timeRange: '24h' | '7d' | '30d'
@@ -20,65 +19,8 @@ interface DashboardStats {
 }
 
 async function fetchSupplierStats(supplierId: string, timeRange: string): Promise<DashboardStats> {
-  // For demo purposes, we'll calculate stats from the calls table
-  console.log('Fetching stats for time range:', timeRange)
-
-  // Calculate date range based on timeRange parameter
-  const now = new Date()
-  const startDate = new Date()
-  switch (timeRange) {
-    case '24h':
-      startDate.setDate(now.getDate() - 1)
-      break
-    case '7d':
-      startDate.setDate(now.getDate() - 7)
-      break
-    case '30d':
-      startDate.setDate(now.getDate() - 30)
-      break
-  }
-
-  // Fetch calls for the supplier in the time range
-  const { data: calls, error } = await from('calls')
-    .select('*')
-    .eq('campaign_id', supplierId) // Using campaign_id as a proxy for supplier
-    .gte('created_at', startDate.toISOString())
-    .lte('created_at', now.toISOString())
-
-  if (error || !calls) {
-    console.error('Error fetching supplier stats:', error)
-    // Return default stats if query fails
-    return {
-      totalCalls: 0,
-      callsTrend: 0,
-      totalMinutes: 0,
-      minutesTrend: 0,
-      conversionRate: 0,
-      conversionTrend: 0,
-      qualityScore: 85,
-      qualityTrend: 0,
-    }
-  }
-
-  // Calculate stats from calls data
-  const totalCalls = calls.length
-  const totalMinutes = calls.reduce((sum, call) => sum + (call.duration_seconds || 0) / 60, 0)
-  const completedCalls = calls.filter(call => call.status === 'completed').length
-  const conversionRate = totalCalls > 0 ? (completedCalls / totalCalls) * 100 : 0
-  const qualityScore = calls.reduce((sum, call) => sum + (call.quality_score || 85), 0) / (calls.length || 1)
-
-  // For trends, we'd need to fetch previous period data
-  // For now, returning static trends
-  return {
-    totalCalls,
-    callsTrend: 5.2,
-    totalMinutes: Math.round(totalMinutes),
-    minutesTrend: 3.8,
-    conversionRate: Math.round(conversionRate * 10) / 10,
-    conversionTrend: 2.1,
-    qualityScore: Math.round(qualityScore),
-    qualityTrend: 1.5,
-  }
+  MockDataService.logMockUsage('QuickStatsBar', 'fetchSupplierStats')
+  return await MockDataService.getSupplierStats(supplierId, timeRange)
 }
 
 function StatCard({
@@ -161,11 +103,8 @@ export function QuickStatsBar({ timeRange, supplierId }: QuickStatsBarProps) {
     refetchInterval: 30000, // Refresh every 30 seconds
   })
 
-  // Use real-time updates for live stats
-  const liveStats = useRealTimeStats(supplierId)
-
-  // Merge real-time data with cached data
-  const displayStats = liveStats ? { ...stats, ...liveStats } : stats
+  // Use the stats from the query
+  const displayStats = stats
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

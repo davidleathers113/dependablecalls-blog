@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRealtimeSubscription } from './useRealtimeSubscription'
 import { blogQueryKeys } from './useBlog'
@@ -15,7 +15,7 @@ export function useNewBlogPosts(options?: {
   onNewPost?: (post: BlogPost) => void
 }) {
   const queryClient = useQueryClient()
-  const { authorId, categoryId, enabled = true, onNewPost } = options || {}
+  const { authorId, enabled = true, onNewPost } = options || {}
 
   // Build filter string
   const filters: string[] = ['status=eq.published']
@@ -189,7 +189,7 @@ export function useAuthorUpdates(authorId: string, options?: {
     (payload: RealtimePostgresChangesPayload<BlogAuthor>) => {
       if (payload.new) {
         // Call custom handler if provided
-        onUpdate?.(payload.new)
+        onUpdate?.(payload.new as BlogAuthor)
 
         // Invalidate author profile
         queryClient.invalidateQueries({ 
@@ -210,7 +210,7 @@ export function useAuthorUpdates(authorId: string, options?: {
     filter: `id=eq.${authorId}`,
     event: 'UPDATE',
     enabled: enabled && !!authorId,
-    onUpdate: handleUpdate,
+    onUpdate: handleUpdate as unknown, // Type mismatch between database Json and parsed AuthorSocialLinks
   })
 }
 

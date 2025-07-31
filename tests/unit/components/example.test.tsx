@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@/test/test-utils'
+import { render, screen } from '../../setup/test-utils'
 
 // Example component test - remove this once real components are tested
 const ExampleComponent = ({ title }: { title: string }) => (

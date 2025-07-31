@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../types/database.generated'
+import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
+import type { Database } from '../types/database-extended'
 
 // Environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -123,7 +123,7 @@ export const channel = (name: string) => supabaseClient.channel(name)
  * Remove and cleanup a realtime channel
  * Used in: Component cleanup, subscription management
  */
-export const removeChannel = (channel: any) => supabaseClient.removeChannel(channel)
+export const removeChannel = (channel: RealtimeChannel) => supabaseClient.removeChannel(channel)
 
 // Export the full client for cases where it's still needed
 // This should be used sparingly to maintain tree-shaking benefits

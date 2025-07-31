@@ -1,6 +1,6 @@
-import { getCLS, getFID, getLCP, getTTFB, getFCP } from 'web-vitals'
+import { onCLS, onINP, onLCP, onTTFB, onFCP } from 'web-vitals'
 import * as Sentry from '@sentry/react'
-import { addBreadcrumb, captureError } from './sentry-config'
+import { addBreadcrumb } from './sentry-config'
 
 /**
  * Production Blog Analytics Implementation
@@ -16,7 +16,7 @@ declare global {
     gtag?: (
       command: 'event' | 'config' | 'set',
       action: string,
-      parameters?: Record<string, any>
+      parameters?: Record<string, unknown>
     ) => void
     dataLayer?: unknown[]
   }
@@ -91,26 +91,26 @@ class BlogAnalyticsProduction {
    */
   private initWebVitals(): void {
     // Cumulative Layout Shift
-    getCLS(this.handleWebVital.bind(this))
+    onCLS(this.handleWebVital.bind(this))
     
     // First Input Delay
-    getFID(this.handleWebVital.bind(this))
+    onINP(this.handleWebVital.bind(this))
     
     // Largest Contentful Paint
-    getLCP(this.handleWebVital.bind(this))
+    onLCP(this.handleWebVital.bind(this))
     
     // First Contentful Paint
-    getFCP(this.handleWebVital.bind(this))
+    onFCP(this.handleWebVital.bind(this))
     
     // Time to First Byte
-    getTTFB(this.handleWebVital.bind(this))
+    onTTFB(this.handleWebVital.bind(this))
   }
 
   /**
    * Handle Core Web Vitals measurements
    */
-  private handleWebVital(metric: { name: string; value: number; entries?: PerformanceEntry[] }): void {
-    const { name, value, id, delta, entries } = metric
+  private handleWebVital(metric: { name: string; value: number; entries?: PerformanceEntry[]; id?: string; delta?: number }): void {
+    const { name, value, id = '', delta = 0, entries } = metric
 
     // Send to Google Analytics
     if (window.gtag) {

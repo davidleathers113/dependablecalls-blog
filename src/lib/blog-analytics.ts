@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { supabase } from './supabase'
 import { logger } from './logger'
 import { addBreadcrumb, captureError, startTransaction } from './monitoring'
-import type { BlogPost } from '../types/blog'
 
 /**
  * Blog Analytics Tracking Utility
@@ -152,6 +151,26 @@ export type ABTestEventData = z.infer<typeof abTestEventSchema>
 // Return Types
 // =====================================================
 
+// Supabase query result types for proper typing
+interface BlogAuthorResult {
+  display_name: string
+}
+
+interface BlogCategoryResult {
+  blog_categories: {
+    name: string
+  }
+}
+
+interface PopularPostQueryResult {
+  slug: string
+  title: string
+  view_count: number
+  published_at: string
+  blog_authors: BlogAuthorResult[]
+  blog_post_categories: BlogCategoryResult[]
+}
+
 export interface AnalyticsSession {
   sessionId: string
   userId?: string
@@ -275,7 +294,7 @@ class PrivacyCompliantStorage implements AnalyticsStorage {
   }
 
   private isExpired(timestamp: number): boolean {
-    const maxAge = this.MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+    const maxAge = PrivacyCompliantStorage.MAX_AGE_DAYS * 24 * 60 * 60 * 1000
     return Date.now() - timestamp > maxAge
   }
 
@@ -723,7 +742,7 @@ class BlogAnalytics {
     limit?: number
     category?: string
   }): Promise<PopularPost[]> {
-    const transaction = startTransaction('get-popular-posts', 'query')
+    startTransaction('get-popular-posts', 'query')
     
     try {
       const { timeWindow, limit = 10, category } = options
@@ -754,13 +773,13 @@ class BlogAnalytics {
 
       if (error) throw error
 
-      return data.map((post) => ({
+      return (data as PopularPostQueryResult[]).map((post) => ({
         slug: post.slug,
         title: post.title,
         viewCount: post.view_count,
         engagementScore: this.calculateEngagementScore(post),
         publishedAt: new Date(post.published_at),
-        author: post.blog_authors?.display_name,
+        author: post.blog_authors?.[0]?.display_name,
         category: post.blog_post_categories?.[0]?.blog_categories?.name
       }))
 
@@ -777,10 +796,12 @@ class BlogAnalytics {
   /**
    * Get detailed analytics for a specific blog post
    */
-  async getPostAnalytics(postSlug: string, timeWindow: AnalyticsTimeWindow): Promise<BlogPostAnalytics | null> {
-    const transaction = startTransaction('get-post-analytics', 'query')
+  async getPostAnalytics(postSlug: string, _timeWindow: AnalyticsTimeWindow): Promise<BlogPostAnalytics | null> {
+    startTransaction('get-post-analytics', 'query')
     
     try {
+      // Note: _timeWindow parameter available for future time-based filtering
+      void _timeWindow
       // This would involve multiple queries to analytics tables
       // For now, returning a basic structure
       const { data: post, error } = await supabase
@@ -824,8 +845,10 @@ class BlogAnalytics {
   /**
    * Get search insights and popular queries
    */
-  async getSearchInsights(timeWindow: AnalyticsTimeWindow): Promise<SearchInsights[]> {
+  async getSearchInsights(_timeWindow: AnalyticsTimeWindow): Promise<SearchInsights[]> {
     try {
+      // Note: _timeWindow parameter available for future time-based filtering
+      void _timeWindow
       // This would query a search_analytics table
       // For now, returning empty array as the table structure would need to be created
       return []
@@ -840,8 +863,10 @@ class BlogAnalytics {
   /**
    * Get performance insights for optimization
    */
-  async getPerformanceInsights(timeWindow: AnalyticsTimeWindow): Promise<PerformanceInsights[]> {
+  async getPerformanceInsights(_timeWindow: AnalyticsTimeWindow): Promise<PerformanceInsights[]> {
     try {
+      // Note: _timeWindow parameter available for future time-based filtering
+      void _timeWindow
       // This would query a performance_metrics table
       // For now, returning empty array as the table structure would need to be created
       return []

@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/pages/**/*",
+    "src/components/dashboard/**/*",
+    "src/components/forms/**/*",
+    "src/components/layout/**/*",
+    "src/components/realtime/**/*",
+    "src/components/settings/**/*",
+    "src/components/ui/**/*",
+    "src/hooks/**/*",
+    "src/lib/**/*",
+    "src/services/**/*",
+    "src/store/**/*",
+    "src/types/**/*",
+    "src/utils/**/*"
+  ],
+  "exclude": [
+    "src/components/blog/**/*",
+    "src/pages/public/Blog*",
+    "src/hooks/useBlog*",
+    "src/lib/blog*",
+    "src/services/blog*",
+    "**/*.test.*",
+    "**/*.example.*",
+    "**/*.stories.*"
+  ]
+}

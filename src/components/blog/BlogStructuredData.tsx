@@ -2,10 +2,9 @@ import { useEffect } from 'react';
 import { 
   generateBlogPostStructuredData, 
   generateBreadcrumbStructuredData,
-  BlogPostSEO,
-  BlogSEOConfig,
   DEFAULT_SEO_CONFIG
 } from '../../lib/blog-seo';
+import type { BlogPostSEO, BlogSEOConfig } from '../../lib/blog-seo';
 import { 
   useFAQStructuredData, 
   useHowToStructuredData, 

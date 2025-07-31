@@ -287,7 +287,7 @@ const BlogAuthorCardInner: React.FC<BlogAuthorCardProps> = ({
                       size="sm"
                       variant="outline"
                       onClick={() => onContact(author)}
-                      leftIcon={EnvelopeIcon}
+                      leftIcon={<EnvelopeIcon className="w-4 h-4" />}
                     >
                       Contact
                     </Button>
@@ -402,7 +402,7 @@ const BlogAuthorCardInner: React.FC<BlogAuthorCardProps> = ({
               <Button
                 variant="primary"
                 onClick={() => onContact(author)}
-                leftIcon={EnvelopeIcon}
+                leftIcon={<EnvelopeIcon className="w-4 h-4" />}
               >
                 Contact {author.user?.username || author.user?.email || 'Author'}
               </Button>
@@ -411,7 +411,7 @@ const BlogAuthorCardInner: React.FC<BlogAuthorCardProps> = ({
               <Button
                 variant="outline"
                 onClick={() => onViewProfile(author)}
-                leftIcon={DocumentTextIcon}
+                leftIcon={<DocumentTextIcon className="w-4 h-4" />}
               >
                 View All Articles
               </Button>

@@ -6,12 +6,14 @@
  * Phase 4.9: Secret Management Implementation
  */
 
-const fs = require('fs')
-const path = require('path')
-const { execSync } = require('child_process')
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
 
-// Import our secret scanner (would be compiled from TypeScript)
-const { PreCommitSecretScanner } = require('../dist/lib/security/secret-scanner')
+// Determine __dirname for ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ANSI color codes
 const colors = {
@@ -23,89 +25,104 @@ const colors = {
   magenta: '\x1b[35m',
   cyan: '\x1b[36m',
   white: '\x1b[37m'
-}
+};
 
 function colorize(text, color) {
-  return `${colors[color]}${text}${colors.reset}`
+  return `${colors[color]}${text}${colors.reset}`;
 }
 
 function printHeader() {
-  console.log(colorize('\n🔍 DCE Platform Secret Scanner', 'cyan'))
-  console.log(colorize('================================', 'cyan'))
-  console.log('Scanning staged files for secrets before commit...\n')
+  console.log(colorize('\n🔍 DCE Platform Secret Scanner', 'cyan'));
+  console.log(colorize('================================', 'cyan'));
+  console.log('Scanning staged files for secrets before commit...\n');
 }
 
 function printFooter(success) {
-  console.log('\n' + colorize('================================', 'cyan'))
+  console.log('\n' + colorize('================================', 'cyan'));
   if (success) {
-    console.log(colorize('✅ Pre-commit scan passed!', 'green'))
-    console.log(colorize('🚀 Commit is safe to proceed.', 'green'))
+    console.log(colorize('✅ Pre-commit scan passed!', 'green'));
+    console.log(colorize('🚀 Commit is safe to proceed.', 'green'));
   } else {
-    console.log(colorize('❌ Pre-commit scan failed!', 'red'))
-    console.log(colorize('🛡️  Commit blocked for security.', 'red'))
+    console.log(colorize('❌ Pre-commit scan failed!', 'red'));
+    console.log(colorize('🛡️  Commit blocked for security.', 'red'));
   }
-  console.log(colorize('================================\n', 'cyan'))
+  console.log(colorize('================================\n', 'cyan'));
 }
+
+// Dynamically import the compiled scanner
+let PreCommitSecretScanner;
+const scannerPath = path.join(__dirname, '../dist/lib/security/secret-scanner.js');
+
+if (fs.existsSync(scannerPath)) {
+    try {
+        const scannerModule = await import(`file://${scannerPath}`);
+        PreCommitSecretScanner = scannerModule.PreCommitSecretScanner;
+    } catch (e) {
+        console.error(colorize('Error loading secret scanner module:', 'red'), e);
+        PreCommitSecretScanner = null;
+    }
+}
+
 
 async function runSecretScanner() {
   try {
-    printHeader()
+    printHeader();
 
     // Check if we're in a git repository
     try {
-      execSync('git rev-parse --is-inside-work-tree', { stdio: 'ignore' })
+      execSync('git rev-parse --is-inside-work-tree', { stdio: 'ignore' });
     } catch (error) {
-      console.log(colorize('⚠️  Not in a git repository. Skipping secret scan.', 'yellow'))
-      process.exit(0)
+      console.log(colorize('⚠️  Not in a git repository. Skipping secret scan.', 'yellow'));
+      process.exit(0);
     }
 
     // Check if there are staged files
-    let stagedFiles
+    let stagedFiles;
     try {
       stagedFiles = execSync('git diff --cached --name-only', { encoding: 'utf-8' })
         .trim()
         .split('\n')
-        .filter(file => file.length > 0)
+        .filter(file => file.length > 0);
     } catch (error) {
-      console.log(colorize('⚠️  No staged files found. Skipping secret scan.', 'yellow'))
-      process.exit(0)
+      console.log(colorize('⚠️  No staged files found. Skipping secret scan.', 'yellow'));
+      process.exit(0);
     }
 
     if (stagedFiles.length === 0) {
-      console.log(colorize('⚠️  No staged files found. Skipping secret scan.', 'yellow'))
-      process.exit(0)
+      console.log(colorize('⚠️  No staged files found. Skipping secret scan.', 'yellow'));
+      process.exit(0);
     }
 
-    console.log(colorize(`📁 Scanning ${stagedFiles.length} staged files...`, 'blue'))
-    console.log('Files to scan:')
+    console.log(colorize(`📁 Scanning ${stagedFiles.length} staged files...`, 'blue'));
+    console.log('Files to scan:');
     stagedFiles.forEach(file => {
-      console.log(`  ${colorize('•', 'blue')} ${file}`)
-    })
-    console.log()
+      console.log(`  ${colorize('•', 'blue')} ${file}`);
+    });
+    console.log();
 
     // Run the secret scanner
-    const scanner = new PreCommitSecretScanner()
-    await scanner.runPreCommitCheck()
+    const scanner = new PreCommitSecretScanner();
+    await scanner.runPreCommitCheck();
 
   } catch (error) {
     if (error.code === 1) {
       // Expected exit code when secrets are found
-      printFooter(false)
-      process.exit(1)
+      printFooter(false);
+      process.exit(1);
     } else {
       // Unexpected error
-      console.error(colorize('❌ Unexpected error during secret scanning:', 'red'))
-      console.error(error.message)
-      console.error(colorize('\n🔧 Please check your secret scanner configuration.', 'yellow'))
-      printFooter(false)
-      process.exit(1)
+      console.error(colorize('❌ Unexpected error during secret scanning:', 'red'));
+      console.error(error.message);
+      console.error(colorize('\n🔧 Please check your secret scanner configuration.', 'yellow'));
+      printFooter(false);
+      process.exit(1);
     }
   }
 }
 
 // Fallback manual scanner if TypeScript version not available
 async function runManualScanner() {
-  console.log(colorize('📦 Using fallback manual scanner...', 'yellow'))
+  console.log(colorize('📦 Using fallback manual scanner...', 'yellow'));
 
   const secretPatterns = [
     // AWS
@@ -129,56 +146,56 @@ async function runManualScanner() {
     { name: 'Generic API Key', pattern: /(?:api[_-]?key|apikey|secret[_-]?key|secretkey)['":\s=]+[a-zA-Z0-9_-]{16,}/gi },
     
     // Private Keys
-    { name: 'Private Key', pattern: /-----BEGIN (?:RSA )?PRIVATE KEY-----[\r\n].*?[\r\n]-----END (?:RSA )?PRIVATE KEY-----/gis },
+    { name: 'Private Key', pattern: /-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----/gi },
     
     // GitHub Token
     { name: 'GitHub Token', pattern: /ghp_[A-Za-z0-9_]{36}/g },
     
     // Hardcoded passwords
     { name: 'Hardcoded Password', pattern: /(?:password|pwd|pass)['":\s=]+[^\s'"]{6,}/gi }
-  ]
+  ];
 
   // Get staged files
-  let stagedFiles
+  let stagedFiles;
   try {
     stagedFiles = execSync('git diff --cached --name-only', { encoding: 'utf-8' })
       .trim()
       .split('\n')
-      .filter(file => file.length > 0)
+      .filter(file => file.length > 0);
   } catch (error) {
-    console.log(colorize('⚠️  No staged files found.', 'yellow'))
-    return true
+    console.log(colorize('⚠️  No staged files found.', 'yellow'));
+    return true;
   }
 
-  let foundSecrets = false
-  const results = []
+  let foundSecrets = false;
+  const results = [];
 
   for (const file of stagedFiles) {
     // Skip binary files and node_modules
     if (file.includes('node_modules') || 
         file.includes('.git/') ||
         /\.(jpg|jpeg|png|gif|pdf|zip|tar|gz|exe|dll|so|dylib)$/i.test(file)) {
-      continue
+      continue;
     }
 
     try {
       // Get staged content of the file
-      const content = execSync(`git show :${file}`, { encoding: 'utf-8' })
-      const lines = content.split('\n')
+      const content = execSync(`git show :${file}`, { encoding: 'utf-8' });
+      const lines = content.split('\n');
 
       for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-        const line = lines[lineIndex]
+        const line = lines[lineIndex];
         
         // Skip comments
         if (line.trim().startsWith('//') || 
             line.trim().startsWith('#') || 
             line.trim().startsWith('*') ||
             line.trim().startsWith('/*')) {
-          continue
+          continue;
         }
 
         for (const pattern of secretPatterns) {
-          const matches = Array.from(line.matchAll(pattern.pattern))
+          const matches = Array.from(line.matchAll(pattern.pattern));
           
           for (const match of matches) {
             // Skip environment variable references
@@ -187,74 +204,74 @@ async function runManualScanner() {
                 line.includes('Deno.env.get') ||
                 line.includes('${') ||
                 match[0].startsWith('$')) {
-              continue
+              continue;
             }
 
-            foundSecrets = true
+            foundSecrets = true;
             results.push({
               file,
               line: lineIndex + 1,
               pattern: pattern.name,
               match: match[0].substring(0, 50) + (match[0].length > 50 ? '...' : ''),
               context: line.trim()
-            })
+            });
           }
         }
       }
     } catch (error) {
       // File might be deleted or binary
-      continue
+      continue;
     }
   }
 
   if (foundSecrets) {
-    console.log(colorize('\n🚨 SECRETS DETECTED IN STAGED FILES:', 'red'))
-    console.log(colorize('=' .repeat(50), 'red'))
+    console.log(colorize('\n🚨 SECRETS DETECTED IN STAGED FILES:', 'red'));
+    console.log(colorize('='.repeat(50), 'red'));
     
     for (const result of results) {
-      console.log(colorize(`\n📁 ${result.file}:${result.line}`, 'yellow'))
-      console.log(colorize(`🏷️  ${result.pattern}`, 'yellow'))
-      console.log(colorize(`🔍 Match: ${result.match}`, 'red'))
-      console.log(colorize(`📝 Context: ${result.context}`, 'yellow'))
+      console.log(colorize(`\n📁 ${result.file}:${result.line}`, 'yellow'));
+      console.log(colorize(`🏷️  ${result.pattern}`, 'yellow'));
+      console.log(colorize(`🔍 Match: ${result.match}`, 'red'));
+      console.log(colorize(`📝 Context: ${result.context}`, 'yellow'));
     }
 
-    console.log(colorize('\n❌ COMMIT BLOCKED!', 'red'))
-    console.log(colorize('Please remove the secrets and try again.', 'yellow'))
-    console.log(colorize('\nTo bypass this check (NOT RECOMMENDED):', 'yellow'))
-    console.log(colorize('git commit --no-verify', 'cyan'))
+    console.log(colorize('\n❌ COMMIT BLOCKED!', 'red'));
+    console.log(colorize('Please remove the secrets and try again.', 'yellow'));
+    console.log(colorize('\nTo bypass this check (NOT RECOMMENDED):', 'yellow'));
+    console.log(colorize('git commit --no-verify', 'cyan'));
     
-    return false
+    return false;
   }
 
-  console.log(colorize('✅ No secrets detected in staged files.', 'green'))
-  return true
+  console.log(colorize('✅ No secrets detected in staged files.', 'green'));
+  return true;
 }
 
 // Main execution
 async function main() {
   try {
     // Try to use the TypeScript compiled version first
-    if (fs.existsSync(path.join(__dirname, '../dist/lib/security/secret-scanner.js'))) {
-      await runSecretScanner()
+    if (PreCommitSecretScanner) {
+      await runSecretScanner();
     } else {
       // Fall back to manual scanner
-      const success = await runManualScanner()
-      printFooter(success)
+      const success = await runManualScanner();
+      printFooter(success);
       if (!success) {
-        process.exit(1)
+        process.exit(1);
       }
     }
   } catch (error) {
-    console.error(colorize('❌ Error running secret scanner:', 'red'), error.message)
-    process.exit(1)
+    console.error(colorize('❌ Error running secret scanner:', 'red'), error.message);
+    process.exit(1);
   }
 }
 
 // Handle SIGINT gracefully
 process.on('SIGINT', () => {
-  console.log(colorize('\n⚠️  Secret scan interrupted by user.', 'yellow'))
-  console.log(colorize('🛡️  Commit blocked for safety.', 'yellow'))
-  process.exit(1)
-})
+  console.log(colorize('\n⚠️  Secret scan interrupted by user.', 'yellow'));
+  console.log(colorize('🛡️  Commit blocked for safety.', 'yellow'));
+  process.exit(1);
+});
 
-main()
+main();

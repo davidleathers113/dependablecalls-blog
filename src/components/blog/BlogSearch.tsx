@@ -9,7 +9,7 @@ import {
   TagIcon
 } from '@heroicons/react/24/outline'
 import { useBlogCategories, useBlogTags } from '../../hooks/useBlog'
-import { BlogPostFilters, BlogPostSortBy, SortOrder } from '../../types/blog'
+import type { BlogPostFilters, BlogPostSortBy, SortOrder } from '../../types/blog'
 import { Card, CardContent } from '../common/Card'
 import { Button } from '../common/Button'
 import { Badge } from '../common/Badge'
@@ -106,7 +106,7 @@ export function BlogSearch({ onFiltersChange, initialFilters, className = '' }: 
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
             {activeFiltersCount > 0 && (
-              <Badge variant="primary" className="text-xs">
+              <Badge variant="info" className="text-xs">
                 {activeFiltersCount}
               </Badge>
             )}
@@ -127,7 +127,7 @@ export function BlogSearch({ onFiltersChange, initialFilters, className = '' }: 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-600">Active filters:</span>
           {searchTerm && (
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="neutral" className="flex items-center gap-1">
               <MagnifyingGlassIcon className="w-3 h-3" />
               "{searchTerm}"
               <button
@@ -139,7 +139,7 @@ export function BlogSearch({ onFiltersChange, initialFilters, className = '' }: 
             </Badge>
           )}
           {selectedCategory && (
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="neutral" className="flex items-center gap-1">
               <FolderIcon className="w-3 h-3" />
               {categories?.find(c => c.slug === selectedCategory)?.name || selectedCategory}
               <button
@@ -151,7 +151,7 @@ export function BlogSearch({ onFiltersChange, initialFilters, className = '' }: 
             </Badge>
           )}
           {selectedTag && (
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="neutral" className="flex items-center gap-1">
               <TagIcon className="w-3 h-3" />
               {tags?.find(t => t.slug === selectedTag)?.name || selectedTag}
               <button
@@ -163,7 +163,7 @@ export function BlogSearch({ onFiltersChange, initialFilters, className = '' }: 
             </Badge>
           )}
           {(dateRange.startDate || dateRange.endDate) && (
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="neutral" className="flex items-center gap-1">
               <CalendarIcon className="w-3 h-3" />
               {dateRange.startDate && dateRange.endDate
                 ? `${dateRange.startDate} - ${dateRange.endDate}`

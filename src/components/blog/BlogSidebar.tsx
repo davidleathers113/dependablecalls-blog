@@ -1,6 +1,5 @@
-import React from 'react'
 import { Link } from 'react-router-dom'
-import { TagIcon, FolderIcon, ClockIcon, TrendingUpIcon } from '@heroicons/react/24/outline'
+import { TagIcon, FolderIcon, ClockIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/outline'
 import { useBlogCategories, useBlogPosts, usePopularTags } from '../../hooks/useBlog'
 import { Card, CardHeader, CardContent } from '../common/Card'
 import { Badge } from '../common/Badge'
@@ -112,7 +111,7 @@ export function BlogSidebar({
                       {category.name}
                     </Link>
                     {category.postsCount !== undefined && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="neutral" className="text-xs">
                         {category.postsCount}
                       </Badge>
                     )}
@@ -139,7 +138,7 @@ export function BlogSidebar({
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <TrendingUpIcon className="w-5 h-5 text-gray-600" />
+              <ArrowTrendingUpIcon className="w-5 h-5 text-gray-600" />
               <h3 className="text-lg font-semibold text-gray-900">Popular Tags</h3>
             </div>
           </CardHeader>
@@ -162,8 +161,8 @@ export function BlogSidebar({
                   >
                     <TagIcon className="w-3 h-3" />
                     {tag.name}
-                    {tag.postCount && (
-                      <span className="text-gray-500">({tag.postCount})</span>
+                    {tag.count && (
+                      <span className="text-gray-500">({tag.count})</span>
                     )}
                   </Link>
                 ))}
@@ -186,7 +185,7 @@ export function BlogSidebar({
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 text-sm">Total Posts</span>
                 <span className="font-semibold text-gray-900">
-                  {recentPostsData?.pagination?.total || 0}
+                  {recentPostsData?.meta?.total || 0}
                 </span>
               </div>
               <div className="flex justify-between items-center">

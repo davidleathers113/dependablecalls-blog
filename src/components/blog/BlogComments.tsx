@@ -281,12 +281,16 @@ const CommentForm: React.FC<CommentFormProps> = ({
       const newComment: BlogComment = {
         id: Date.now().toString(),
         content: content.trim(),
+        content_sanitized: null,
         post_id: postId,
         parent_id: parentId || null,
-        user_id: user?.id || '',
+        author_name: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Anonymous',
+        author_email: user?.email || null,
         status: 'approved' as CommentStatus,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        ip_address: null,
+        user_agent: null,
         user: {
           id: user?.id || '',
           email: user?.email || '',
@@ -357,7 +361,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
           size="sm"
           loading={isSubmitting}
           disabled={!content.trim()}
-          rightIcon={PaperAirplaneIcon}
+          rightIcon={<PaperAirplaneIcon className="w-4 h-4" />}
         >
           {submitButtonText}
         </Button>
@@ -506,7 +510,7 @@ const BlogCommentsInner: React.FC<BlogCommentsProps> = ({
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
             <Card key={i} variant="bordered" padding="md">
-              <Loading variant="skeleton" className="h-24" />
+              <Loading variant="pulse" className="h-24" />
             </Card>
           ))}
         </div>

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { BlogService } from '../services/blog.service'
+import { PostService, TaxonomyService, CommentService, AuthorService, AnalyticsService } from '../services/blog'
 import type {
   GetBlogPostsParams,
   GetBlogPostParams,
@@ -55,7 +55,7 @@ export const blogQueryKeys = {
 export function useBlogPosts(params: GetBlogPostsParams = {}) {
   return useQuery({
     queryKey: blogQueryKeys.posts.list(params),
-    queryFn: () => BlogService.getPosts(params),
+    queryFn: () => PostService.getPosts(params),
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
@@ -66,7 +66,7 @@ export function useBlogPosts(params: GetBlogPostsParams = {}) {
 export function useBlogPost(params: GetBlogPostParams) {
   return useQuery({
     queryKey: blogQueryKeys.posts.detail(params.slug),
-    queryFn: () => BlogService.getPost(params),
+    queryFn: () => PostService.getPost(params),
     enabled: !!params.slug,
     staleTime: 10 * 60 * 1000, // 10 minutes
   })
@@ -78,7 +78,7 @@ export function useBlogPost(params: GetBlogPostParams) {
 export function useSearchBlogPosts(query: string, limit = 10) {
   return useQuery({
     queryKey: blogQueryKeys.posts.search(query),
-    queryFn: () => BlogService.searchPosts(query, limit),
+    queryFn: () => PostService.searchPosts(query, limit),
     enabled: query.length > 2,
     staleTime: 2 * 60 * 1000, // 2 minutes
   })
@@ -90,7 +90,7 @@ export function useSearchBlogPosts(query: string, limit = 10) {
 export function useSimilarPosts(postId: string, limit = 5) {
   return useQuery({
     queryKey: blogQueryKeys.posts.similar(postId),
-    queryFn: () => BlogService.getSimilarPosts(postId, limit),
+    queryFn: () => PostService.getSimilarPosts(postId, limit),
     enabled: !!postId,
     staleTime: 30 * 60 * 1000, // 30 minutes
   })
@@ -103,7 +103,7 @@ export function useCreatePost() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: CreateBlogPostData) => BlogService.createPost(data),
+    mutationFn: (data: CreateBlogPostData) => PostService.createPost(data),
     onSuccess: () => {
       // Invalidate posts list to refetch
       queryClient.invalidateQueries({ queryKey: blogQueryKeys.posts.lists() })
@@ -118,7 +118,7 @@ export function useUpdatePost() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: UpdateBlogPostData) => BlogService.updatePost(data),
+    mutationFn: (data: UpdateBlogPostData) => PostService.updatePost(data),
     onSuccess: (updatedPost) => {
       // Invalidate specific post
       queryClient.invalidateQueries({
@@ -137,7 +137,7 @@ export function useDeletePost() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => BlogService.deletePost(id),
+    mutationFn: (id: string) => PostService.deletePost(id),
     onSuccess: () => {
       // Invalidate posts list
       queryClient.invalidateQueries({ queryKey: blogQueryKeys.posts.lists() })
@@ -151,7 +151,7 @@ export function useDeletePost() {
 export function useBlogCategories() {
   return useQuery({
     queryKey: blogQueryKeys.categories.all,
-    queryFn: () => BlogService.getCategories(),
+    queryFn: () => TaxonomyService.getCategories(),
     staleTime: 30 * 60 * 1000, // 30 minutes
   })
 }
@@ -162,7 +162,7 @@ export function useBlogCategories() {
 export function useBlogCategory(slug: string) {
   return useQuery({
     queryKey: blogQueryKeys.categories.detail(slug),
-    queryFn: () => BlogService.getCategoryBySlug(slug),
+    queryFn: () => TaxonomyService.getCategoryBySlug(slug),
     enabled: !!slug,
     staleTime: 30 * 60 * 1000, // 30 minutes
   })
@@ -174,7 +174,7 @@ export function useBlogCategory(slug: string) {
 export function useBlogTags() {
   return useQuery({
     queryKey: blogQueryKeys.tags.all,
-    queryFn: () => BlogService.getTags(),
+    queryFn: () => TaxonomyService.getTags(),
     staleTime: 30 * 60 * 1000, // 30 minutes
   })
 }
@@ -185,7 +185,7 @@ export function useBlogTags() {
 export function useBlogTag(slug: string) {
   return useQuery({
     queryKey: blogQueryKeys.tags.detail(slug),
-    queryFn: () => BlogService.getTagBySlug(slug),
+    queryFn: () => TaxonomyService.getTagBySlug(slug),
     enabled: !!slug,
     staleTime: 30 * 60 * 1000, // 30 minutes
   })
@@ -197,7 +197,7 @@ export function useBlogTag(slug: string) {
 export function usePopularTags(limit = 10) {
   return useQuery({
     queryKey: blogQueryKeys.tags.popular(),
-    queryFn: () => BlogService.getPopularTags(limit),
+    queryFn: () => TaxonomyService.getPopularTags(limit),
     staleTime: 15 * 60 * 1000, // 15 minutes
   })
 }
@@ -208,7 +208,7 @@ export function usePopularTags(limit = 10) {
 export function useAuthorProfile(userId: string) {
   return useQuery({
     queryKey: blogQueryKeys.authors.profile(userId),
-    queryFn: () => BlogService.getAuthorProfile(userId),
+    queryFn: () => AuthorService.getAuthorProfile(userId),
     enabled: !!userId,
     staleTime: 10 * 60 * 1000, // 10 minutes
   })
@@ -222,7 +222,7 @@ export function useUpdateAuthorProfile() {
 
   return useMutation({
     mutationFn: ({ userId, updates }: { userId: string; updates: Partial<BlogAuthorUpdate> }) =>
-      BlogService.updateAuthorProfile(userId, updates),
+      AuthorService.updateAuthorProfile(userId, updates),
     onSuccess: (_, variables) => {
       // Invalidate author profile
       queryClient.invalidateQueries({
@@ -238,7 +238,7 @@ export function useUpdateAuthorProfile() {
 export function useComments(params: GetCommentsParams) {
   return useQuery({
     queryKey: blogQueryKeys.comments.list(params),
-    queryFn: () => BlogService.getComments(params),
+    queryFn: () => CommentService.getComments(params),
     staleTime: 2 * 60 * 1000, // 2 minutes
   })
 }
@@ -250,7 +250,7 @@ export function useCreateComment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: CreateCommentData) => BlogService.createComment(data),
+    mutationFn: (data: CreateCommentData) => CommentService.createComment(data),
     onSuccess: (_, variables) => {
       // Invalidate comments for the post
       queryClient.invalidateQueries({
@@ -267,7 +267,7 @@ export function useModerateComment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: ModerateCommentData) => BlogService.moderateComment(data),
+    mutationFn: (data: ModerateCommentData) => CommentService.moderateComment(data),
     onSuccess: () => {
       // Invalidate all comments lists
       queryClient.invalidateQueries({
@@ -285,7 +285,7 @@ export function useBlogStatistics(authorId?: string) {
     queryKey: authorId
       ? blogQueryKeys.statistics.author(authorId)
       : blogQueryKeys.statistics.global(),
-    queryFn: () => BlogService.getStatistics(authorId),
+    queryFn: () => AnalyticsService.getStatistics(authorId),
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
@@ -299,7 +299,7 @@ export function usePrefetchBlogPost() {
   return (params: GetBlogPostParams) => {
     return queryClient.prefetchQuery({
       queryKey: blogQueryKeys.posts.detail(params.slug),
-      queryFn: () => BlogService.getPost(params),
+      queryFn: () => PostService.getPost(params),
       staleTime: 10 * 60 * 1000, // 10 minutes
     })
   }

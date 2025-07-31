@@ -281,10 +281,10 @@ export default function BlogAuthorPage() {
                 <div className="p-6">
                   <div className="flex items-center text-sm text-gray-500 mb-3">
                     <CalendarIcon className="h-4 w-4 mr-1" />
-                    <time dateTime={post.published_at || post.created_at}>
-                      {format(new Date(post.published_at || post.created_at), 'MMM d, yyyy')}
+                    <time dateTime={post.published_at || post.created_at || ''}>
+                      {format(new Date(post.published_at || post.created_at || new Date()), 'MMM d, yyyy')}
                     </time>
-                    {post.view_count > 0 && (
+                    {post.view_count && post.view_count > 0 && (
                       <>
                         <span className="mx-2">•</span>
                         <EyeIcon className="h-4 w-4 mr-1" />

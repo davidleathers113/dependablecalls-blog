@@ -29,6 +29,13 @@ export interface LogContext {
   failureMessage?: string | null
   destination?: string
   metadata?: Record<string, unknown>
+  // Blog analytics specific
+  postSlug?: string
+  query?: string
+  metricType?: string
+  testName?: string
+  // Allow additional properties
+  [key: string]: unknown
 }
 
 export interface LogEntry {

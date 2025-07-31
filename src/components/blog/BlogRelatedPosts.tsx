@@ -75,8 +75,12 @@ const calculateTagSimilarity = (post1: BlogPost, post2: BlogPost): number => {
  * Calculate similarity score based on category
  */
 const calculateCategorySimilarity = (post1: BlogPost, post2: BlogPost): number => {
-  if (post1.category?.id === post2.category?.id) return 1
-  if (post1.category?.parent_id === post2.category?.parent_id && post1.category?.parent_id) return 0.7
+  const cat1 = post1.categories?.[0]
+  const cat2 = post2.categories?.[0]
+  
+  if (!cat1 || !cat2) return 0
+  if (cat1.id === cat2.id) return 1
+  if (cat1.parent_id === cat2.parent_id && cat1.parent_id) return 0.7
   return 0
 }
 
@@ -121,7 +125,7 @@ const getRelatedPostsAlgorithms = (): Record<string, RelatedPostsAlgorithm> => (
         .map(post => ({
           ...post,
           similarityScore: calculateCategorySimilarity(currentPost, post),
-          matchReason: post.category?.id === currentPost.category?.id ? 'Same category' : 'Related category'
+          matchReason: post.categories?.[0]?.id === currentPost.categories?.[0]?.id ? 'Same category' : 'Related category'
         }))
         .filter(post => post.similarityScore > 0)
         .sort((a, b) => b.similarityScore! - a.similarityScore!)
@@ -142,7 +146,11 @@ const getRelatedPostsAlgorithms = (): Record<string, RelatedPostsAlgorithm> => (
           similarityScore: 1,
           matchReason: 'Same author'
         }))
-        .sort((a, b) => new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime())
+        .sort((a, b) => {
+          const dateA = new Date(a.published_at || a.created_at || '')
+          const dateB = new Date(b.published_at || b.created_at || '')
+          return dateB.getTime() - dateA.getTime()
+        })
         .slice(0, maxPosts)
     }
   },
@@ -260,9 +268,9 @@ const RelatedPostCard: React.FC<{
         onClick={handleClick}
       >
         <div className="flex space-x-3">
-          {post.featured_image && (
+          {post.featured_image_url && (
             <img
-              src={post.featured_image}
+              src={post.featured_image_url}
               alt={post.title}
               className={imageClasses[variant]}
             />
@@ -284,7 +292,10 @@ const RelatedPostCard: React.FC<{
               )}
               
               {showDate && (
-                <span>{formatDate(post.published_at || post.created_at)}</span>
+                <span>{(() => {
+                  const date = post.published_at || post.created_at;
+                  return date ? formatDate(date) : 'No date';
+                })()}</span>
               )}
               
               {showReadingTime && post.content && (
@@ -306,7 +317,7 @@ const RelatedPostCard: React.FC<{
             
             {showSimilarityScore && post.similarityScore && (
               <div className="mt-1 flex items-center space-x-2">
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="neutral" className="text-xs">
                   {Math.round(post.similarityScore * 100)}% match
                 </Badge>
                 {post.matchReason && (
@@ -327,9 +338,9 @@ const RelatedPostCard: React.FC<{
       className={cardClasses[variant]}
       onClick={handleClick}
     >
-      {post.featured_image && (
+      {post.featured_image_url && (
         <img
-          src={post.featured_image}
+          src={post.featured_image_url}
           alt={post.title}
           className={imageClasses[variant]}
         />
@@ -353,7 +364,10 @@ const RelatedPostCard: React.FC<{
             )}
             
             {showDate && (
-              <span>{formatDate(post.published_at || post.created_at)}</span>
+              <span>{(() => {
+                const date = post.published_at || post.created_at;
+                return date ? formatDate(date) : 'No date';
+              })()}</span>
             )}
           </div>
           
@@ -378,7 +392,7 @@ const RelatedPostCard: React.FC<{
         
         {showSimilarityScore && post.similarityScore && (
           <div className="mt-3 flex items-center justify-between">
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="neutral" className="text-xs">
               {Math.round(post.similarityScore * 100)}% similarity
             </Badge>
             {post.matchReason && (
@@ -556,7 +570,7 @@ const BlogRelatedPostsInner: React.FC<BlogRelatedPostsProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            rightIcon={ArrowRightIcon}
+            rightIcon={<ArrowRightIcon className="w-4 h-4" />}
             className="w-full justify-center"
           >
             View More Related Posts

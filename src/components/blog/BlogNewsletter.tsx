@@ -323,8 +323,8 @@ const BlogNewsletterInner: React.FC<BlogNewsletterProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={emailPlaceholder}
-              leftIcon={EnvelopeIcon}
-              error={error}
+              leftIcon={<EnvelopeIcon className="w-4 h-4" />}
+              error={error || undefined}
               disabled={isSubmitting}
               required
               className="w-full"

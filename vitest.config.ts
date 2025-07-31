@@ -7,18 +7,17 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', 'netlify/functions/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    setupFiles: ['./tests/setup/setup.ts'],
+    include: ['tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', 'netlify/functions/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
       exclude: [
         'node_modules/**',
-        'src/test/**',
+        'tests/**',
         '**/*.d.ts',
         '**/*.config.*',
         '**/mockData/**',
-        'src/types/__tests__/**',
       ],
       include: ['src/**/*.{ts,tsx}'],
       all: true,
@@ -38,7 +37,7 @@ export default defineConfig({
     // Type testing specific configuration
     typecheck: {
       tsconfig: './tsconfig.json',
-      include: ['**/*.{test,spec}-d.{ts,tsx}', '**/types/__tests__/**'],
+      include: ['**/*.{test,spec}-d.{ts,tsx}', 'tests/unit/types/**'],
     },
   },
   resolve: {

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { PlayIcon, PauseIcon, EyeIcon, ChartBarIcon } from '@heroicons/react/24/outline'
-import { from } from '../../../lib/supabase-optimized'
+import { MockDataService } from '../../../lib/mock-data-service'
 
 interface ActiveCampaignsTableProps {
   supplierId: string
@@ -10,7 +10,7 @@ interface Campaign {
   id: string
   name: string
   buyer_name: string
-  status: 'active' | 'paused' | 'completed'
+  status: 'active' | 'paused' | 'completed' | 'draft'
   bid_amount: number
   daily_cap: number
   calls_today: number
@@ -21,31 +21,8 @@ interface Campaign {
 }
 
 async function fetchActiveCampaigns(supplierId: string): Promise<Campaign[]> {
-  const { data, error } = await from('campaigns')
-    .select('*')
-    .eq('supplier_id', supplierId)
-    .in('status', ['active', 'paused'])
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching campaigns:', error)
-    return []
-  }
-
-  // Map database fields to Campaign interface
-  return (data || []).map(campaign => ({
-    id: campaign.id,
-    name: campaign.name,
-    buyer_name: 'Unknown', // This field doesn't exist in campaigns table, would need a join
-    status: campaign.status as Campaign['status'],
-    bid_amount: campaign.bid_floor,
-    daily_cap: campaign.daily_cap || 0,
-    quality_score: campaign.quality_threshold || 0,
-    calls_today: 0, // Would need to be calculated from calls table
-    revenue_today: 0, // Would need to be calculated
-    conversion_rate: 0, // Would need to be calculated
-    created_at: campaign.created_at || new Date().toISOString()
-  }))
+  MockDataService.logMockUsage('ActiveCampaignsTable', 'fetchActiveCampaigns')
+  return await MockDataService.getActiveCampaigns(supplierId)
 }
 
 function CampaignStatusBadge({ status }: { status: Campaign['status'] }) {
@@ -128,18 +105,12 @@ export function ActiveCampaignsTable({ supplierId }: ActiveCampaignsTableProps) 
   const handleToggleCampaign = async (campaignId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'paused' : 'active'
 
-    try {
-      const { error } = await from('campaigns')
-        .update({ status: newStatus })
-        .eq('id', campaignId)
-
-      if (error) {
-        console.error('Error updating campaign status:', error)
-        // In a real app, you'd show a toast notification here
-      }
-    } catch (err) {
-      console.error('Error toggling campaign:', err)
-    }
+    // In development mode, just log the action
+    MockDataService.logMockUsage('ActiveCampaignsTable', 'handleToggleCampaign')
+    console.info(`Campaign ${campaignId} status changed from ${currentStatus} to ${newStatus}`)
+    
+    // In a real implementation, this would update the database and invalidate queries
+    // For now, the component will refresh via refetchInterval
   }
 
   const handleViewDetails = (campaignId: string) => {

@@ -1,7 +1,6 @@
-import React from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarIcon, UserIcon, TagIcon, ClockIcon } from '@heroicons/react/24/outline'
-import { BlogPost } from '../../types/blog'
+import type { BlogPost } from '../../types/blog'
 import { Card, CardContent } from '../common/Card'
 import { Badge } from '../common/Badge'
 import BlogLazyImage from './BlogLazyImage'
@@ -68,7 +67,10 @@ export function BlogPostCard({
             <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
               <span className="flex items-center gap-1">
                 <CalendarIcon className="w-4 h-4" />
-                {formatDate(post.published_at || post.created_at)}
+                {(() => {
+                  const date = post.published_at || post.created_at;
+                  return date ? formatDate(date) : 'No date';
+                })()}
               </span>
               <span className="flex items-center gap-1">
                 <ClockIcon className="w-4 h-4" />
@@ -114,7 +116,10 @@ export function BlogPostCard({
                 )}
                 <span className="flex items-center gap-1">
                   <CalendarIcon className="w-4 h-4" />
-                  {formatDate(post.published_at || post.created_at)}
+                  {(() => {
+                  const date = post.published_at || post.created_at;
+                  return date ? formatDate(date) : 'No date';
+                })()}
                 </span>
               </div>
             </div>
@@ -135,7 +140,7 @@ export function BlogPostCard({
           )}
           <div className="flex flex-wrap gap-2">
             {post.categories?.slice(0, 2).map((category) => (
-              <Badge key={category.id} variant="secondary">
+              <Badge key={category.id} variant="neutral">
                 <Link to={`/blog/category/${category.slug}`} className="hover:text-primary-600">
                   {category.name}
                 </Link>
@@ -170,7 +175,7 @@ export function BlogPostCard({
       <CardContent className="p-6">
         <div className="flex flex-wrap gap-2 mb-3">
           {post.categories?.slice(0, 2).map((category) => (
-            <Badge key={category.id} variant="secondary" className="text-xs">
+            <Badge key={category.id} variant="neutral" className="text-xs">
               <Link to={`/blog/category/${category.slug}`} className="hover:text-primary-600">
                 {category.name}
               </Link>
@@ -205,7 +210,10 @@ export function BlogPostCard({
             )}
             <span className="flex items-center gap-1">
               <CalendarIcon className="w-4 h-4" />
-              {formatDate(post.published_at || post.created_at)}
+              {(() => {
+                  const date = post.published_at || post.created_at;
+                  return date ? formatDate(date) : 'No date';
+                })()}
             </span>
           </div>
           <div className="flex items-center gap-1 text-sm text-gray-500">

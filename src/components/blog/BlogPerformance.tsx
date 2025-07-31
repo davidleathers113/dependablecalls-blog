@@ -173,7 +173,7 @@ export function BlogPerformance({
   onPerformanceUpdate,
   onBudgetExceeded,
   className = '',
-}: BlogPerformanceProps): JSX.Element {
+}: BlogPerformanceProps) {
   const config = useMemo(() => ({ ...DEFAULT_CONFIG, ...userConfig }), [userConfig])
   
   // State for performance metrics
@@ -209,7 +209,6 @@ export function BlogPerformance({
   })
 
   const [isRecording, setIsRecording] = useState(false)
-  // const [activeTracking, setActiveTracking] = useState<Set<string>>(new Set())
   
   // Refs for tracking
   const componentRef = useRef<HTMLDivElement>(null)
@@ -479,17 +478,13 @@ export function BlogPerformance({
    * Context methods
    */
   const startTracking = useCallback((name: string) => {
-    setActiveTracking(prev => new Set(prev).add(name))
+    // Tracking state removed - just measure performance
     startMeasure(`blog.${componentName}.${name}`)
     addBreadcrumb(`Started tracking: ${name}`, 'performance', 'info', { component: componentName })
   }, [componentName])
 
   const stopTracking = useCallback((name: string) => {
-    setActiveTracking(prev => {
-      const newSet = new Set(prev)
-      newSet.delete(name)
-      return newSet
-    })
+    // Tracking state removed - just measure performance
     
     const duration = endMeasure(`blog.${componentName}.${name}`)
     
@@ -719,7 +714,7 @@ export function BlogPerformance({
         beforeCapture={(scope) => {
           scope.setTag('component', 'BlogPerformance')
           scope.setTag('componentName', componentName)
-          scope.setContext('metrics', metrics)
+          scope.setContext('metrics', { ...metrics })
         }}
       >
         <div ref={componentRef} className={className} data-performance-component={componentName}>
@@ -733,7 +728,6 @@ export function BlogPerformance({
 
 // Export types for external use
 export type {
-  BlogPerformanceProps,
   BlogPerformanceConfig,
   BlogPerformanceMetrics,
   WebVitalMetric,

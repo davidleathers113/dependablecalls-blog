@@ -55,7 +55,7 @@ const CompliancePage = React.lazy(() =>
   import(/* webpackChunkName: "compliance" */ './pages/legal/CompliancePage')
 )
 
-// Blog Pages - SEO-optimized with prefetch
+// Blog Pages
 const BlogPage = React.lazy(() => 
   import(/* webpackPrefetch: true, webpackChunkName: "blog" */ './pages/public/BlogPage')
 )

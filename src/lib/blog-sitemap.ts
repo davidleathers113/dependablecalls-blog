@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BlogService } from '../services/blog.service';
+import { PostService, TaxonomyService } from '../services/blog';
 import type { 
   BlogPost, 
   BlogCategory, 
@@ -233,7 +233,7 @@ export class BlogSitemapGenerator {
           includeTags: false
         };
 
-        const response = await BlogService.getPosts(params);
+        const response = await PostService.getPosts(params);
         
         if (!response.data || response.data.length === 0) {
           hasMore = false;
@@ -265,7 +265,7 @@ export class BlogSitemapGenerator {
 
     const url: SitemapUrl = {
       loc: this.buildUrl(`/blog/post/${post.slug}`),
-      lastmod: post.updated_at || post.published_at || post.created_at,
+      lastmod: post.updated_at || post.published_at || post.created_at || undefined,
       changefreq: this.calculatePostChangeFreq(post),
       priority: this.calculatePostPriority(post)
     };
@@ -289,13 +289,13 @@ export class BlogSitemapGenerator {
     const urls: SitemapUrl[] = [];
 
     try {
-      const categories = await BlogService.getCategories();
+      const categories = await TaxonomyService.getCategories();
 
       for (const category of categories) {
         if (!category.slug) continue;
 
         // Get latest post in category to determine lastmod
-        const categoryPosts = await BlogService.getPosts({
+        const categoryPosts = await PostService.getPosts({
           page: 1,
           limit: 1,
           filters: { categorySlug: category.slug, status: 'published' },
@@ -306,7 +306,7 @@ export class BlogSitemapGenerator {
 
         urls.push({
           loc: this.buildUrl(`/blog/category/${category.slug}`),
-          lastmod: latestPostDate || category.updated_at || category.created_at,
+          lastmod: latestPostDate || category.updated_at || category.created_at || undefined,
           changefreq: this.calculateCategoryChangeFreq(category, categoryPosts.meta.total),
           priority: this.calculateCategoryPriority(category, categoryPosts.meta.total)
         });
@@ -326,9 +326,9 @@ export class BlogSitemapGenerator {
 
     try {
       // Get all authors who have published posts
-      // Note: This would need a method in BlogService to get authors with post counts
+      // Note: This would need a method in AuthorService to get authors with post counts
       // For now, we'll get authors from recent posts
-      const recentPosts = await BlogService.getPosts({
+      const recentPosts = await PostService.getPosts({
         page: 1,
         limit: 100,
         filters: { status: 'published' },
@@ -339,7 +339,7 @@ export class BlogSitemapGenerator {
       const authorLastPost = new Map<string, string>();
 
       for (const post of recentPosts.data) {
-        if (post.author && post.author.slug) {
+        if (post.author) {
           authorMap.set(post.author.id, post.author);
           if (!authorLastPost.has(post.author.id) || 
               (post.published_at && post.published_at > (authorLastPost.get(post.author.id) || ''))) {
@@ -349,11 +349,11 @@ export class BlogSitemapGenerator {
       }
 
       for (const [authorId, author] of authorMap) {
-        if (!author.slug) continue;
+        // Use author ID for URL
 
         urls.push({
-          loc: this.buildUrl(`/blog/author/${author.slug}`),
-          lastmod: authorLastPost.get(authorId) || author.updated_at || author.created_at,
+          loc: this.buildUrl(`/blog/author/${authorId}`),
+          lastmod: authorLastPost.get(authorId) || author.updated_at || author.created_at || undefined,
           changefreq: 'monthly',
           priority: 0.6
         });
@@ -372,13 +372,13 @@ export class BlogSitemapGenerator {
     const urls: SitemapUrl[] = [];
 
     try {
-      const tags = await BlogService.getTags();
+      const tags = await TaxonomyService.getTags();
 
       for (const tag of tags) {
         if (!tag.slug) continue;
 
         // Get latest post with this tag
-        const tagPosts = await BlogService.getPosts({
+        const tagPosts = await PostService.getPosts({
           page: 1,
           limit: 1,
           filters: { tagSlug: tag.slug, status: 'published' },
@@ -389,7 +389,7 @@ export class BlogSitemapGenerator {
 
         urls.push({
           loc: this.buildUrl(`/blog/tag/${tag.slug}`),
-          lastmod: latestPostDate || tag.updated_at || tag.created_at,
+          lastmod: latestPostDate || tag.created_at || undefined,
           changefreq: 'monthly',
           priority: 0.4
         });
@@ -449,7 +449,7 @@ export class BlogSitemapGenerator {
   /**
    * Calculate change frequency for categories based on activity
    */
-  private calculateCategoryChangeFreq(category: BlogCategory, postCount: number): SitemapUrl['changefreq'] {
+  private calculateCategoryChangeFreq(_category: BlogCategory, postCount: number): SitemapUrl['changefreq'] {
     if (postCount > 50) return 'daily';
     if (postCount > 20) return 'weekly';
     if (postCount > 5) return 'monthly';
@@ -460,7 +460,7 @@ export class BlogSitemapGenerator {
   /**
    * Calculate priority for categories based on post count
    */
-  private calculateCategoryPriority(category: BlogCategory, postCount: number): number {
+  private calculateCategoryPriority(_category: BlogCategory, postCount: number): number {
     let priority = 0.7; // Base priority for categories
 
     // Boost for categories with more posts

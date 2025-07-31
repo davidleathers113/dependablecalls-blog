@@ -224,8 +224,8 @@ export function BlogLazyImage({
     if (metrics.loadDuration) {
       trackMetric('image_load_time', metrics.loadDuration, {
         src: src.substring(0, 100), // Truncate for privacy
-        cached: metrics.cacheHit,
-        retries: metrics.retryCount
+        cached: metrics.cacheHit ? 'true' : 'false',
+        retries: metrics.retryCount ?? 0
       })
     }
     
@@ -249,7 +249,7 @@ export function BlogLazyImage({
         setRetryCount(prev => prev + 1)
         setPerformanceMetrics(prev => ({
           ...prev,
-          retryCount: prev.retryCount + 1
+          retryCount: (prev.retryCount ?? 0) + 1
         }))
         setLoadingState('loading')
         

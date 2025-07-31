@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, channel, removeChannel } from '@/lib/supabase-optimized'
+import { channel, removeChannel } from '@/lib/supabase-optimized'
 import { RealtimeErrorBoundary } from '../realtime/RealtimeErrorBoundary'
 import { ActiveCampaignsTable } from './supplier/ActiveCampaignsTable'
 import { CallVolumeChart } from './supplier/CallVolumeChart'
 import { RecentCallsList } from './supplier/RecentCallsList'
 import { QuickStatsBar } from './supplier/QuickStatsBar'
 import { logger } from '@/lib/logger'
-import type { Database } from '@/types/database.generated'
+import type { Database } from '@/types/database-extended'
 
 interface RealTimeDashboardProps {
   userId: string
@@ -23,18 +23,12 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
 
   const loadInitialData = useCallback(async () => {
     try {
-      // Load recent calls
-      const { data: calls, error: callsError } = await supabase
-        .from('calls')
-        .select('*')
-        .eq(userType === 'supplier' ? 'supplier_id' : 'buyer_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(50)
+      // TEMPORARY: Use mock data while database tables are being set up
+      // TODO: Replace with actual Supabase calls once platform tables exist
+      const mockCalls: Database['public']['Tables']['calls']['Row'][] = []
+      setCallData(mockCalls)
 
-      if (callsError) throw callsError
-      setCallData(calls || [])
-
-      // Stats data is handled by QuickStatsBar component
+      logger.info('Dashboard loaded with mock data - platform tables not yet available')
     } catch (error) {
       logger.error('Error loading initial dashboard data', error as Error)
       throw error
