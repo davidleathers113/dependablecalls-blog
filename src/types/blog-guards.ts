@@ -6,7 +6,7 @@
  * To regenerate: npm run generate:types
  */
 
-import type { Database } from './database.generated'
+import type { Database } from './database-extended'
 import type { PostStatus, CommentStatus, BlogSEOMetadata, AuthorSocialLinks } from './blog'
 
 // Type aliases for database rows
@@ -178,8 +178,8 @@ export function validateBlogPost(data: unknown): BlogPostRow | null {
 
   // Validate dates
   if (data.published_at && isNaN(Date.parse(data.published_at))) return null
-  if (isNaN(Date.parse(data.created_at))) return null
-  if (isNaN(Date.parse(data.updated_at))) return null
+  if (data.created_at && isNaN(Date.parse(data.created_at))) return null
+  if (data.updated_at && isNaN(Date.parse(data.updated_at))) return null
 
   return data
 }
@@ -194,8 +194,8 @@ export function validateComment(data: unknown): BlogCommentRow | null {
   if (data.content.length < 1 || data.content.length > 5000) return null
 
   // Validate dates
-  if (isNaN(Date.parse(data.created_at))) return null
-  if (isNaN(Date.parse(data.updated_at))) return null
+  if (data.created_at && isNaN(Date.parse(data.created_at))) return null
+  if (data.updated_at && isNaN(Date.parse(data.updated_at))) return null
 
   return data
 }
@@ -212,6 +212,7 @@ export function createBlogPostRow(data: Partial<BlogPostRow>): BlogPostRow {
     subtitle: data.subtitle ?? null,
     slug: data.slug || '',
     content: data.content || '',
+    content_sanitized: data.content_sanitized ?? null,
     excerpt: data.excerpt ?? null,
     featured_image_url: data.featured_image_url ?? null,
     author_id: data.author_id || '',
@@ -219,6 +220,8 @@ export function createBlogPostRow(data: Partial<BlogPostRow>): BlogPostRow {
     published_at: data.published_at ?? null,
     metadata: data.metadata ?? null,
     view_count: data.view_count ?? 0,
+    reading_time_minutes: data.reading_time_minutes ?? null,
+    search_vector: data.search_vector ?? null,
     created_at: data.created_at || now,
     updated_at: data.updated_at || now,
   }

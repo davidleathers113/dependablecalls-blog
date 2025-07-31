@@ -105,15 +105,17 @@ export interface EdgeFunctionError {
   statusCode: number
 }
 
-export enum EdgeFunctionErrorCode {
-  TIMEOUT = 'EDGE_FUNCTION_TIMEOUT',
-  MEMORY_EXCEEDED = 'EDGE_FUNCTION_MEMORY_EXCEEDED',
-  INVALID_REQUEST = 'EDGE_FUNCTION_INVALID_REQUEST',
-  SANITIZATION_FAILED = 'EDGE_FUNCTION_SANITIZATION_FAILED',
-  NETWORK_ERROR = 'EDGE_FUNCTION_NETWORK_ERROR',
-  RATE_LIMITED = 'EDGE_FUNCTION_RATE_LIMITED',
-  INTERNAL_ERROR = 'EDGE_FUNCTION_INTERNAL_ERROR'
-}
+export const EdgeFunctionErrorCode = {
+  TIMEOUT: 'EDGE_FUNCTION_TIMEOUT',
+  MEMORY_EXCEEDED: 'EDGE_FUNCTION_MEMORY_EXCEEDED',
+  INVALID_REQUEST: 'EDGE_FUNCTION_INVALID_REQUEST',
+  SANITIZATION_FAILED: 'EDGE_FUNCTION_SANITIZATION_FAILED',
+  NETWORK_ERROR: 'EDGE_FUNCTION_NETWORK_ERROR',
+  RATE_LIMITED: 'EDGE_FUNCTION_RATE_LIMITED',
+  INTERNAL_ERROR: 'EDGE_FUNCTION_INTERNAL_ERROR'
+} as const
+
+export type EdgeFunctionErrorCode = typeof EdgeFunctionErrorCode[keyof typeof EdgeFunctionErrorCode]
 
 // Retry configuration types
 export interface RetryConfig {
@@ -122,6 +124,7 @@ export interface RetryConfig {
   maxDelayMs: number
   backoffMultiplier: number
   retryableErrors: EdgeFunctionErrorCode[]
+  timeoutMs: number  // Add timeout configuration
 }
 
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
@@ -133,7 +136,8 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
     EdgeFunctionErrorCode.TIMEOUT,
     EdgeFunctionErrorCode.NETWORK_ERROR,
     EdgeFunctionErrorCode.RATE_LIMITED
-  ]
+  ],
+  timeoutMs: 30000  // 30 seconds default timeout
 }
 
 // Edge Function response types
@@ -214,7 +218,7 @@ export type EdgeFunctionHandler = (
   context: EdgeFunctionContext
 ) => Promise<Response> | Response
 
-export type TypedEdgeFunctionHandler<TRequest = unknown, TResponse = unknown> = (
+export type TypedEdgeFunctionHandler<_TRequest = unknown, TResponse = unknown> = (
   request: Request,
   context: EdgeFunctionContext
 ) => Promise<EdgeFunctionResponse<TResponse>>

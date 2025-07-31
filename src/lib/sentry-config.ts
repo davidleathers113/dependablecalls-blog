@@ -59,7 +59,7 @@ export function initSentry(): void {
     beforeSend(event, hint) {
       // Filter out non-actionable errors
       if (event.exception) {
-        const error = hint.originalException
+        const error = hint.originalException as Error | undefined
         
         // Filter out network errors from ad blockers
         if (error?.message?.includes('Failed to fetch')) {
@@ -97,7 +97,7 @@ export function initSentry(): void {
         if (
           thirdPartyPatterns.some(pattern => 
             error?.message?.includes(pattern) || 
-            event.exception.values?.[0]?.value?.includes(pattern)
+            event.exception?.values?.[0]?.value?.includes(pattern)
           )
         ) {
           // Log to console in development for debugging
@@ -269,7 +269,7 @@ export async function withPerformanceMonitoring<T>(
     {
       name: transactionName,
       op: 'function',
-      attributes: context,
+      attributes: context as any,
     },
     async () => {
       try {

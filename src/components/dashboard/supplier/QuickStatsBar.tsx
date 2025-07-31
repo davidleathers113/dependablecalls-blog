@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { PhoneIcon, CurrencyDollarIcon, ChartBarIcon, StarIcon } from '@heroicons/react/24/outline'
-import { from } from '../../../lib/supabase-optimized'
-import { useRealTimeStats } from '../../../hooks/useRealTimeStats'
+import { MockDataService } from '../../../lib/mock-data-service'
 
 interface QuickStatsBarProps {
   timeRange: '24h' | '7d' | '30d'
@@ -20,24 +19,8 @@ interface DashboardStats {
 }
 
 async function fetchSupplierStats(supplierId: string, timeRange: string): Promise<DashboardStats> {
-  // TEMPORARY: Return mock stats while platform database tables are being set up
-  // TODO: Replace with actual Supabase query once calls table exists
-  
-  console.info('Loading stats with mock data - platform tables not yet available', { supplierId, timeRange })
-
-  // Generate realistic mock data based on time range
-  const multiplier = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : 30
-  
-  return {
-    totalCalls: Math.floor(Math.random() * 50 + 20) * multiplier,
-    callsTrend: Math.round((Math.random() * 10 - 5) * 10) / 10, // -5 to +5
-    totalMinutes: Math.floor(Math.random() * 400 + 200) * multiplier,
-    minutesTrend: Math.round((Math.random() * 8 - 4) * 10) / 10, // -4 to +4
-    conversionRate: Math.round((Math.random() * 20 + 10) * 10) / 10, // 10-30%
-    conversionTrend: Math.round((Math.random() * 4 - 2) * 10) / 10, // -2 to +2
-    qualityScore: Math.floor(Math.random() * 20 + 80), // 80-100
-    qualityTrend: Math.round((Math.random() * 2 - 1) * 10) / 10, // -1 to +1
-  }
+  MockDataService.logMockUsage('QuickStatsBar', 'fetchSupplierStats')
+  return await MockDataService.getSupplierStats(supplierId, timeRange)
 }
 
 function StatCard({
@@ -120,11 +103,8 @@ export function QuickStatsBar({ timeRange, supplierId }: QuickStatsBarProps) {
     refetchInterval: 30000, // Refresh every 30 seconds
   })
 
-  // Use real-time updates for live stats
-  const liveStats = useRealTimeStats(supplierId)
-
-  // Merge real-time data with cached data
-  const displayStats = liveStats ? { ...stats, ...liveStats } : stats
+  // Use the stats from the query
+  const displayStats = stats
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

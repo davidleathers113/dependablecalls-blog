@@ -60,5 +60,3 @@ SUPABASE_SERVICE_ROLE_KEY*
 # MCP configuration with secrets
 .mcp.json
 
-# Temporarily excluded files for deployment
-temp-excluded/

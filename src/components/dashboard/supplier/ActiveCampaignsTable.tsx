@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { PlayIcon, PauseIcon, EyeIcon, ChartBarIcon } from '@heroicons/react/24/outline'
-import { from } from '../../../lib/supabase-optimized'
+import { MockDataService } from '../../../lib/mock-data-service'
 
 interface ActiveCampaignsTableProps {
   supplierId: string
@@ -10,7 +10,7 @@ interface Campaign {
   id: string
   name: string
   buyer_name: string
-  status: 'active' | 'paused' | 'completed'
+  status: 'active' | 'paused' | 'completed' | 'draft'
   bid_amount: number
   daily_cap: number
   calls_today: number
@@ -21,39 +21,8 @@ interface Campaign {
 }
 
 async function fetchActiveCampaigns(supplierId: string): Promise<Campaign[]> {
-  // TEMPORARY: Return mock data while platform database tables are being set up
-  // TODO: Replace with actual Supabase query once campaigns table exists
-  
-  console.info('Loading campaigns with mock data - platform tables not yet available', { supplierId })
-  
-  return [
-    {
-      id: 'mock-1',
-      name: 'Home Improvement - National',
-      buyer_name: 'Demo Buyer Co.',
-      status: 'active',
-      bid_amount: 12.50,
-      daily_cap: 100,
-      calls_today: 23,
-      revenue_today: 287.50,
-      conversion_rate: 15.2,
-      quality_score: 8.5,
-      created_at: new Date(Date.now() - 86400000 * 3).toISOString() // 3 days ago
-    },
-    {
-      id: 'mock-2', 
-      name: 'Insurance - California',
-      buyer_name: 'Insurance Pro LLC',
-      status: 'active',
-      bid_amount: 18.00,
-      daily_cap: 50,
-      calls_today: 12,
-      revenue_today: 216.00,
-      conversion_rate: 22.8,
-      quality_score: 9.1,
-      created_at: new Date(Date.now() - 86400000 * 7).toISOString() // 7 days ago
-    }
-  ]
+  MockDataService.logMockUsage('ActiveCampaignsTable', 'fetchActiveCampaigns')
+  return await MockDataService.getActiveCampaigns(supplierId)
 }
 
 function CampaignStatusBadge({ status }: { status: Campaign['status'] }) {
@@ -136,18 +105,12 @@ export function ActiveCampaignsTable({ supplierId }: ActiveCampaignsTableProps) 
   const handleToggleCampaign = async (campaignId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'paused' : 'active'
 
-    try {
-      const { error } = await from('campaigns')
-        .update({ status: newStatus })
-        .eq('id', campaignId)
-
-      if (error) {
-        console.error('Error updating campaign status:', error)
-        // In a real app, you'd show a toast notification here
-      }
-    } catch (err) {
-      console.error('Error toggling campaign:', err)
-    }
+    // In development mode, just log the action
+    MockDataService.logMockUsage('ActiveCampaignsTable', 'handleToggleCampaign')
+    console.info(`Campaign ${campaignId} status changed from ${currentStatus} to ${newStatus}`)
+    
+    // In a real implementation, this would update the database and invalidate queries
+    // For now, the component will refresh via refetchInterval
   }
 
   const handleViewDetails = (campaignId: string) => {

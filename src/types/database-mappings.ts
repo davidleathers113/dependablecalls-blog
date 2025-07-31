@@ -60,11 +60,10 @@ export function mapBlogPostRow(row: BlogPostRow): BlogPost {
  * Convert database blog author row to application type
  */
 export function mapBlogAuthorRow(row: BlogAuthorRow): BlogAuthor {
-  const socialLinks = parseJsonSafely<AuthorSocialLinks>(row.social_links, isAuthorSocialLinks)
+  // const socialLinks = parseJsonSafely<AuthorSocialLinks>(row.social_links, isAuthorSocialLinks) // unused for now
 
   return {
     ...row,
-    social_links: socialLinks,
   }
 }
 
@@ -99,9 +98,9 @@ export function mapBlogCommentRow(row: BlogCommentRow): BlogComment {
  * Convert application blog post to database insert type
  */
 export function mapBlogPostToInsert(
-  post: Partial<BlogPost>
+  post: Partial<BlogPost> & { author_id: string; content: string; title: string; slug: string }
 ): Database['public']['Tables']['blog_posts']['Insert'] {
-  const { seo_metadata, ...rest } = post
+  const { seo_metadata, author, categories, tags, comments, ...rest } = post
 
   return {
     ...rest,

@@ -125,7 +125,7 @@ export interface MockTables {
       daily_cap: number | null
       monthly_cap: number | null
       quality_threshold: number | null
-      campaign_status: CampaignStatus
+      status: CampaignStatus
       created_at: string
       updated_at: string
     }
@@ -139,7 +139,7 @@ export interface MockTables {
       daily_cap?: number | null
       monthly_cap?: number | null
       quality_threshold?: number | null
-      campaign_status?: CampaignStatus
+      status?: CampaignStatus
       created_at?: string
       updated_at?: string
     }
@@ -153,7 +153,7 @@ export interface MockTables {
       daily_cap?: number | null
       monthly_cap?: number | null
       quality_threshold?: number | null
-      campaign_status?: CampaignStatus
+      status?: CampaignStatus
       created_at?: string
       updated_at?: string
     }
@@ -168,16 +168,123 @@ export interface MockTables {
     ]
   }
 
+  // Buyers table
+  buyers: {
+    Row: {
+      id: string
+      user_id: string
+      company_name: string
+      contact_email: string
+      phone: string | null
+      website: string | null
+      description: string | null
+      is_verified: boolean
+      credit_limit: number
+      created_at: string
+      updated_at: string
+    }
+    Insert: {
+      id?: string
+      user_id: string
+      company_name: string
+      contact_email: string
+      phone?: string | null
+      website?: string | null
+      description?: string | null
+      is_verified?: boolean
+      credit_limit?: number
+      created_at?: string
+      updated_at?: string
+    }
+    Update: {
+      id?: string
+      user_id?: string
+      company_name?: string
+      contact_email?: string
+      phone?: string | null
+      website?: string | null
+      description?: string | null
+      is_verified?: boolean
+      credit_limit?: number
+      created_at?: string
+      updated_at?: string
+    }
+    Relationships: [
+      {
+        foreignKeyName: 'buyers_user_id_fkey'
+        columns: ['user_id']
+        isOneToOne: true
+        referencedRelation: 'users'
+        referencedColumns: ['id']
+      },
+    ]
+  }
+
+  // Buyer Campaigns table (junction table between buyers and campaigns)
+  buyer_campaigns: {
+    Row: {
+      id: string
+      buyer_id: string
+      campaign_id: string
+      name: string
+      bid_amount: number
+      daily_budget: number | null
+      is_active: boolean
+      created_at: string
+      updated_at: string
+    }
+    Insert: {
+      id?: string
+      buyer_id: string
+      campaign_id: string
+      name: string
+      bid_amount: number
+      daily_budget?: number | null
+      is_active?: boolean
+      created_at?: string
+      updated_at?: string
+    }
+    Update: {
+      id?: string
+      buyer_id?: string
+      campaign_id?: string
+      name?: string
+      bid_amount?: number
+      daily_budget?: number | null
+      is_active?: boolean
+      created_at?: string
+      updated_at?: string
+    }
+    Relationships: [
+      {
+        foreignKeyName: 'buyer_campaigns_buyer_id_fkey'
+        columns: ['buyer_id']
+        isOneToOne: false
+        referencedRelation: 'buyers'
+        referencedColumns: ['id']
+      },
+      {
+        foreignKeyName: 'buyer_campaigns_campaign_id_fkey'
+        columns: ['campaign_id']
+        isOneToOne: false
+        referencedRelation: 'campaigns'
+        referencedColumns: ['id']
+      },
+    ]
+  }
+
   // Calls table
   calls: {
     Row: {
       id: string
       campaign_id: string
       supplier_id: string
+      buyer_campaign_id: string | null
       caller_number: string
       tracking_number: string
-      duration: number | null
-      call_status: CallStatus
+      started_at: string | null
+      duration_seconds: number | null
+      status: CallStatus
       quality_score: number | null
       payout_amount: number | null
       created_at: string
@@ -187,10 +294,12 @@ export interface MockTables {
       id?: string
       campaign_id: string
       supplier_id: string
+      buyer_campaign_id?: string | null
       caller_number: string
       tracking_number: string
-      duration?: number | null
-      call_status?: CallStatus
+      started_at?: string | null
+      duration_seconds?: number | null
+      status?: CallStatus
       quality_score?: number | null
       payout_amount?: number | null
       created_at?: string
@@ -200,10 +309,12 @@ export interface MockTables {
       id?: string
       campaign_id?: string
       supplier_id?: string
+      buyer_campaign_id?: string | null
       caller_number?: string
       tracking_number?: string
-      duration?: number | null
-      call_status?: CallStatus
+      started_at?: string | null
+      duration_seconds?: number | null
+      status?: CallStatus
       quality_score?: number | null
       payout_amount?: number | null
       created_at?: string
@@ -222,6 +333,13 @@ export interface MockTables {
         columns: ['supplier_id']
         isOneToOne: false
         referencedRelation: 'suppliers'
+        referencedColumns: ['id']
+      },
+      {
+        foreignKeyName: 'calls_buyer_campaign_id_fkey'
+        columns: ['buyer_campaign_id']
+        isOneToOne: false
+        referencedRelation: 'buyer_campaigns'
         referencedColumns: ['id']
       },
     ]

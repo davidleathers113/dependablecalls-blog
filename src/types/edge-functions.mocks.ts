@@ -11,10 +11,7 @@ import type {
   EdgeFunctionError,
   SanitizeContentRequest,
   SanitizeContentResponse,
-  SanitizationMetadata,
-  SanitizationWarning,
   ContentValidation,
-  ValidationError,
   ResponseMetadata,
   RateLimitInfo
 } from './edge-functions'

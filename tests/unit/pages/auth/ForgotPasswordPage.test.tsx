@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen, fireEvent, waitFor } from '@testing-library/react'
-import { render } from '@/test/test-utils'
+import { render } from '../../../setup/test-utils'
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
 
 // Mock the router navigate function

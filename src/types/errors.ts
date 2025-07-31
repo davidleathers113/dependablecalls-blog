@@ -283,7 +283,7 @@ export function isAuthError(error: BlogError): boolean {
     BlogErrorType.FORBIDDEN,
     BlogErrorType.INVALID_TOKEN,
     BlogErrorType.SESSION_EXPIRED
-  ].includes(error.type)
+  ].includes(error.type as any)
 }
 
 // Error handling utilities

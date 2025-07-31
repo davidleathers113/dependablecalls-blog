@@ -14,7 +14,6 @@ import type {
   RateLimitInfo,
   ResponseMetadata,
   ContentValidation,
-  ValidationError
 } from '../types/edge-functions'
 import { 
   isEdgeFunctionError, 
@@ -109,7 +108,7 @@ export class EdgeFunctionsService {
   /**
    * Generic Edge Function caller with retry logic
    */
-  private async callEdgeFunction<TRequest = unknown, TResponse = unknown>(
+  private async callEdgeFunction<_TRequest = unknown, TResponse = unknown>(
     path: string,
     options: RequestInit
   ): Promise<EdgeFunctionResponse<TResponse>> {
@@ -125,10 +124,16 @@ export class EdgeFunctionsService {
     while (attempt <= this.retryConfig.maxRetries) {
       try {
         const startTime = Date.now()
+        
+        // Add timeout with AbortController
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), this.retryConfig.timeoutMs)
+        
         const response = await fetch(url, {
           ...options,
-          headers
-        })
+          headers,
+          signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId))
 
         const executionTime = Date.now() - startTime
         const responseHeaders = this.parseHeaders(response.headers)
@@ -188,13 +193,24 @@ export class EdgeFunctionsService {
         }
 
       } catch (error) {
-        // Network or parsing errors
-        lastError = {
-          code: EdgeFunctionErrorCode.NETWORK_ERROR,
-          message: error instanceof Error ? error.message : 'Network error occurred',
-          details: error,
-          retryable: true,
-          statusCode: 0
+        // Handle abort error specifically
+        if (error instanceof Error && error.name === 'AbortError') {
+          lastError = {
+            code: EdgeFunctionErrorCode.TIMEOUT,
+            message: `Request timed out after ${this.retryConfig.timeoutMs}ms`,
+            details: error,
+            retryable: true,
+            statusCode: 0
+          }
+        } else {
+          // Network or parsing errors
+          lastError = {
+            code: EdgeFunctionErrorCode.NETWORK_ERROR,
+            message: error instanceof Error ? error.message : 'Network error occurred',
+            details: error,
+            retryable: true,
+            statusCode: 0
+          }
         }
 
         if (attempt < this.retryConfig.maxRetries) {
@@ -301,12 +317,20 @@ export class EdgeFunctionsService {
    * Calculate backoff delay for retries
    */
   private calculateBackoff(attempt: number): number {
-    const delay = Math.min(
+    // Decorrelated jitter backoff algorithm
+    // This provides better performance under high concurrency compared to full jitter
+    const baseDelay = Math.min(
       this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffMultiplier, attempt),
       this.retryConfig.maxDelayMs
     )
-    // Add jitter to prevent thundering herd
-    return delay + Math.random() * 100
+    
+    // Decorrelated jitter: sleep = min(cap, random(base, sleep * 3))
+    // This creates a more evenly distributed retry pattern
+    const jitterMin = this.retryConfig.initialDelayMs
+    const jitterMax = baseDelay * 3
+    const jitteredDelay = jitterMin + Math.random() * (Math.min(jitterMax, this.retryConfig.maxDelayMs) - jitterMin)
+    
+    return Math.round(jitteredDelay)
   }
 
   /**
@@ -327,13 +351,14 @@ export class EdgeFunctionsService {
    * Batch sanitize multiple content items
    */
   async batchSanitizeContent(
-    requests: SanitizeContentRequest[]
+    requests: SanitizeContentRequest[],
+    options?: { concurrency?: number }
   ): Promise<EdgeFunctionResponse<SanitizeContentResponse[]>> {
     const results: SanitizeContentResponse[] = []
     const errors: Array<{ index: number; error: EdgeFunctionError }> = []
 
-    // Process in parallel with concurrency limit
-    const concurrency = 5
+    // Process in parallel with configurable concurrency limit
+    const concurrency = options?.concurrency || 5
     for (let i = 0; i < requests.length; i += concurrency) {
       const batch = requests.slice(i, i + concurrency)
       const promises = batch.map((request, index) =>

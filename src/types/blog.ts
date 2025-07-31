@@ -1,4 +1,4 @@
-import type { Database } from './database.generated'
+import type { Database } from './database-extended'
 
 // Database table types
 export type BlogPostRow = Database['public']['Tables']['blog_posts']['Row']
@@ -46,7 +46,7 @@ export interface BlogAuthor extends BlogAuthorRow {
     email: string
     username?: string
   }
-  social_links?: AuthorSocialLinks | null
+  // social_links is inherited from BlogAuthorRow as Json type
 }
 
 export interface BlogCategory extends BlogCategoryRow {

@@ -70,7 +70,7 @@ export default function AuthCallbackPage() {
           const [supplierCheck, buyerCheck, adminCheck] = await Promise.all([
             from('suppliers').select('*').eq('user_id', session.user.id).single(),
             from('buyers').select('*').eq('user_id', session.user.id).single(),
-            from('admins').select('*').eq('user_id', session.user.id).single(),
+            from('users').select('*').eq('id', session.user.id).single(), // Check if user is admin via role
           ])
 
           let userType: 'supplier' | 'buyer' | 'admin' | 'network' | null = null

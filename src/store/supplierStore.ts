@@ -16,7 +16,7 @@ import type {
   ListingStatus,
   SaleStatus,
 } from '../types/supplier'
-import type { Database, Json } from '../types/database.generated'
+import type { Database, Json } from '../types/database-extended'
 
 // Helper function to map call status to sale status
 const mapCallStatusToSaleStatus = (callStatus: Database['public']['Enums']['call_status'] | null): SaleStatus => {
@@ -226,18 +226,19 @@ export const useSupplierStore = create<SupplierState>()(
                   updates.status === 'paused' ? 'paused' : 'draft'
                 campaignUpdates.status = status
               }
-              if (updates.availability_hours !== undefined) {
-                campaignUpdates.schedule = {
-                  hours: updates.availability_hours,
-                  days: updates.availability_hours.days,
-                } as unknown as Json
-              }
-              if (updates.geographic_coverage !== undefined || updates.filters !== undefined) {
-                campaignUpdates.targeting = {
-                  geographic_coverage: updates.geographic_coverage,
-                  filters: updates.filters,
-                } as unknown as Json
-              }
+              // TODO: Handle availability_hours and geographic_coverage when these fields exist in database
+              // if (updates.availability_hours !== undefined) {
+              //   campaignUpdates.schedule = {
+              //     hours: updates.availability_hours,
+              //     days: updates.availability_hours.days,
+              //   } as unknown as Json
+              // }
+              // if (updates.geographic_coverage !== undefined || updates.filters !== undefined) {
+              //   campaignUpdates.targeting = {
+              //     geographic_coverage: updates.geographic_coverage,
+              //     filters: updates.filters,
+              //   } as unknown as Json
+              // }
 
               const { error } = await from('campaigns')
                 .update(campaignUpdates)

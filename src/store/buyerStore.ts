@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { from, getSession } from '../lib/supabase-optimized'
-import type { Database } from '../types/database.generated'
+import type { Database } from '../types/database-extended'
 import type {
   MarketplaceListing,
   SearchFilters,
