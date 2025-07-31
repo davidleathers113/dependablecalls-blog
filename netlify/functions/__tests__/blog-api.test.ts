@@ -1,4 +1,4 @@
-import { handler } from './blog-api'
+import { handler } from '../blog-api'
 import type { HandlerEvent, HandlerContext } from '@netlify/functions'
 
 describe('Blog API Netlify Function', () => {
