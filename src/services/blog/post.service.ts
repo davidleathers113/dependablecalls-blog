@@ -44,7 +44,16 @@ function isRawPostWithAuthor(data: unknown): data is RawPostWithAuthor {
     data !== null &&
     'id' in data &&
     'title' in data &&
-    'slug' in data
+    'slug' in data &&
+    'created_at' in data &&
+    'updated_at' in data &&
+    typeof (data as { id: unknown }).id === 'string' &&
+    typeof (data as { title: unknown }).title === 'string' &&
+    typeof (data as { slug: unknown }).slug === 'string' &&
+    // Make sure it's not an error object
+    !('code' in data) &&
+    !('message' in data) &&
+    !('hint' in data)
   )
 }
 
@@ -54,7 +63,12 @@ function isCategoryJoinResult(data: unknown): data is CategoryJoinResult {
     typeof data === 'object' &&
     data !== null &&
     'post_id' in data &&
-    'category' in data
+    'category' in data &&
+    typeof (data as { post_id: unknown }).post_id === 'string' &&
+    typeof (data as { category: unknown }).category === 'object' &&
+    // Make sure it's not an error object
+    !('code' in data) &&
+    !('message' in data)
   )
 }
 
@@ -64,7 +78,12 @@ function isTagJoinResult(data: unknown): data is TagJoinResult {
     typeof data === 'object' &&
     data !== null &&
     'post_id' in data &&
-    'tag' in data
+    'tag' in data &&
+    typeof (data as { post_id: unknown }).post_id === 'string' &&
+    typeof (data as { tag: unknown }).tag === 'object' &&
+    // Make sure it's not an error object
+    !('code' in data) &&
+    !('message' in data)
   )
 }
 
@@ -290,7 +309,21 @@ export class PostService {
     }
 
     // Extract post IDs for batch loading - validate data first
-    const validPosts = data.filter(isRawPostWithAuthor)
+    if (!Array.isArray(data)) {
+      return {
+        data: [],
+        meta: {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit),
+          hasNextPage: false,
+          hasPreviousPage: page > 1,
+        },
+      }
+    }
+    
+    const validPosts = data.filter(isRawPostWithAuthor) as unknown as RawPostWithAuthor[]
     if (validPosts.length === 0) {
       return {
         data: [],
@@ -304,7 +337,8 @@ export class PostService {
         },
       }
     }
-    const postIds = validPosts.map((post) => post.id)
+    
+    const postIds = validPosts.map(post => post.id)
 
     // Batch load categories and tags if requested
     const [categoryData, tagData] = await Promise.all([
@@ -327,13 +361,15 @@ export class PostService {
     // Group categories by post ID
     if (categoryData.data) {
       for (const item of categoryData.data) {
-        const postId = (item as unknown as CategoryJoinResult).post_id
-        const category = (item as unknown as CategoryJoinResult).category
-        if (!categoriesByPostId.has(postId)) {
-          categoriesByPostId.set(postId, [])
-        }
-        if (category) {
-          categoriesByPostId.get(postId)!.push(category)
+        if (isCategoryJoinResult(item)) {
+          const postId = item.post_id
+          const category = item.category
+          if (!categoriesByPostId.has(postId)) {
+            categoriesByPostId.set(postId, [])
+          }
+          if (category) {
+            categoriesByPostId.get(postId)!.push(category)
+          }
         }
       }
     }
@@ -341,19 +377,21 @@ export class PostService {
     // Group tags by post ID
     if (tagData.data) {
       for (const item of tagData.data) {
-        const postId = (item as unknown as TagJoinResult).post_id
-        const tag = (item as unknown as TagJoinResult).tag
-        if (!tagsByPostId.has(postId)) {
-          tagsByPostId.set(postId, [])
-        }
-        if (tag) {
-          tagsByPostId.get(postId)!.push(tag)
+        if (isTagJoinResult(item)) {
+          const postId = item.post_id
+          const tag = item.tag
+          if (!tagsByPostId.has(postId)) {
+            tagsByPostId.set(postId, [])
+          }
+          if (tag) {
+            tagsByPostId.get(postId)!.push(tag)
+          }
         }
       }
     }
 
     // Map posts with their relationships
-    const posts: BlogPost[] = (data as unknown as RawPostWithAuthor[]).map((post) => ({
+    const posts: BlogPost[] = validPosts.map(post => ({
       ...post,
       author: post.author || undefined,
       categories: categoriesByPostId.get(post.id) || [],
@@ -414,14 +452,19 @@ export class PostService {
       return null
     }
 
+    // Validate data structure
+    if (!isRawPostWithAuthor(data)) {
+      return null
+    }
+
     // Increment view count
     await from('blog_posts')
-      .update({ view_count: ((data as unknown as RawPostWithAuthor).view_count || 0) + 1 })
-      .eq('id', (data as unknown as RawPostWithAuthor).id)
+      .update({ view_count: (data.view_count || 0) + 1 })
+      .eq('id', data.id)
 
     const blogPost: BlogPost = {
-      ...(data as unknown as RawPostWithAuthor),
-      author: (data as unknown as RawPostWithAuthor).author || undefined,
+      ...(data as RawPostWithAuthor),
+      author: (data as RawPostWithAuthor).author || undefined,
       categories: [],
       tags: [],
       comments: undefined,
@@ -431,7 +474,7 @@ export class PostService {
     if (includeCategories) {
       const { data: categoryData, error: categoryError } = await from('blog_post_categories')
         .select('category:blog_categories(*)')
-        .eq('post_id', (data as unknown as RawPostWithAuthor).id)
+        .eq('post_id', data.id)
 
       if (categoryError) {
         throw handleSupabaseError(categoryError)
@@ -446,7 +489,7 @@ export class PostService {
     if (includeTags) {
       const { data: tagData, error: tagError } = await from('blog_post_tags')
         .select('tag:blog_tags(*)')
-        .eq('post_id', (data as unknown as RawPostWithAuthor).id)
+        .eq('post_id', data.id)
 
       if (tagError) {
         throw handleSupabaseError(tagError)
@@ -461,7 +504,7 @@ export class PostService {
     if (includeComments) {
       const { data: commentsData, error: commentsError } = await from('blog_comments')
         .select('*, user:users(id, email, username, avatar_url)')
-        .eq('post_id', (data as unknown as RawPostWithAuthor).id)
+        .eq('post_id', data.id)
         .eq('status', 'approved')
         .is('parent_id', null)
         .order('created_at', { ascending: true })
@@ -762,8 +805,16 @@ export class PostService {
       return []
     }
 
-    // Extract post IDs for batch loading
-    const postIds = data.map((post) => post.id)
+    // Validate data and extract post IDs for batch loading
+    if (!Array.isArray(data)) {
+      return []
+    }
+    
+    const validPosts = data.filter(isRawPostWithAuthor) as unknown as RawPostWithAuthor[]
+    if (validPosts.length === 0) {
+      return []
+    }
+    const postIds = validPosts.map(post => post.id)
 
     // Batch load categories and tags
     const [categoryData, tagData] = await Promise.all([
@@ -796,19 +847,21 @@ export class PostService {
     // Group tags by post ID
     if (tagData.data) {
       for (const item of tagData.data) {
-        const postId = (item as unknown as TagJoinResult).post_id
-        const tag = (item as unknown as TagJoinResult).tag
-        if (!tagsByPostId.has(postId)) {
-          tagsByPostId.set(postId, [])
-        }
-        if (tag) {
-          tagsByPostId.get(postId)!.push(tag)
+        if (isTagJoinResult(item)) {
+          const postId = item.post_id
+          const tag = item.tag
+          if (!tagsByPostId.has(postId)) {
+            tagsByPostId.set(postId, [])
+          }
+          if (tag) {
+            tagsByPostId.get(postId)!.push(tag)
+          }
         }
       }
     }
 
     // Map posts with their relationships
-    const posts: BlogPost[] = (data as unknown as RawPostWithAuthor[]).map((post) => ({
+    const posts: BlogPost[] = validPosts.map(post => ({
       ...post,
       author: post.author || undefined,
       categories: categoriesByPostId.get(post.id) || [],
@@ -867,9 +920,12 @@ export class PostService {
 
         if (fullPostError || !fullPost) return null
 
+        // Validate that fullPost is a proper post structure
+        if (!isRawPostWithAuthor(fullPost)) return null
+        
         const blogPost: BlogPost = {
-          ...(fullPost as unknown as RawPostWithAuthor),
-          author: (fullPost as unknown as RawPostWithAuthor).author || undefined,
+          ...fullPost,
+          author: fullPost.author || undefined,
           categories: [],
           tags: [],
         }
