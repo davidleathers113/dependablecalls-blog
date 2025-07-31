@@ -22,12 +22,9 @@ export default function BlogPostPage() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
   const [commentSuccess, setCommentSuccess] = useState(false)
 
-  if (!slug) {
-    return <Navigate to="/blog" replace />
-  }
-
+  // All hooks must be called at the top level before any conditionals
   const { data: post, isLoading: postLoading, error: postError } = useBlogPost({
-    slug,
+    slug: slug || '', // Pass empty string if slug is undefined, hook should handle gracefully
     includeAuthor: true,
     includeCategories: true,
     includeTags: true,
@@ -35,7 +32,7 @@ export default function BlogPostPage() {
   })
 
   const { data: commentsData } = useComments({
-    postId: post?.id,
+    postId: post?.id, // Will be undefined initially, hook should handle this gracefully
     status: 'approved',
     parentId: null,
     page: 1,
@@ -45,6 +42,11 @@ export default function BlogPostPage() {
   const { data: similarPosts = [] } = useSimilarPosts(post?.id || '', 4)
 
   const createCommentMutation = useCreateComment()
+
+  // Conditional logic comes after all hooks are called
+  if (!slug) {
+    return <Navigate to="/blog" replace />
+  }
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,8 +75,9 @@ export default function BlogPostPage() {
           title: post?.title,
           url: window.location.href
         })
-      } catch (error) {
-        // User cancelled share
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
+        // User cancelled share - error intentionally unused
       }
     } else {
       // Fallback to copying URL

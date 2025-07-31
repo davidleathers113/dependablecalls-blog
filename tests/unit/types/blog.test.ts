@@ -4,7 +4,7 @@ import {
   COMMENT_STATUS_LABELS,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
-} from '../blog'
+} from '../../../src/types/blog'
 import type {
   BlogPost,
   BlogAuthor,
@@ -24,20 +24,17 @@ import type {
   SortOrder,
   BlogPostSort,
   GetBlogPostsParams,
-  GetBlogPostParams,
   CreateBlogPostData,
   UpdateBlogPostData,
   GetCommentsParams,
   CreateCommentData,
   ModerateCommentData,
   BlogStatistics,
-  PopularTag,
   BlogSEOMetadata,
   AuthorSocialLinks,
   BlogPostResponse,
   AuthorProfileResponse,
-  BlogError,
-} from '../blog'
+} from '../../../src/types/blog'
 
 describe('Blog Type Definitions', () => {
   describe('Database Row Types', () => {
@@ -84,6 +81,7 @@ describe('Blog Type Definitions', () => {
   describe('Enum Types', () => {
     it('should have correct PostStatus values', () => {
       const statuses: PostStatus[] = ['draft', 'published', 'archived']
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       statuses.forEach(status => {
         expectTypeOf<PostStatus>().toMatchTypeOf<typeof status>()
       })
@@ -91,6 +89,7 @@ describe('Blog Type Definitions', () => {
 
     it('should have correct CommentStatus values', () => {
       const statuses: CommentStatus[] = ['pending', 'approved', 'spam', 'deleted']
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       statuses.forEach(status => {
         expectTypeOf<CommentStatus>().toMatchTypeOf<typeof status>()
       })
@@ -98,8 +97,10 @@ describe('Blog Type Definitions', () => {
 
     it('should not allow invalid status values', () => {
       // @ts-expect-error - Invalid status
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const invalidPostStatus: PostStatus = 'invalid'
       // @ts-expect-error - Invalid status
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const invalidCommentStatus: CommentStatus = 'invalid'
     })
   })
@@ -182,6 +183,7 @@ describe('Blog Type Definitions', () => {
         'title',
         'view_count',
       ]
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       sortOptions.forEach(option => {
         expectTypeOf<BlogPostSortBy>().toMatchTypeOf<typeof option>()
       })
@@ -189,6 +191,7 @@ describe('Blog Type Definitions', () => {
 
     it('should have correct SortOrder values', () => {
       const orders: SortOrder[] = ['asc', 'desc']
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       orders.forEach(order => {
         expectTypeOf<SortOrder>().toMatchTypeOf<typeof order>()
       })
@@ -313,11 +316,18 @@ describe('Blog Type Definitions', () => {
           case 'archived':
             expectTypeOf(status).toEqualTypeOf<'archived'>()
             break
-          default:
-            // This should never happen
+          default: {
+            // This should never happen - exhaustiveness check
             const _exhaustive: never = status
+            void _exhaustive
+          }
         }
       }
+      
+      // Test the function with actual data
+      checkStatus('draft')
+      checkStatus('published')
+      checkStatus('archived')
     })
 
     it('should allow discriminated unions with metadata', () => {
@@ -336,6 +346,11 @@ describe('Blog Type Definitions', () => {
           expectTypeOf(post).toHaveProperty('archived_at').toBeString()
         }
       }
+      
+      // Test the function with actual data
+      checkPost({ status: 'draft', published_at: null })
+      checkPost({ status: 'published', published_at: '2024-01-01' })
+      checkPost({ status: 'archived', published_at: '2024-01-01', archived_at: '2024-01-02' })
     })
   })
 })

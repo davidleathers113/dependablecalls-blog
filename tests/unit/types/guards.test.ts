@@ -115,12 +115,12 @@ export const isPaginatedResponse = <T>(
     obj.data.every(item => itemGuard(item)) &&
     typeof obj.meta === 'object' &&
     obj.meta !== null &&
-    typeof (obj.meta as any).page === 'number' &&
-    typeof (obj.meta as any).limit === 'number' &&
-    typeof (obj.meta as any).total === 'number' &&
-    typeof (obj.meta as any).totalPages === 'number' &&
-    typeof (obj.meta as any).hasNextPage === 'boolean' &&
-    typeof (obj.meta as any).hasPreviousPage === 'boolean'
+    typeof (obj.meta as Record<string, unknown>).page === 'number' &&
+    typeof (obj.meta as Record<string, unknown>).limit === 'number' &&
+    typeof (obj.meta as Record<string, unknown>).total === 'number' &&
+    typeof (obj.meta as Record<string, unknown>).totalPages === 'number' &&
+    typeof (obj.meta as Record<string, unknown>).hasNextPage === 'boolean' &&
+    typeof (obj.meta as Record<string, unknown>).hasPreviousPage === 'boolean'
   )
 }
 

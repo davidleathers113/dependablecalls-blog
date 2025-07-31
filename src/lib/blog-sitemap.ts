@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PostService, TaxonomyService, AuthorService } from '../services/blog';
+import { PostService, TaxonomyService } from '../services/blog';
 import type { 
   BlogPost, 
   BlogCategory, 

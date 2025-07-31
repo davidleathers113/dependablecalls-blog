@@ -103,7 +103,7 @@ export function useBlogAnalytics(
     if (autoTrack && postSlug && sessionIdRef.current) {
       trackPageView(postSlug)
     }
-  }, [postSlug, autoTrack])
+  }, [postSlug, autoTrack, trackPageView])
 
   // Set up scroll progress tracking
   useEffect(() => {

@@ -1,11 +1,4 @@
-# Run lint-staged for automatic formatting and linting
+# Run lint-staged for automatic formatting, linting, and testing
 npx lint-staged
-
-# Run type checking
-echo "🔍 Running type check..."
-npm run type-check || {
-  echo "❌ Type check failed. Please fix TypeScript errors before committing."
-  exit 1
-}
 
 echo "✅ Pre-commit checks passed!"

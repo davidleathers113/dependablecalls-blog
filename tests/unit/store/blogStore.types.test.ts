@@ -17,7 +17,6 @@ import type {
 type BlogEditorState = ReturnType<typeof useBlogEditorStore>
 type BlogFilterState = ReturnType<typeof useBlogFilterStore>
 type BlogUIState = ReturnType<typeof useBlogUIStore>
-type CombinedBlogStore = ReturnType<typeof useBlogStore>
 
 describe('Blog Store Type Safety', () => {
   describe('BlogEditorStore Types', () => {
@@ -72,13 +71,13 @@ describe('Blog Store Type Safety', () => {
       })
       
       // Type errors should be caught
-      // @ts-expect-error
+      // @ts-expect-error - Invalid editor mode string should be rejected
       result.current.setEditorMode('invalid')
-      // @ts-expect-error
+      // @ts-expect-error - Invalid preview mode string should be rejected
       result.current.setPreviewMode('invalid')
-      // @ts-expect-error
+      // @ts-expect-error - Non-object parameter should be rejected
       result.current.setDraft('not-an-object')
-      // @ts-expect-error
+      // @ts-expect-error - Non-boolean parameter should be rejected
       result.current.setAutosave('not-boolean')
     })
   })
@@ -144,13 +143,13 @@ describe('Blog Store Type Safety', () => {
       })
       
       // Type errors should be caught
-      // @ts-expect-error
+      // @ts-expect-error - Invalid status value should be rejected
       result.current.setFilters({ status: 'invalid-status' })
-      // @ts-expect-error
+      // @ts-expect-error - Invalid sort field should be rejected
       result.current.setSort({ by: 'invalid-field', order: 'asc' })
-      // @ts-expect-error
+      // @ts-expect-error - Non-number parameter should be rejected
       result.current.setCurrentPage('not-number')
-      // @ts-expect-error
+      // @ts-expect-error - Number array instead of string array should be rejected
       result.current.selectAllPosts([1, 2, 3]) // should be strings
     })
   })
@@ -213,11 +212,11 @@ describe('Blog Store Type Safety', () => {
       })
       
       // Type errors should be caught
-      // @ts-expect-error
+      // @ts-expect-error - Invalid view mode string should be rejected
       result.current.setViewMode('invalid-view')
-      // @ts-expect-error
+      // @ts-expect-error - Number instead of string parameter should be rejected
       result.current.openEditModal(123) // should be string
-      // @ts-expect-error
+      // @ts-expect-error - Non-boolean parameter should be rejected
       result.current.setEnableComments('not-boolean')
     })
   })
@@ -319,9 +318,9 @@ describe('Blog Store Type Safety', () => {
       })
       
       // Type errors should be prevented
-      // @ts-expect-error
+      // @ts-expect-error - Invalid field in draft update should be rejected
       result.current.updateDraft({ invalidField: 'value' })
-      // @ts-expect-error
+      // @ts-expect-error - Invalid status in draft should be rejected
       result.current.setDraft({ status: 'invalid-status' })
     })
 

@@ -76,8 +76,6 @@ export default function AuthCallbackPage() {
           let userType: 'supplier' | 'buyer' | 'admin' | 'network' | null = null
           if (adminCheck.data) {
             userType = 'admin'
-          } else if (false) { // networkCheck removed
-            userType = 'network'
           } else if (buyerCheck.data) {
             userType = 'buyer'
           } else if (supplierCheck.data) {

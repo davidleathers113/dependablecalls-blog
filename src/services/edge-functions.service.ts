@@ -108,7 +108,7 @@ export class EdgeFunctionsService {
   /**
    * Generic Edge Function caller with retry logic
    */
-  private async callEdgeFunction<_TRequest = unknown, TResponse = unknown>(
+  private async callEdgeFunction<TResponse = unknown>(
     path: string,
     options: RequestInit
   ): Promise<EdgeFunctionResponse<TResponse>> {

@@ -16,9 +16,8 @@ import type {
   BlogTag,
   BlogComment,
   BlogSEOMetadata,
-  AuthorSocialLinks,
 } from './blog'
-import { isBlogSEOMetadata, isAuthorSocialLinks } from './blog-guards'
+import { isBlogSEOMetadata } from './blog-guards'
 
 // Type aliases for database rows
 type BlogPostRow = Database['public']['Tables']['blog_posts']['Row']
@@ -100,6 +99,7 @@ export function mapBlogCommentRow(row: BlogCommentRow): BlogComment {
 export function mapBlogPostToInsert(
   post: Partial<BlogPost> & { author_id: string; content: string; title: string; slug: string }
 ): Database['public']['Tables']['blog_posts']['Insert'] {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { seo_metadata, author, categories, tags, comments, ...rest } = post
 
   return {

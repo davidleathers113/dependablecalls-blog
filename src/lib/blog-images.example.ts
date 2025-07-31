@@ -16,8 +16,6 @@ import {
   uploadOptimizedImage,
   deleteImage,
   getImagePerformanceMetrics,
-  defaultResponsiveConfig,
-  defaultLazyLoadOptions,
   type ImageTransformOptions,
   type ResponsiveImageConfig
 } from './blog-images'

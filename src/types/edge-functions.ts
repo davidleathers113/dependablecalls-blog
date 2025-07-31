@@ -218,7 +218,7 @@ export type EdgeFunctionHandler = (
   context: EdgeFunctionContext
 ) => Promise<Response> | Response
 
-export type TypedEdgeFunctionHandler<_TRequest = unknown, TResponse = unknown> = (
+export type TypedEdgeFunctionHandler<TResponse = unknown> = (
   request: Request,
   context: EdgeFunctionContext
 ) => Promise<EdgeFunctionResponse<TResponse>>

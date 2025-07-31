@@ -269,7 +269,8 @@ export function isBlogError(error: unknown): error is BlogError {
     error !== null &&
     'type' in error &&
     'statusCode' in error &&
-    Object.values(BlogErrorType).includes((error as any).type)
+    typeof (error as { type: unknown }).type === 'string' &&
+    Object.values(BlogErrorType).includes((error as { type: string }).type as BlogErrorType)
   )
 }
 
@@ -283,7 +284,24 @@ export function isAuthError(error: BlogError): boolean {
     BlogErrorType.FORBIDDEN,
     BlogErrorType.INVALID_TOKEN,
     BlogErrorType.SESSION_EXPIRED
-  ].includes(error.type as any)
+  ].includes(error.type)
+}
+
+// Supabase error interface for type safety
+interface SupabaseError {
+  code?: string
+  message?: string
+  details?: string
+  hint?: string
+}
+
+// Type guard for Supabase errors
+function isSupabaseError(error: unknown): error is SupabaseError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    ('code' in error || 'message' in error)
+  )
 }
 
 // Error handling utilities
@@ -292,7 +310,9 @@ export function handleSupabaseError(error: unknown): BlogError {
     return BlogErrorFactory.database('Unknown', error)
   }
 
-  const supabaseError = error as any
+  const supabaseError = isSupabaseError(error) 
+    ? error 
+    : { code: undefined, message: undefined }
 
   // Handle specific Supabase error codes
   if (supabaseError.code === '23505') {

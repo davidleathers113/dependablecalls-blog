@@ -1,16 +1,12 @@
-import { describe, expect, it, expectTypeOf } from 'vitest'
+import { describe, it, expectTypeOf } from 'vitest'
 import type {
   BlogPost,
   BlogPostRow,
-  BlogPostInsert,
-  BlogPostUpdate,
   BlogAuthor,
   BlogCategory,
   BlogTag,
-  BlogComment,
   CreateBlogPostData,
   UpdateBlogPostData,
-  GetBlogPostsParams,
   BlogPostFilters,
   PaginatedResponse,
 } from '../blog'
@@ -111,16 +107,6 @@ export type ErrorResponse = {
 describe('Blog Type Mappings', () => {
   describe('Database to API Transformations', () => {
     it('should correctly map database row to API format', () => {
-      type ExpectedAPI = {
-        id: string
-        title: string
-        slug: string
-        content: string
-        createdAt: string
-        updatedAt: string
-        // ... other fields
-      }
-
       expectTypeOf<BlogPostForAPI>().toHaveProperty('createdAt').toBeString()
       expectTypeOf<BlogPostForAPI>().toHaveProperty('updatedAt').toBeString()
       expectTypeOf<BlogPostForAPI>().not.toHaveProperty('created_at')
@@ -140,6 +126,9 @@ describe('Blog Type Mappings', () => {
       type DatabaseFormat = APIToDatabase<typeof apiData>
       expectTypeOf<DatabaseFormat>().toHaveProperty('created_at').toBeString()
       expectTypeOf<DatabaseFormat>().toHaveProperty('updated_at').toBeString()
+      
+      // Keep variable for type testing purposes
+      void apiData
     })
   })
 
@@ -331,10 +320,15 @@ describe('Blog Type Mappings', () => {
       const validAccess = (post: SafePost) => post.title
       
       // These should cause TypeScript errors
-      // @ts-expect-error
+      // @ts-expect-error - Testing that content property is not accessible on SafePost type
       const invalidAccess1 = (post: SafePost) => post.content
-      // @ts-expect-error  
+      // @ts-expect-error - Testing that author property is not accessible on SafePost type
       const invalidAccess2 = (post: SafePost) => post.author
+      
+      // Keep variables for type testing purposes
+      void validAccess
+      void invalidAccess1
+      void invalidAccess2
     })
 
     it('should enforce required fields in transformations', () => {
@@ -347,11 +341,15 @@ describe('Blog Type Mappings', () => {
       } as RequiredFields
       
       // This should cause TypeScript error
-      // @ts-expect-error
+      // @ts-expect-error - Testing that missing required field display_name causes TypeScript error
       const invalidAuthor: RequiredFields = {
         id: '123',
         // missing display_name
-      } as RequiredFields
+      }
+      
+      // Keep variables for type testing purposes
+      void validAuthor
+      void invalidAuthor
     })
   })
 })

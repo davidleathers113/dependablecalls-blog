@@ -9,6 +9,94 @@ import type {
 } from '../types/blog'
 import { handleSupabaseError, type BatchOperationResult } from '../types/errors'
 
+// Type definitions for blog admin RPC functions
+type BlogAdminRPCFunctions = 
+  | 'get_admin_blog_statistics'
+  | 'get_blog_analytics'
+  | 'analyze_content_quality'
+  | 'generate_blog_audit_report'
+  | 'get_user_activity_summary'
+
+// RPC Response type interfaces
+interface AdminStatisticsData {
+  total_posts?: number
+  published_posts?: number
+  draft_posts?: number
+  total_views?: number
+  total_comments?: number
+  avg_reading_time?: number
+  pending_comments?: number
+  flagged_posts?: number
+  active_authors?: number
+  total_categories?: number
+  total_tags?: number
+}
+
+interface BlogAnalyticsRPCData {
+  total_views?: number
+  total_comments?: number
+  total_shares?: number
+  avg_engagement_time?: number
+  bounce_rate?: number
+  top_pages?: Array<{
+    slug: string
+    title: string
+    views: number
+    uniqueViews: number
+  }>
+  time_series_data?: Array<{
+    date: string
+    views: number
+    comments: number
+    shares: number
+  }>
+}
+
+interface ContentQualityData {
+  readability_score?: number
+  seo_score?: number
+  issues?: Array<{
+    type: 'readability' | 'seo' | 'content' | 'structure'
+    severity: 'low' | 'medium' | 'high'
+    message: string
+    suggestion?: string
+  }>
+}
+
+interface AuditReportData {
+  overall_health?: number
+  issues?: Array<{
+    category: 'content' | 'seo' | 'performance' | 'security'
+    severity: 'low' | 'medium' | 'high' | 'critical'
+    count: number
+    description: string
+  }>
+  recommendations?: string[]
+}
+
+interface UserActivityData {
+  total_comments?: number
+  approved_comments?: number
+  rejected_comments?: number
+  avg_comments_per_day?: number
+  flagged_content?: number
+  recent_activity?: Array<{
+    type: 'comment' | 'post'
+    id: string
+    title: string
+    createdAt: string
+    status: string
+  }>
+}
+
+// Type-safe RPC wrapper for blog admin functions
+const blogRPC = (
+  functionName: BlogAdminRPCFunctions,
+  args?: Record<string, unknown>
+) => {
+  return rpc(functionName as never, args as never) as ReturnType<typeof rpc>
+}
+
 // Admin-specific types
 export interface ContentModerationRequest {
   contentType: 'post' | 'comment'
@@ -98,11 +186,11 @@ export class BlogAdminService {
     totalCategories: number
     totalTags: number
   }> {
-    const { data, error } = await rpc('get_admin_blog_statistics' as any)
+    const { data, error } = await blogRPC('get_admin_blog_statistics')
 
     if (error) throw handleSupabaseError(error)
 
-    const stats = data?.[0]
+    const stats = data?.[0] as AdminStatisticsData | undefined
 
     return {
       totalPosts: stats?.total_posts || 0,
@@ -257,7 +345,7 @@ export class BlogAdminService {
   static async getAnalytics(request: AnalyticsRequest): Promise<AnalyticsData> {
     const { dateRange, metrics, groupBy = 'day', filters } = request
 
-    const { data, error } = await rpc('get_blog_analytics' as any, {
+    const { data, error } = await blogRPC('get_blog_analytics', {
       start_date: dateRange.start,
       end_date: dateRange.end,
       metrics_array: metrics,
@@ -269,7 +357,7 @@ export class BlogAdminService {
 
     if (error) throw handleSupabaseError(error)
 
-    const analytics = data?.[0]
+    const analytics = data?.[0] as BlogAnalyticsRPCData | undefined
 
     return {
       totalViews: analytics?.total_views || 0,
@@ -393,13 +481,13 @@ export class BlogAdminService {
    * @throws {BlogError} When analysis fails
    */
   static async generateContentQualityReport(postId: string): Promise<ContentQualityReport> {
-    const { data, error } = await rpc('analyze_content_quality' as any, {
+    const { data, error } = await blogRPC('analyze_content_quality', {
       post_id_param: postId
     })
 
     if (error) throw handleSupabaseError(error)
 
-    const analysis = data?.[0]
+    const analysis = data?.[0] as ContentQualityData | undefined
 
     return {
       postId,
@@ -424,11 +512,11 @@ export class BlogAdminService {
     }>
     recommendations: string[]
   }> {
-    const { data, error } = await rpc('generate_blog_audit_report' as any)
+    const { data, error } = await blogRPC('generate_blog_audit_report')
 
     if (error) throw handleSupabaseError(error)
 
-    const report = data?.[0]
+    const report = data?.[0] as AuditReportData | undefined
 
     return {
       overallHealth: report?.overall_health || 0,
@@ -458,14 +546,14 @@ export class BlogAdminService {
       status: string
     }>
   }> {
-    const { data, error } = await rpc('get_user_activity_summary' as any, {
+    const { data, error } = await blogRPC('get_user_activity_summary', {
       user_id_param: userId,
       days_param: days
     })
 
     if (error) throw handleSupabaseError(error)
 
-    const summary = data?.[0]
+    const summary = data?.[0] as UserActivityData | undefined
 
     return {
       totalComments: summary?.total_comments || 0,

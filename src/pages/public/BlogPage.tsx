@@ -192,7 +192,7 @@ export default function BlogPage() {
               <select
                 value={`${sortBy.by}-${sortBy.order}`}
                 onChange={(e) => {
-                  const [by, order] = e.target.value.split('-') as [any, 'asc' | 'desc']
+                  const [by, order] = e.target.value.split('-') as ['published_at' | 'title' | 'view_count', 'asc' | 'desc']
                   setSortBy({ by, order })
                   setCurrentPage(1)
                 }}

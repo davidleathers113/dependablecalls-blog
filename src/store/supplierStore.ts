@@ -18,6 +18,40 @@ import type {
 } from '../types/supplier'
 import type { Database, Json } from '../types/database-extended'
 
+// Type definitions for Json fields in database
+interface CampaignTargeting {
+  geographic_coverage?: string[]
+  filters?: {
+    lead_types: string[]
+  }
+}
+
+interface CampaignSchedule {
+  hours?: {
+    start: string
+    end: string
+    timezone: string
+    days: string[]
+  }
+  days?: string[]
+}
+
+// Type for joined call query result
+interface CallWithCampaign {
+  id: string
+  buyer_campaign_id: string | null
+  campaign_id: string | null
+  charge_amount: number | null
+  payout_amount: number | null
+  status: Database['public']['Enums']['call_status'] | null
+  created_at: string | null
+  ended_at: string | null
+  campaigns: {
+    name: string
+    vertical: string
+  } | null
+}
+
 // Helper function to map call status to sale status
 const mapCallStatusToSaleStatus = (callStatus: Database['public']['Enums']['call_status'] | null): SaleStatus => {
   switch (callStatus) {
@@ -359,17 +393,17 @@ export const useSupplierStore = create<SupplierState>()(
                 description: campaign.description || '',
                 price_per_call: campaign.bid_floor || 0,
                 quality_score: campaign.quality_threshold || 85,
-                geographic_coverage: (campaign.targeting as any)?.geographic_coverage || [],
+                geographic_coverage: (campaign.targeting as CampaignTargeting)?.geographic_coverage || [],
                 daily_cap: campaign.daily_cap || 0,
                 weekly_cap: 0, // Not stored in campaigns table
                 monthly_cap: campaign.monthly_cap || 0,
-                availability_hours: (campaign.schedule as any)?.hours || {
+                availability_hours: (campaign.schedule as CampaignSchedule)?.hours || {
                   start: '09:00',
                   end: '17:00',
                   timezone: 'America/New_York',
                   days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
                 },
-                filters: (campaign.targeting as any)?.filters || {
+                filters: (campaign.targeting as CampaignTargeting)?.filters || {
                   lead_types: [],
                 },
                 performance_metrics: {
@@ -486,8 +520,8 @@ export const useSupplierStore = create<SupplierState>()(
               if (error) throw error
 
               // Transform calls to Sale format
-              const sales: Sale[] = (data || []).map(call => {
-                const campaign = (call as any).campaigns
+              const sales: Sale[] = (data || []).map((call: CallWithCampaign) => {
+                const campaign = call.campaigns
                 return {
                   id: call.id,
                   buyer_id: call.buyer_campaign_id || 'unknown',

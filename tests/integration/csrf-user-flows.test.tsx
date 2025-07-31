@@ -10,6 +10,8 @@ import { render, screen, fireEvent, waitFor, renderHook } from '@testing-library
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { SettingsState } from '../../store/settingsStore'
+import type { User } from '../../types/auth'
 
 // Import pages that should have CSRF protection
 import LoginPage from '../../pages/auth/LoginPage'
@@ -24,6 +26,19 @@ import CreateCampaignPage from '../../pages/campaigns/CreateCampaignPage'
 import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useCsrf } from '../../hooks/useCsrf'
+
+// Type definitions for mocks
+type MockAuthState = {
+  user: Pick<User, 'id' | 'email' | 'userType'> | null
+  isAuthenticated: boolean
+  isLoading: boolean
+}
+
+type MockSettingsState = {
+  userSettings: SettingsState['userSettings']
+  updateUserSetting: SettingsState['updateUserSetting']
+  isSaving: boolean
+}
 
 // Mock fetch for API calls
 global.fetch = vi.fn()
@@ -57,10 +72,10 @@ describe('Authentication Flow CSRF Protection', () => {
     
     // Reset fetch mock
     vi.clearAllMocks()
-    ;(global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ success: true }),
-    })
+    } as Response)
   })
 
   test('login form should include CSRF token in submission', async () => {
@@ -154,7 +169,7 @@ describe('Settings Forms CSRF Protection', () => {
       },
       isAuthenticated: true,
       isLoading: false,
-    } as any)
+    } as MockAuthState)
 
     // Mock settings store
     vi.mocked(useSettingsStore).mockReturnValue({
@@ -192,7 +207,7 @@ describe('Settings Forms CSRF Protection', () => {
       },
       updateUserSetting: vi.fn(),
       isSaving: false,
-    } as any)
+    } as MockSettingsState)
 
     global.document.cookie = '__Host-csrf-token=test-csrf-token-123'
     vi.clearAllMocks()
@@ -274,15 +289,15 @@ describe('Campaign Creation CSRF Protection', () => {
       },
       isAuthenticated: true,
       isLoading: false,
-    } as any)
+    } as MockAuthState)
 
     global.document.cookie = '__Host-csrf-token=test-csrf-token-123'
     vi.clearAllMocks()
     
-    ;(global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ success: true, data: { id: 'campaign-123' } }),
-    })
+    } as Response)
   })
 
   test('campaign creation form should include CSRF token', async () => {
@@ -329,11 +344,11 @@ describe('CSRF Attack Prevention', () => {
     // Clear CSRF cookie to simulate missing token
     global.document.cookie = ''
     
-    ;(global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
       status: 403,
       json: async () => ({ error: 'CSRF token missing' }),
-    })
+    } as Response)
 
     const user = userEvent.setup()
     render(<LoginPage />, { wrapper: createWrapper })
@@ -354,11 +369,11 @@ describe('CSRF Attack Prevention', () => {
     // Set invalid CSRF token
     global.document.cookie = '__Host-csrf-token=invalid-token'
     
-    ;(global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
       status: 403,
       json: async () => ({ error: 'Invalid CSRF token' }),
-    })
+    } as Response)
 
     const user = userEvent.setup()
     render(<LoginPage />, { wrapper: createWrapper })
@@ -392,11 +407,11 @@ describe('CSRF Token Refresh', () => {
     // Mock expired token scenario
     global.document.cookie = '__Host-csrf-token=expired-token'
     
-    ;(global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
       status: 403,
       json: async () => ({ error: 'CSRF token expired' }),
-    })
+    } as Response)
 
     const user = userEvent.setup()
     render(<LoginPage />, { wrapper: createWrapper })

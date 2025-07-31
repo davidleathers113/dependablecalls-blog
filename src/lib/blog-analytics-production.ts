@@ -16,7 +16,7 @@ declare global {
     gtag?: (
       command: 'event' | 'config' | 'set',
       action: string,
-      parameters?: Record<string, any>
+      parameters?: Record<string, unknown>
     ) => void
     dataLayer?: unknown[]
   }

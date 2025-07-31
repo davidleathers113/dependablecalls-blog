@@ -269,7 +269,7 @@ export async function withPerformanceMonitoring<T>(
     {
       name: transactionName,
       op: 'function',
-      attributes: context as any,
+      attributes: context as Record<string, unknown>,
     },
     async () => {
       try {

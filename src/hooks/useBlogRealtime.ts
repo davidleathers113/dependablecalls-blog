@@ -210,7 +210,7 @@ export function useAuthorUpdates(authorId: string, options?: {
     filter: `id=eq.${authorId}`,
     event: 'UPDATE',
     enabled: enabled && !!authorId,
-    onUpdate: handleUpdate as any, // Type mismatch between database Json and parsed AuthorSocialLinks
+    onUpdate: handleUpdate as unknown, // Type mismatch between database Json and parsed AuthorSocialLinks
   })
 }
 
