@@ -19,6 +19,7 @@ import type {
 } from '../../types/blog'
 import { handleSupabaseError, generateSlug, ensureUniqueSlug } from '../../lib/supabase-utils'
 import type { BatchOperationResult } from '../../types/errors'
+import { BlogErrorFactory } from '../../types/errors'
 
 // Internal types for Supabase query results
 interface RawPostWithAuthor extends BlogPostRow {
@@ -167,7 +168,7 @@ export class PostService {
     }
 
     // Extract post IDs for batch loading
-    const postIds = data.map((post: RawPostWithAuthor) => post.id)
+    const postIds = (data as unknown as RawPostWithAuthor[]).map((post) => post.id)
 
     // Batch load categories and tags if requested
     const [categoryData, tagData] = await Promise.all([
@@ -190,8 +191,8 @@ export class PostService {
     // Group categories by post ID
     if (categoryData.data) {
       for (const item of categoryData.data) {
-        const postId = (item as CategoryJoinResult).post_id
-        const category = (item as CategoryJoinResult).category
+        const postId = (item as unknown as CategoryJoinResult).post_id
+        const category = (item as unknown as CategoryJoinResult).category
         if (!categoriesByPostId.has(postId)) {
           categoriesByPostId.set(postId, [])
         }
@@ -204,8 +205,8 @@ export class PostService {
     // Group tags by post ID
     if (tagData.data) {
       for (const item of tagData.data) {
-        const postId = (item as CategoryJoinResult).post_id
-        const tag = (item as TagJoinResult).tag
+        const postId = (item as unknown as TagJoinResult).post_id
+        const tag = (item as unknown as TagJoinResult).tag
         if (!tagsByPostId.has(postId)) {
           tagsByPostId.set(postId, [])
         }
@@ -216,7 +217,7 @@ export class PostService {
     }
 
     // Map posts with their relationships
-    const posts: BlogPost[] = data.map((post: RawPostWithAuthor) => ({
+    const posts: BlogPost[] = (data as unknown as RawPostWithAuthor[]).map((post) => ({
       ...post,
       author: post.author || null,
       categories: categoriesByPostId.get(post.id) || [],
@@ -268,12 +269,12 @@ export class PostService {
 
     // Increment view count
     await from('blog_posts')
-      .update({ view_count: ((data as RawPostWithAuthor).view_count || 0) + 1 })
-      .eq('id', (data as RawPostWithAuthor).id)
+      .update({ view_count: ((data as unknown as RawPostWithAuthor).view_count || 0) + 1 })
+      .eq('id', (data as unknown as RawPostWithAuthor).id)
 
     const blogPost: BlogPost = {
-      ...(data as RawPostWithAuthor),
-      author: (data as RawPostWithAuthor).author || null,
+      ...(data as unknown as RawPostWithAuthor),
+      author: (data as unknown as RawPostWithAuthor).author || undefined,
       categories: [],
       tags: [],
       comments: undefined,
@@ -283,10 +284,10 @@ export class PostService {
     if (includeCategories) {
       const { data: categoryData } = await from('blog_post_categories')
         .select('category:blog_categories(*)')
-        .eq('post_id', (data as RawPostWithAuthor).id)
+        .eq('post_id', (data as unknown as RawPostWithAuthor).id)
 
       blogPost.categories = (categoryData || [])
-        .map((item) => (item as CategoryJoinResult).category)
+        .map((item) => (item as unknown as CategoryJoinResult).category)
         .filter(Boolean)
     }
 
@@ -294,16 +295,16 @@ export class PostService {
     if (includeTags) {
       const { data: tagData } = await from('blog_post_tags')
         .select('tag:blog_tags(*)')
-        .eq('post_id', (data as RawPostWithAuthor).id)
+        .eq('post_id', (data as unknown as RawPostWithAuthor).id)
 
-      blogPost.tags = (tagData || []).map((item) => (item as TagJoinResult).tag).filter(Boolean)
+      blogPost.tags = (tagData || []).map((item) => (item as unknown as TagJoinResult).tag).filter(Boolean)
     }
 
     // Load comments if requested
     if (includeComments) {
       const { data: commentsData } = await from('blog_comments')
         .select('*, user:users(id, email, username, avatar_url)')
-        .eq('post_id', (data as RawPostWithAuthor).id)
+        .eq('post_id', (data as unknown as RawPostWithAuthor).id)
         .eq('status', 'approved')
         .is('parent_id', null)
         .order('created_at', { ascending: true })
@@ -564,11 +565,7 @@ export class PostService {
             operation: 'update',
             itemId: id,
             index,
-            error: {
-              code: 'NOT_FOUND',
-              message: `Post ${id} not found`,
-              statusCode: 404,
-            },
+            error: BlogErrorFactory.notFound('Post', id),
           })
           results.failureCount++
         }
@@ -616,8 +613,8 @@ export class PostService {
     // Group categories by post ID
     if (categoryData.data) {
       for (const item of categoryData.data) {
-        const postId = (item as CategoryJoinResult).post_id
-        const category = (item as CategoryJoinResult).category
+        const postId = (item as unknown as CategoryJoinResult).post_id
+        const category = (item as unknown as CategoryJoinResult).category
         if (!categoriesByPostId.has(postId)) {
           categoriesByPostId.set(postId, [])
         }
@@ -630,8 +627,8 @@ export class PostService {
     // Group tags by post ID
     if (tagData.data) {
       for (const item of tagData.data) {
-        const postId = (item as CategoryJoinResult).post_id
-        const tag = (item as TagJoinResult).tag
+        const postId = (item as unknown as TagJoinResult).post_id
+        const tag = (item as unknown as TagJoinResult).tag
         if (!tagsByPostId.has(postId)) {
           tagsByPostId.set(postId, [])
         }
@@ -642,7 +639,7 @@ export class PostService {
     }
 
     // Map posts with their relationships
-    const posts: BlogPost[] = data.map((post: RawPostWithAuthor) => ({
+    const posts: BlogPost[] = (data as unknown as RawPostWithAuthor[]).map((post) => ({
       ...post,
       author: post.author || null,
       categories: categoriesByPostId.get(post.id) || [],
@@ -702,8 +699,8 @@ export class PostService {
         if (!fullPost) return null
 
         const blogPost: BlogPost = {
-          ...(fullPost as RawPostWithAuthor),
-          author: (fullPost as RawPostWithAuthor).author || null,
+          ...(fullPost as unknown as RawPostWithAuthor),
+          author: (fullPost as unknown as RawPostWithAuthor).author || undefined,
           categories: [],
           tags: [],
         }
@@ -714,7 +711,7 @@ export class PostService {
           .eq('post_id', post.id)
 
         blogPost.categories = (categoryData || [])
-          .map((item) => (item as { category: BlogCategory }).category)
+          .map((item) => (item as unknown as { category: BlogCategory }).category)
           .filter(Boolean)
 
         // Load tags
@@ -723,7 +720,7 @@ export class PostService {
           .eq('post_id', post.id)
 
         blogPost.tags = (tagData || [])
-          .map((item) => (item as { tag: BlogTag }).tag)
+          .map((item) => (item as unknown as { tag: BlogTag }).tag)
           .filter(Boolean)
 
         return blogPost

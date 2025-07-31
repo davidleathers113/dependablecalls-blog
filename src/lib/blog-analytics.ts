@@ -773,7 +773,7 @@ class BlogAnalytics {
 
       if (error) throw error
 
-      return (data as PopularPostQueryResult[]).map((post) => ({
+      return (data as unknown as PopularPostQueryResult[]).map((post) => ({
         slug: post.slug,
         title: post.title,
         viewCount: post.view_count,

@@ -49,7 +49,7 @@ export class EdgeFunctionsService {
   async sanitizeContent(
     request: SanitizeContentRequest
   ): Promise<EdgeFunctionResponse<SanitizeContentResponse>> {
-    return this.callEdgeFunction<SanitizeContentRequest, SanitizeContentResponse>(
+    return this.callEdgeFunction<SanitizeContentResponse>(
       '/.netlify/edge-functions/sanitize-content',
       {
         method: 'POST',
@@ -65,7 +65,7 @@ export class EdgeFunctionsService {
     content: string,
     contentType: 'blog_post' | 'comment' | 'author_bio'
   ): Promise<EdgeFunctionResponse<ContentValidation>> {
-    return this.callEdgeFunction<{ content: string; type: string }, ContentValidation>(
+    return this.callEdgeFunction<ContentValidation>(
       '/.netlify/edge-functions/validate-content',
       {
         method: 'POST',

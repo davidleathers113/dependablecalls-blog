@@ -98,12 +98,54 @@ export function useBlogAnalytics(
     }
   }, [])
 
+  // Move trackPageView here temporarily to fix hoisting issue
+  const trackPageViewTemp = useCallback(async (
+    slug: string, 
+    additionalData: Record<string, unknown> = {}
+  ) => {
+    if (!sessionIdRef.current) return
+
+    try {
+      isTrackingRef.current = true
+      readingStartTime.current = Date.now()
+      lastScrollDepth.current = 0
+
+      const viewportSize = {
+        width: window.innerWidth,
+        height: window.innerHeight
+      }
+
+      // Extract UTM parameters from URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const utmParams = {
+        source: urlParams.get('utm_source') || undefined,
+        medium: urlParams.get('utm_medium') || undefined,
+        campaign: urlParams.get('utm_campaign') || undefined,
+        content: urlParams.get('utm_content') || undefined,
+        term: urlParams.get('utm_term') || undefined
+      }
+
+      await analytics.trackPageView({
+        postSlug: slug,
+        sessionId: sessionIdRef.current,
+        userId: user?.id,
+        referrer: document.referrer || undefined,
+        userAgent: navigator.userAgent,
+        viewport: viewportSize,
+        utmParams,
+        ...additionalData
+      })
+    } catch (error) {
+      console.error('Failed to track page view:', error)
+    }
+  }, [analytics, user?.id])
+
   // Auto-track page view on mount
   useEffect(() => {
     if (autoTrack && postSlug && sessionIdRef.current) {
-      trackPageView(postSlug)
+      trackPageViewTemp(postSlug)
     }
-  }, [postSlug, autoTrack, trackPageView])
+  }, [postSlug, autoTrack, trackPageViewTemp])
 
   // Set up scroll progress tracking
   useEffect(() => {
@@ -215,47 +257,7 @@ export function useBlogAnalytics(
   }, [postSlug, trackReadingTime, analytics])
 
   // Tracking methods
-  const trackPageView = useCallback(async (
-    slug: string, 
-    additionalData: Record<string, unknown> = {}
-  ) => {
-    if (!sessionIdRef.current) return
-
-    try {
-      isTrackingRef.current = true
-      readingStartTime.current = Date.now()
-      lastScrollDepth.current = 0
-
-      const viewportSize = {
-        width: window.innerWidth,
-        height: window.innerHeight
-      }
-
-      // Extract UTM parameters from URL
-      const urlParams = new URLSearchParams(window.location.search)
-      const utmParams = {
-        source: urlParams.get('utm_source') || undefined,
-        medium: urlParams.get('utm_medium') || undefined,
-        campaign: urlParams.get('utm_campaign') || undefined,
-        content: urlParams.get('utm_content') || undefined,
-        term: urlParams.get('utm_term') || undefined
-      }
-
-      await analytics.trackPageView({
-        postSlug: slug,
-        sessionId: sessionIdRef.current,
-        userId: user?.id,
-        referrer: document.referrer || undefined,
-        userAgent: navigator.userAgent,
-        viewport: viewportSize,
-        utmParams,
-        ...additionalData
-      })
-
-    } catch (error) {
-      console.error('Failed to track page view:', error)
-    }
-  }, [analytics, user?.id])
+  const trackPageView = trackPageViewTemp // Use the hoisted version
 
   const trackEngagement = useCallback(async (
     eventType: 'cta_click' | 'newsletter_signup' | 'comment_posted' | 'share_click',

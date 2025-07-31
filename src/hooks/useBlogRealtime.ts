@@ -4,6 +4,9 @@ import { useRealtimeSubscription } from './useRealtimeSubscription'
 import { blogQueryKeys } from './useBlog'
 import type { BlogPost, BlogComment, BlogAuthor } from '../types/blog'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import type { Database } from '../types/database'
+
+type Tables = Database['public']['Tables']
 
 /**
  * Hook to subscribe to new blog posts in real-time
@@ -186,10 +189,14 @@ export function useAuthorUpdates(authorId: string, options?: {
   const { enabled = true, onUpdate } = options || {}
 
   const handleUpdate = useCallback(
-    (payload: RealtimePostgresChangesPayload<BlogAuthor>) => {
-      if (payload.new) {
+    (payload: unknown) => {
+      const typedPayload = payload as RealtimePostgresChangesPayload<Tables['blog_authors']['Row']>
+      if (typedPayload.new) {
+        // Map database row to BlogAuthor type
+        const author = typedPayload.new as unknown as BlogAuthor
+        
         // Call custom handler if provided
-        onUpdate?.(payload.new as BlogAuthor)
+        onUpdate?.(author)
 
         // Invalidate author profile
         queryClient.invalidateQueries({ 
@@ -210,7 +217,7 @@ export function useAuthorUpdates(authorId: string, options?: {
     filter: `id=eq.${authorId}`,
     event: 'UPDATE',
     enabled: enabled && !!authorId,
-    onUpdate: handleUpdate as unknown, // Type mismatch between database Json and parsed AuthorSocialLinks
+    onUpdate: handleUpdate,
   })
 }
 
