@@ -78,14 +78,28 @@ export function parseCookies(cookieString: string): Record<string, string> {
 /**
  * Extract session from cookies
  */
-export function extractSessionFromCookies(cookies: string): AuthSession | null {
-  const sessionCookie = parseCookie(cookies, AUTH_COOKIE_NAME)
-  if (!sessionCookie) return null
+export function extractSessionFromCookies(cookieString: string): {
+  accessToken?: string
+  refreshToken?: string
+  sessionInfo?: AuthSession
+} {
+  const sessionCookie = parseCookie(cookieString, AUTH_COOKIE_NAME)
+  const refreshCookie = parseCookie(cookieString, REFRESH_COOKIE_NAME)
   
-  try {
-    return JSON.parse(sessionCookie) as AuthSession
-  } catch {
-    return null
+  let sessionInfo: AuthSession | null = null
+  
+  if (sessionCookie) {
+    try {
+      sessionInfo = JSON.parse(sessionCookie) as AuthSession
+    } catch {
+      sessionInfo = null
+    }
+  }
+  
+  return {
+    accessToken: sessionInfo?.access_token,
+    refreshToken: refreshCookie || sessionInfo?.refresh_token,
+    sessionInfo: sessionInfo ?? undefined
   }
 }
 
@@ -114,6 +128,7 @@ export function clearSessionCookies(): string[] {
 /**
  * Check if session is expired
  */
-export function isSessionExpired(session: AuthSession): boolean {
-  return Date.now() >= session.expires_at
+export function isSessionExpired(expiresAt: number | undefined): boolean {
+  if (!expiresAt) return true
+  return Date.now() >= expiresAt * 1000 // Convert to milliseconds if needed
 }

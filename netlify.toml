@@ -37,8 +37,8 @@
     # CSP without nonces for now
     Content-Security-Policy = """
       default-src 'none';
-      script-src 'self' https://js.stripe.com https://cdn.jsdelivr.net;
-      script-src-elem 'self' https://js.stripe.com https://cdn.jsdelivr.net;
+      script-src 'self' 'sha256-66ZvdR0I7fEN7ua+zcntNSaxEhwc53kXtZI7bWS/6Pg=' https://js.stripe.com https://cdn.jsdelivr.net;
+      script-src-elem 'self' 'sha256-66ZvdR0I7fEN7ua+zcntNSaxEhwc53kXtZI7bWS/6Pg=' https://js.stripe.com https://cdn.jsdelivr.net;
       script-src-attr 'none';
       style-src 'self' https://fonts.googleapis.com;
       style-src-elem 'self' https://fonts.googleapis.com;

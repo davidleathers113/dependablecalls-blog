@@ -13,17 +13,21 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * Blog-specific Supabase client optimized for client-side public operations
  * 
  * This client is separate from the main auth client and is configured to:
- * - Allow client-side session management with anon key
+ * - Disable auth to prevent multiple GoTrueClient instances
  * - Enable public data access for blog posts, categories, tags
- * - Maintain proper authentication context for RLS policies
- * - Use standard localStorage for session persistence
+ * - Use anon key for public operations only
  */
 const blogClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,      // Allow token refresh for long-lived sessions
-    persistSession: true,        // Enable session persistence in localStorage
-    detectSessionInUrl: false,   // Don't handle auth redirects (blog is public)
-    flowType: 'implicit',        // Simple flow for anon access
+    autoRefreshToken: false,     // Disable auth - use main client for auth
+    persistSession: false,       // No session management in blog client
+    detectSessionInUrl: false,   // Don't handle auth redirects
+    storage: {
+      // Disable auth storage to prevent conflicts
+      getItem: async () => null,
+      setItem: async () => {},
+      removeItem: async () => {},
+    },
   },
   db: {
     schema: 'public'             // Explicitly use public schema

@@ -58,8 +58,8 @@ export async function withAuth<T>(
     // First try to get token from cookies
     const cookieHeader = request.headers.cookie
     if (cookieHeader && typeof cookieHeader === 'string') {
-      const session = extractSessionFromCookies(cookieHeader)
-      const accessToken = session?.access_token
+      const sessionData = extractSessionFromCookies(cookieHeader)
+      const accessToken = sessionData?.accessToken
       if (accessToken) {
         token = accessToken
       }

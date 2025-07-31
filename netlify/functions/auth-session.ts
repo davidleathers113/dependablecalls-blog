@@ -32,8 +32,12 @@ export const handler: Handler = async (event) => {
   try {
     // Parse cookies from request
     const cookieHeader = event.headers.cookie || ''
-    const cookies = parseCookies(cookieHeader)
-    const { accessToken, refreshToken, sessionInfo } = extractSessionFromCookies(cookies)
+    
+    // Extract session data from parsed cookies
+    const sessionData = extractSessionFromCookies(cookieHeader)
+    const accessToken = sessionData?.accessToken
+    const refreshToken = sessionData?.refreshToken
+    const sessionInfo = sessionData?.sessionInfo
 
     if (!accessToken) {
       return {
