@@ -4,6 +4,7 @@
  */
 
 import { fromBlog as from } from '../../lib/supabase-blog'
+import { BlogMockDataService, shouldUseBlogMockData } from '../../lib/blog-mock-data'
 import type {
   BlogPost,
   BlogPostRow,
@@ -46,6 +47,32 @@ export class PostService {
    * Get paginated list of blog posts with filters
    */
   static async getPosts(params: GetBlogPostsParams): Promise<PaginatedResponse<BlogPost>> {
+    // Use mock data if environment requires it
+    if (shouldUseBlogMockData()) {
+      BlogMockDataService.logUsage('getPosts')
+      const mockResult = await BlogMockDataService.getBlogPosts({
+        limit: params.limit,
+        offset: params.page ? (params.page - 1) * (params.limit || 10) : 0,
+        status: params.filters?.status
+      })
+      
+      if (mockResult.error) {
+        throw new Error('Mock data error')
+      }
+
+      const posts = mockResult.data || []
+      return {
+        data: posts,
+        meta: {
+          page: params.page || 1,
+          limit: params.limit || 10,
+          total: posts.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      }
+    }
     const {
       page = 1,
       limit = 10,
@@ -241,6 +268,17 @@ export class PostService {
    * Get a single blog post by slug
    */
   static async getPost(params: GetBlogPostParams): Promise<BlogPost | null> {
+    // Use mock data if environment requires it
+    if (shouldUseBlogMockData()) {
+      BlogMockDataService.logUsage('getPost')
+      const mockResult = await BlogMockDataService.getBlogPost(params.slug)
+      
+      if (mockResult.error) {
+        return null
+      }
+
+      return mockResult.data
+    }
     const {
       slug,
       includeAuthor = true,

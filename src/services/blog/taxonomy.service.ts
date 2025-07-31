@@ -4,6 +4,7 @@
  */
 
 import { fromBlog as from } from '../../lib/supabase-blog'
+import { BlogMockDataService, shouldUseBlogMockData } from '../../lib/blog-mock-data'
 import type {
   BlogCategory,
   BlogTag,
@@ -35,6 +36,18 @@ export class TaxonomyService {
    * Get all categories
    */
   static async getCategories(): Promise<BlogCategory[]> {
+    // Use mock data if environment requires it
+    if (shouldUseBlogMockData()) {
+      BlogMockDataService.logUsage('getCategories')
+      const mockResult = await BlogMockDataService.getBlogCategories()
+      
+      if (mockResult.error) {
+        throw new Error('Mock data error')
+      }
+
+      return mockResult.data || []
+    }
+
     const { data, error } = await from('blog_categories')
       .select('*')
       .order('display_order', { ascending: true })
@@ -103,6 +116,18 @@ export class TaxonomyService {
    * Get all tags
    */
   static async getTags(): Promise<BlogTag[]> {
+    // Use mock data if environment requires it
+    if (shouldUseBlogMockData()) {
+      BlogMockDataService.logUsage('getTags')
+      const mockResult = await BlogMockDataService.getBlogTags()
+      
+      if (mockResult.error) {
+        throw new Error('Mock data error')
+      }
+
+      return mockResult.data || []
+    }
+
     const { data, error } = await from('blog_tags').select('*').order('name', { ascending: true })
 
     if (error) throw handleSupabaseError(error)
