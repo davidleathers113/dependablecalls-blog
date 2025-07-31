@@ -36,8 +36,8 @@
     # CSP without nonces for now
     Content-Security-Policy = """
       default-src 'none';
-      script-src 'self' 'sha256-+3GXJ2G3I/IXulZBI6geN6c88hWeJ4IS6Q5C8bT3emk=' https://js.stripe.com https://cdn.jsdelivr.net;
-      script-src-elem 'self' 'sha256-+3GXJ2G3I/IXulZBI6geN6c88hWeJ4IS6Q5C8bT3emk=' https://js.stripe.com https://cdn.jsdelivr.net;
+      script-src 'self' 'sha256-+3GXJ2G3I/IXulZBI6geN6c88hWeJ4IS6Q5C8bT3emk=' 'sha256-dRy9XVVc3Qx3hRSYIKd4ktuNScgC0o3fmtDvfJEEghA=' 'sha256-lSRcWmtKLJNa9VJDON8s86QIVcmOqu8ViEl0iVds88s=' https://js.stripe.com https://cdn.jsdelivr.net;
+      script-src-elem 'self' 'sha256-+3GXJ2G3I/IXulZBI6geN6c88hWeJ4IS6Q5C8bT3emk=' 'sha256-dRy9XVVc3Qx3hRSYIKd4ktuNScgC0o3fmtDvfJEEghA=' 'sha256-lSRcWmtKLJNa9VJDON8s86QIVcmOqu8ViEl0iVds88s=' https://js.stripe.com https://cdn.jsdelivr.net;
       script-src-attr 'none';
       style-src 'self' https://fonts.googleapis.com;
       style-src-elem 'self' https://fonts.googleapis.com;
