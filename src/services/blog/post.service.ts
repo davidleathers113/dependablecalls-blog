@@ -37,6 +37,37 @@ interface TagJoinResult {
   tag: BlogTag
 }
 
+// Type guard to check if data is a valid post with author
+function isRawPostWithAuthor(data: unknown): data is RawPostWithAuthor {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'id' in data &&
+    'title' in data &&
+    'slug' in data
+  )
+}
+
+// Type guard for category join results
+function isCategoryJoinResult(data: unknown): data is CategoryJoinResult {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'post_id' in data &&
+    'category' in data
+  )
+}
+
+// Type guard for tag join results
+function isTagJoinResult(data: unknown): data is TagJoinResult {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'post_id' in data &&
+    'tag' in data
+  )
+}
+
 export interface BulkStatusUpdate {
   postIds: string[]
   status: PostStatus
@@ -129,16 +160,48 @@ export class PostService {
         categoryQuery.eq('slug', filters.categorySlug)
       }
 
-      const { data: category } = await categoryQuery.single()
+      const { data: category, error: categoryError } = await categoryQuery.single()
+      
+      if (categoryError) {
+        // Category not found, skip filter
+        return {
+          data: [],
+          meta: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: page > 1,
+          },
+        }
+      }
 
       if (category) {
         // Get post IDs for this category
-        const { data: postIds } = await from('blog_post_categories')
+        const { data: postIds, error: postIdsError } = await from('blog_post_categories')
           .select('post_id')
           .eq('category_id', category.id)
         
+        if (postIdsError) {
+          throw handleSupabaseError(postIdsError)
+        }
+        
         if (postIds && postIds.length > 0) {
           query = query.in('id', postIds.map(p => p.post_id))
+        } else {
+          // No posts in this category, return empty result
+          return {
+            data: [],
+            meta: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPreviousPage: page > 1,
+            },
+          }
         }
       }
     }
@@ -153,16 +216,48 @@ export class PostService {
         tagQuery.eq('slug', filters.tagSlug)
       }
 
-      const { data: tag } = await tagQuery.single()
+      const { data: tag, error: tagError } = await tagQuery.single()
+      
+      if (tagError) {
+        // Tag not found, skip filter
+        return {
+          data: [],
+          meta: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: page > 1,
+          },
+        }
+      }
 
       if (tag) {
         // Get post IDs for this tag
-        const { data: postIds } = await from('blog_post_tags')
+        const { data: postIds, error: postIdsError } = await from('blog_post_tags')
           .select('post_id')
           .eq('tag_id', tag.id)
         
+        if (postIdsError) {
+          throw handleSupabaseError(postIdsError)
+        }
+        
         if (postIds && postIds.length > 0) {
           query = query.in('id', postIds.map(p => p.post_id))
+        } else {
+          // No posts with this tag, return empty result
+          return {
+            data: [],
+            meta: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPreviousPage: page > 1,
+            },
+          }
         }
       }
     }
@@ -194,8 +289,22 @@ export class PostService {
       }
     }
 
-    // Extract post IDs for batch loading
-    const postIds = (data as unknown as RawPostWithAuthor[]).map((post) => post.id)
+    // Extract post IDs for batch loading - validate data first
+    const validPosts = data.filter(isRawPostWithAuthor)
+    if (validPosts.length === 0) {
+      return {
+        data: [],
+        meta: {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit),
+          hasNextPage: false,
+          hasPreviousPage: page > 1,
+        },
+      }
+    }
+    const postIds = validPosts.map((post) => post.id)
 
     // Batch load categories and tags if requested
     const [categoryData, tagData] = await Promise.all([
@@ -320,32 +429,46 @@ export class PostService {
 
     // Load categories if requested
     if (includeCategories) {
-      const { data: categoryData } = await from('blog_post_categories')
+      const { data: categoryData, error: categoryError } = await from('blog_post_categories')
         .select('category:blog_categories(*)')
         .eq('post_id', (data as unknown as RawPostWithAuthor).id)
 
+      if (categoryError) {
+        throw handleSupabaseError(categoryError)
+      }
+
       blogPost.categories = (categoryData || [])
-        .map((item) => (item as unknown as CategoryJoinResult).category)
+        .map((item) => (item as unknown as { category: BlogCategory }).category)
         .filter(Boolean)
     }
 
     // Load tags if requested
     if (includeTags) {
-      const { data: tagData } = await from('blog_post_tags')
+      const { data: tagData, error: tagError } = await from('blog_post_tags')
         .select('tag:blog_tags(*)')
         .eq('post_id', (data as unknown as RawPostWithAuthor).id)
 
-      blogPost.tags = (tagData || []).map((item) => (item as unknown as TagJoinResult).tag).filter(Boolean)
+      if (tagError) {
+        throw handleSupabaseError(tagError)
+      }
+
+      blogPost.tags = (tagData || [])
+        .map((item) => (item as unknown as { tag: BlogTag }).tag)
+        .filter(Boolean)
     }
 
     // Load comments if requested
     if (includeComments) {
-      const { data: commentsData } = await from('blog_comments')
+      const { data: commentsData, error: commentsError } = await from('blog_comments')
         .select('*, user:users(id, email, username, avatar_url)')
         .eq('post_id', (data as unknown as RawPostWithAuthor).id)
         .eq('status', 'approved')
         .is('parent_id', null)
         .order('created_at', { ascending: true })
+
+      if (commentsError) {
+        throw handleSupabaseError(commentsError)
+      }
 
       blogPost.comments = commentsData || []
     }
@@ -374,30 +497,38 @@ export class PostService {
       .select()
       .single()
 
-    if (postError) throw postError
+    if (postError) throw handleSupabaseError(postError)
 
     // Generate human-readable slug from title
     const baseSlug = generateSlug(postData.title)
 
     // Check if the human-readable slug exists
-    const { data: existingPost } = await from('blog_posts')
+    const { data: existingPost, error: slugCheckError } = await from('blog_posts')
       .select('id')
       .eq('slug', baseSlug)
       .neq('id', post.id) // Exclude the post we just created
       .single()
+    
+    // For slug checks, PGRST116 (not found) is expected and not an error
+    if (slugCheckError && slugCheckError.code !== 'PGRST116') {
+      throw handleSupabaseError(slugCheckError)
+    }
 
     // Update with human-readable slug or append timestamp if it exists
     const finalSlug = ensureUniqueSlug(baseSlug, !!existingPost)
     
-    const { error: updateError } = await from('blog_posts')
+    const { data: updatedPost, error: updateError } = await from('blog_posts')
       .update({ slug: finalSlug })
       .eq('id', post.id)
+      .select()
+      .single()
 
     if (updateError) {
       // If update fails, post still exists with UUID slug
       console.error('Failed to update slug:', updateError)
-    } else {
-      post.slug = finalSlug
+    } else if (updatedPost) {
+      // Update the post object with the returned data
+      post.slug = updatedPost.slug
     }
 
     // Add categories
@@ -409,7 +540,7 @@ export class PostService {
         }))
       )
 
-      if (catError) throw catError
+      if (catError) throw handleSupabaseError(catError)
     }
 
     // Add tags
@@ -421,7 +552,7 @@ export class PostService {
         }))
       )
 
-      if (tagError) throw tagError
+      if (tagError) throw handleSupabaseError(tagError)
     }
 
     // Return post with full relationships
@@ -451,7 +582,7 @@ export class PostService {
       .select()
       .single()
 
-    if (postError) throw postError
+    if (postError) throw handleSupabaseError(postError)
 
     // Update categories if provided
     if (categoryIds !== undefined) {
@@ -467,7 +598,7 @@ export class PostService {
           }))
         )
 
-        if (catError) throw catError
+        if (catError) throw handleSupabaseError(catError)
       }
     }
 
@@ -485,7 +616,7 @@ export class PostService {
           }))
         )
 
-        if (tagError) throw tagError
+        if (tagError) throw handleSupabaseError(tagError)
       }
     }
 
@@ -692,49 +823,49 @@ export class PostService {
    */
   static async getSimilarPosts(postId: string, limit = 5): Promise<BlogPost[]> {
     // First get the post's embedding
-    const { data: post } = await from('blog_posts').select('embedding').eq('id', postId).single()
+    const { data: post, error: postError } = await from('blog_posts').select('embedding').eq('id', postId).single()
 
-    if (!post?.embedding) return []
+    if (postError || !post?.embedding) return []
 
     // Manual similarity search since RPC is not available
     // For now, return posts from the same categories
-    const { data: categoryData } = await from('blog_post_categories')
+    const { data: categoryData, error: categoryError } = await from('blog_post_categories')
       .select('category_id')
       .eq('post_id', postId)
 
-    if (!categoryData || categoryData.length === 0) return []
+    if (categoryError || !categoryData || categoryData.length === 0) return []
 
     const categoryIds = categoryData.map(c => c.category_id)
 
     // Find other posts in the same categories
-    const { data: relatedPostIds } = await from('blog_post_categories')
+    const { data: relatedPostIds, error: relatedError } = await from('blog_post_categories')
       .select('post_id')
       .in('category_id', categoryIds)
       .neq('post_id', postId)
       .limit(limit * 2) // Get more to ensure we have enough unique posts
 
-    if (!relatedPostIds || relatedPostIds.length === 0) return []
+    if (relatedError || !relatedPostIds || relatedPostIds.length === 0) return []
 
     // Get unique post IDs
     const uniquePostIds = Array.from(new Set(relatedPostIds.map(r => r.post_id))).slice(0, limit)
     
-    const { data: similarPosts } = await from('blog_posts')
+    const { data: similarPosts, error: similarError } = await from('blog_posts')
       .select('*')
       .in('id', uniquePostIds)
       .eq('status', 'published')
     
-    if (!similarPosts || similarPosts.length === 0) return []
+    if (similarError || !similarPosts || similarPosts.length === 0) return []
 
     // Load full relationships for similar posts
     const postsWithRelations = await Promise.all(
       similarPosts.map(async (post: BlogPostRow) => {
         // Get full post data with author
-        const { data: fullPost } = await from('blog_posts')
+        const { data: fullPost, error: fullPostError } = await from('blog_posts')
           .select('*, author:blog_authors(*)')
           .eq('id', post.id)
           .single()
 
-        if (!fullPost) return null
+        if (fullPostError || !fullPost) return null
 
         const blogPost: BlogPost = {
           ...(fullPost as unknown as RawPostWithAuthor),
@@ -744,18 +875,28 @@ export class PostService {
         }
 
         // Load categories
-        const { data: categoryData } = await from('blog_post_categories')
+        const { data: categoryData, error: categoryError } = await from('blog_post_categories')
           .select('category:blog_categories(*)')
           .eq('post_id', post.id)
+
+        if (categoryError) {
+          // Log error but don't fail the entire operation
+          console.warn('Failed to load categories for post:', post.id, categoryError)
+        }
 
         blogPost.categories = (categoryData || [])
           .map((item) => (item as unknown as { category: BlogCategory }).category)
           .filter(Boolean)
 
         // Load tags
-        const { data: tagData } = await from('blog_post_tags')
+        const { data: tagData, error: tagError } = await from('blog_post_tags')
           .select('tag:blog_tags(*)')
           .eq('post_id', post.id)
+
+        if (tagError) {
+          // Log error but don't fail the entire operation
+          console.warn('Failed to load tags for post:', post.id, tagError)
+        }
 
         blogPost.tags = (tagData || [])
           .map((item) => (item as unknown as { tag: BlogTag }).tag)

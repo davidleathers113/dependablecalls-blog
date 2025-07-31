@@ -5,9 +5,12 @@ import type { Database } from '../types/database-extended'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+// Check if we're using placeholder/mock configuration
+const isPlaceholderConfig = !supabaseUrl || 
+  !supabaseAnonKey ||
+  supabaseUrl.includes('your-project.supabase.co') ||
+  supabaseUrl === 'your_supabase_url' ||
+  supabaseAnonKey === 'your_supabase_anon_key'
 
 /**
  * Blog-specific Supabase client optimized for client-side public operations
@@ -17,7 +20,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * - Enable public data access for blog posts, categories, tags
  * - Use anon key for public operations only
  */
-const blogClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+const blogClient = isPlaceholderConfig ? null : createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,     // Disable auth - use main client for auth
     persistSession: false,       // No session management in blog client
@@ -50,7 +53,12 @@ const blogClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
  */
 export const fromBlog = <T extends keyof Database['public']['Tables']>(
   table: T
-) => blogClient.from(table)
+) => {
+  if (!blogClient) {
+    throw new Error('Blog database not available - using mock data mode')
+  }
+  return blogClient.from(table)
+}
 
 /**
  * Call blog-related stored procedures/functions
@@ -59,30 +67,68 @@ export const fromBlog = <T extends keyof Database['public']['Tables']>(
 export const rpcBlog = <T extends keyof Database['public']['Functions']>(
   fn: T,
   args?: Database['public']['Functions'][T]['Args']
-) => blogClient.rpc(fn, args)
+) => {
+  if (!blogClient) {
+    throw new Error('Blog database not available - using mock data mode')
+  }
+  return blogClient.rpc(fn, args)
+}
 
 /**
  * Create realtime channels for blog updates
  * Used for live comment updates, post view counts, etc.
  */
-export const channelBlog = (name: string) => blogClient.channel(name)
+export const channelBlog = (name: string) => {
+  if (!blogClient) {
+    throw new Error('Blog database not available - using mock data mode')
+  }
+  return blogClient.channel(name)
+}
 
 /**
  * Remove realtime channels
  */
-export const removeChannelBlog = (channel: ReturnType<typeof blogClient.channel>) => blogClient.removeChannel(channel)
+export const removeChannelBlog = (channel: Parameters<NonNullable<typeof blogClient>['removeChannel']>[0]) => {
+  if (!blogClient) {
+    throw new Error('Blog database not available - using mock data mode')
+  }
+  return blogClient.removeChannel(channel)
+}
 
 /**
  * Get current session info (mainly for debugging)
  * Blog client should always use anon session
  */
-export const getBlogSession = () => blogClient.auth.getSession()
+export const getBlogSession = () => {
+  if (!blogClient) {
+    throw new Error('Blog database not available - using mock data mode')
+  }
+  return blogClient.auth.getSession()
+}
 
 /**
  * Export the blog client for cases where direct access is needed
  * Use sparingly to maintain abstraction benefits
  */
 export const supabaseBlog = blogClient
+
+/**
+ * Check if we're using placeholder configuration
+ */
+export const isUsingBlogPlaceholder = isPlaceholderConfig
+
+/**
+ * Helper that throws at call-site rather than on import
+ * This prevents module-load crashes when env vars are missing
+ */
+export function assertBlogClient() {
+  if (!supabaseBlog) {
+    throw new Error(
+      'Supabase blog client not initialized - check env variables VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY'
+    )
+  }
+  return supabaseBlog
+}
 
 // Type exports
 export type { Database }

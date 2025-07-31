@@ -27,6 +27,17 @@ export class AnalyticsService {
         .match({ ...baseFilter, status: 'draft' })
     ])
 
+    // Check for errors and extract counts
+    if (totalResult.error) {
+      throw new Error(`Failed to get total posts count: ${totalResult.error.message}`)
+    }
+    if (publishedResult.error) {
+      throw new Error(`Failed to get published posts count: ${publishedResult.error.message}`)
+    }
+    if (draftResult.error) {
+      throw new Error(`Failed to get draft posts count: ${draftResult.error.message}`)
+    }
+
     const totalPosts = totalResult.count || 0
     const publishedPosts = publishedResult.count || 0
     const draftPosts = draftResult.count || 0
@@ -34,14 +45,28 @@ export class AnalyticsService {
     // Get view count and reading time aggregations
     // Note: Supabase doesn't support SUM/AVG directly, so we need to use RPC or a workaround
     // For now, we'll fetch a limited sample for statistics
-    const { data: samplePosts } = await from('blog_posts')
+    const samplePostsResult = await from('blog_posts')
       .select('view_count, reading_time_minutes')
       .match(baseFilter)
       .limit(1000) // Reasonable sample size
 
-    const totalViews = samplePosts?.reduce((sum, p) => sum + (p.view_count || 0), 0) || 0
-    const avgReadingTime = samplePosts?.length 
-      ? samplePosts.reduce((sum, p) => sum + (p.reading_time_minutes || 0), 0) / samplePosts.length
+    if (samplePostsResult.error) {
+      throw new Error(`Failed to get sample posts: ${samplePostsResult.error.message}`)
+    }
+
+    const samplePosts = samplePostsResult.data || []
+
+    // Calculate totals with proper type checking
+    const totalViews = samplePosts.reduce((sum, post) => {
+      const viewCount = post.view_count
+      return sum + (typeof viewCount === 'number' ? viewCount : 0)
+    }, 0)
+
+    const avgReadingTime = samplePosts.length 
+      ? samplePosts.reduce((sum, post) => {
+          const readingTime = post.reading_time_minutes
+          return sum + (typeof readingTime === 'number' ? readingTime : 0)
+        }, 0) / samplePosts.length
       : 0
 
     // Get comment count
@@ -51,23 +76,39 @@ export class AnalyticsService {
 
     // If authorId is specified, we need to filter comments by posts from this author
     if (authorId) {
-      const { data: authorPostIds } = await from('blog_posts')
+      const authorPostsResult = await from('blog_posts')
         .select('id')
         .eq('author_id', authorId)
       
-      if (authorPostIds && authorPostIds.length > 0) {
-        commentQuery = commentQuery.in('post_id', authorPostIds.map(p => p.id))
+      if (authorPostsResult.error) {
+        throw new Error(`Failed to get author posts: ${authorPostsResult.error.message}`)
+      }
+
+      const authorPostIds = authorPostsResult.data || []
+      
+      if (authorPostIds.length > 0) {
+        const postIds = authorPostIds.map(post => {
+          if (typeof post.id === 'string') {
+            return post.id
+          }
+          throw new Error('Invalid post ID type in author posts query')
+        })
+        commentQuery = commentQuery.in('post_id', postIds)
       }
     }
 
-    const { count: totalComments } = await commentQuery
+    const commentResult = await commentQuery
+
+    if (commentResult.error) {
+      throw new Error(`Failed to get comment count: ${commentResult.error.message}`)
+    }
 
     return {
       totalPosts,
       publishedPosts,
       draftPosts,
       totalViews,
-      totalComments: totalComments || 0,
+      totalComments: commentResult.count || 0,
       avgReadingTime: Math.round(avgReadingTime),
     }
   }

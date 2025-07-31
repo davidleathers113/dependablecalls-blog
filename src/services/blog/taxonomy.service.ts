@@ -8,7 +8,6 @@ import { BlogMockDataService, shouldUseBlogMockData } from '../../lib/blog-mock-
 import type {
   BlogCategory,
   BlogTag,
-  BlogTagRow,
   PopularTag,
 } from '../../types/blog'
 import { handleSupabaseError } from '../../lib/supabase-utils'
@@ -54,7 +53,7 @@ export class TaxonomyService {
 
     if (error) throw handleSupabaseError(error)
 
-    return data || []
+    return (data as BlogCategory[]) || []
   }
 
   /**
@@ -65,7 +64,7 @@ export class TaxonomyService {
 
     if (error) return null
 
-    return data
+    return data as BlogCategory | null
   }
 
   /**
@@ -97,7 +96,7 @@ export class TaxonomyService {
 
           results.successful.push(update)
           results.successCount++
-        } catch (error) {
+        } catch (error: unknown) {
           results.failed.push({
             operation: 'update',
             itemId: update.id,
@@ -132,7 +131,7 @@ export class TaxonomyService {
 
     if (error) throw handleSupabaseError(error)
 
-    return data || []
+    return (data as BlogTag[]) || []
   }
 
   /**
@@ -143,7 +142,7 @@ export class TaxonomyService {
 
     if (error) return null
 
-    return data
+    return data as BlogTag | null
   }
 
   /**
@@ -173,7 +172,7 @@ export class TaxonomyService {
 
           results.successful.push(update)
           results.successCount++
-        } catch (error) {
+        } catch (error: unknown) {
           results.failed.push({
             operation: 'update',
             itemId: update.id,
@@ -192,25 +191,43 @@ export class TaxonomyService {
    * Get popular tags based on usage count
    */
   static async getPopularTags(limit = 10): Promise<PopularTag[]> {
-    // Fallback to manual query since RPC function is not available yet
-    const { data: tagData, error } = await from('blog_tags')
-      .select(
-        `
-        *,
-        blog_post_tags(count)
-      `
-      )
+    // Simple approach: get all tags and count their usage manually
+    // This avoids complex join queries that may not work with current schema
+    const { data: tagData, error: tagError } = await from('blog_tags')
+      .select('*')
       .limit(limit)
 
-    if (error) throw handleSupabaseError(error)
+    if (tagError) throw handleSupabaseError(tagError)
 
-    return (tagData || []).map((tag) => ({
-      id: tag.id,
-      name: tag.name,
-      slug: tag.slug,
-      count:
-        (tag as BlogTagRow & { blog_post_tags?: { count: number }[] }).blog_post_tags?.[0]
-          ?.count || 0,
-    }))
+    if (!tagData) return []
+
+    // For each tag, count how many times it's used
+    const tagsWithCounts = await Promise.all(
+      (tagData as BlogTag[]).map(async (tag) => {
+        const { count, error: countError } = await from('blog_post_tags')
+          .select('*', { count: 'exact', head: true })
+          .eq('tag_id', tag.id)
+
+        if (countError) {
+          // If count fails, default to 0
+          return {
+            id: tag.id,
+            name: tag.name,
+            slug: tag.slug,
+            count: 0,
+          }
+        }
+
+        return {
+          id: tag.id,
+          name: tag.name,
+          slug: tag.slug,
+          count: count || 0,
+        }
+      })
+    )
+
+    // Sort by count descending and return
+    return tagsWithCounts.sort((a, b) => b.count - a.count)
   }
 }

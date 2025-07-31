@@ -6,12 +6,14 @@
 import { fromBlog as from } from '../../lib/supabase-blog'
 import type {
   BlogComment,
+  BlogCommentRow,
   CreateCommentData,
   ModerateCommentData,
   GetCommentsParams,
   PaginatedResponse,
 } from '../../types/blog'
 import { handleSupabaseError } from '../../lib/supabase-utils'
+import type { PostgrestResponse } from '@supabase/supabase-js'
 
 export class CommentService {
   /**
@@ -48,12 +50,29 @@ export class CommentService {
 
     query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
 
-    const { data, error, count } = await query
+    const result: PostgrestResponse<BlogComment> = await query
+    const { data, error, count } = result
 
     if (error) throw handleSupabaseError(error)
 
+    // Type guard to ensure data is properly typed
+    const validatedData: BlogComment[] = (data || []).map(item => {
+      // Ensure the item has the required BlogComment structure
+      const comment: BlogComment = {
+        ...item as BlogCommentRow,
+        user: item.user ? {
+          id: item.user.id,
+          email: item.user.email,
+          username: item.user.username || undefined,
+          avatar_url: item.user.avatar_url || undefined,
+        } : undefined,
+        replies: item.replies || undefined,
+      }
+      return comment
+    })
+
     return {
-      data: data || [],
+      data: validatedData,
       meta: {
         page,
         limit,
@@ -69,7 +88,7 @@ export class CommentService {
    * Create a new comment
    */
   static async createComment(data: CreateCommentData): Promise<BlogComment> {
-    const { data: comment, error } = await from('blog_comments')
+    const result = await from('blog_comments')
       .insert({
         ...data,
         status: 'pending', // All new comments start as pending
@@ -77,26 +96,58 @@ export class CommentService {
       .select('*, user:users(id, email, username, avatar_url)')
       .single()
 
-    if (error) throw handleSupabaseError(error)
+    const { data: comment, error } = result
 
-    return comment
+    if (error) throw handleSupabaseError(error)
+    if (!comment) {
+      throw handleSupabaseError(new Error('Failed to create comment - no data returned'))
+    }
+
+    // Type assertion with validation
+    const validatedComment: BlogComment = {
+      ...comment as BlogCommentRow,
+      user: comment.user ? {
+        id: comment.user.id,
+        email: comment.user.email,
+        username: comment.user.username || undefined,
+        avatar_url: comment.user.avatar_url || undefined,
+      } : undefined,
+    }
+
+    return validatedComment
   }
 
   /**
    * Moderate a comment
    */
   static async moderateComment(data: ModerateCommentData): Promise<BlogComment> {
-    const { data: comment, error } = await from('blog_comments')
+    const result = await from('blog_comments')
       .update({
         status: data.status,
         updated_at: new Date().toISOString(),
       })
       .eq('id', data.id)
-      .select()
+      .select('*, user:users(id, email, username, avatar_url)')
       .single()
 
-    if (error) throw handleSupabaseError(error)
+    const { data: comment, error } = result
 
-    return comment
+    if (error) throw handleSupabaseError(error)
+    if (!comment) {
+      throw handleSupabaseError(new Error('Failed to moderate comment - no data returned'))
+    }
+
+    // Type assertion with validation
+    const validatedComment: BlogComment = {
+      ...comment as BlogCommentRow,
+      user: comment.user ? {
+        id: comment.user.id,
+        email: comment.user.email,
+        username: comment.user.username || undefined,
+        avatar_url: comment.user.avatar_url || undefined,
+      } : undefined,
+    }
+
+    return validatedComment
   }
 }
