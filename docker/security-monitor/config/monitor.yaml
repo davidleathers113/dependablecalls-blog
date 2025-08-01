@@ -31,9 +31,6 @@ file_change_threshold: 100   # Number of file changes per interval
 allowed_ports:
   - 80    # HTTP
   - 443   # HTTPS
-  - 3000  # Development server
-  - 4173  # Vite preview
-  - 5173  # Vite dev server
   - 6379  # Redis
   - 8080  # Alternative HTTP
 

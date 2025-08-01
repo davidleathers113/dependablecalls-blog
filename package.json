@@ -39,8 +39,8 @@
     "security:monitor": "snyk monitor",
     "security:fix": "snyk fix",
     "security:audit": "npm audit --audit-level=moderate",
-    "security:licenses": "license-checker --summary --excludePrivatePackages",
-    "security:sbom": "cyclonedx-npm --output ./sbom.json",
+    "security:licenses": "license-report --output=table --summary",
+    "security:sbom": "cyclonedx-npm --output-file ./sbom.json",
     "security:zap": "node scripts/security/run-zap-scan.js",
     "security:zap:quick": "node scripts/security/run-zap-scan.js --scanType quick",
     "security:zap:standard": "node scripts/security/run-zap-scan.js --scanType standard",
@@ -173,7 +173,6 @@
     "@supabase/supabase-js": "^2.52.0",
     "@tanstack/react-query": "^5.83.0",
     "@types/express": "^5.0.3",
-    "@types/ioredis": "^5.0.0",
     "@types/lodash": "^4.17.20",
     "@types/uuid": "^10.0.0",
     "axios": "^1.10.0",
@@ -197,7 +196,7 @@
   },
   "devDependencies": {
     "@babel/preset-react": "^7.27.1",
-    "@cyclonedx/cyclonedx-npm": "^1.19.3",
+    "@cyclonedx/cyclonedx-npm": "^4.0.0",
     "@eslint/js": "^9.30.1",
     "@netlify/functions": "^4.2.1",
     "@playwright/test": "^1.54.1",
@@ -221,7 +220,7 @@
     "globals": "^16.3.0",
     "husky": "^9.1.7",
     "jsdom": "^26.1.0",
-    "license-checker": "^25.0.1",
+    "license-report": "^6.8.0",
     "lint-staged": "^16.1.2",
     "npm-check-updates": "^17.1.12",
     "postcss": "^8.5.6",
@@ -248,5 +247,10 @@
     "**/*": [
       "node scripts/pre-commit-secret-scan.js"
     ]
+  },
+  "overrides": {
+    "tar-fs": "^3.0.9",
+    "ws": "^8.18.3",
+    "nanoid": "^5.0.9"
   }
 }

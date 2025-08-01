@@ -62,3 +62,23 @@ SUPABASE_SERVICE_ROLE_KEY*
 
 
 .early.coverage
+
+# Build artifacts to prevent root clutter
+*.zip
+repomix-output.xml
+type-coverage-report.json
+sbom.json
+
+# Backup files
+*.backup
+*.bak
+vite.config.*.backup
+
+# PM oversight logs
+pm-oversight-logs/
+
+# Type coverage cache
+.type-coverage/
+
+# Python cache (shouldn't be in TypeScript project)
+.mypy_cache/
