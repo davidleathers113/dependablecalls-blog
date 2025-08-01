@@ -1,46 +1,18 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from './supabase'
 import type { Database } from '../types/database-extended'
 
-// Environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-// Check if we're using placeholder/mock configuration
-const isPlaceholderConfig = !supabaseUrl || 
-  !supabaseAnonKey ||
-  supabaseUrl.includes('your-project.supabase.co') ||
-  supabaseUrl === 'your_supabase_url' ||
-  supabaseAnonKey === 'your_supabase_anon_key'
-
 /**
- * Blog-specific Supabase client optimized for client-side public operations
+ * Blog-specific Supabase client that reuses the main Supabase client instance
  * 
- * This client is separate from the main auth client and is configured to:
- * - Disable auth to prevent multiple GoTrueClient instances
- * - Enable public data access for blog posts, categories, tags
- * - Use anon key for public operations only
+ * This approach prevents multiple Supabase client instances while maintaining:
+ * - Blog-specific error handling and mock data fallback
+ * - Public data access for blog posts, categories, tags
+ * - Separation of concerns between auth and blog operations
+ * 
+ * Note: The main client's auth configuration is preserved, but blog operations
+ * are designed to work with public/anon access patterns only.
  */
-const blogClient = isPlaceholderConfig ? null : createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,     // Disable auth - use main client for auth
-    persistSession: false,       // No session management in blog client
-    detectSessionInUrl: false,   // Don't handle auth redirects
-    storage: {
-      // Disable auth storage to prevent conflicts
-      getItem: async () => null,
-      setItem: async () => {},
-      removeItem: async () => {},
-    },
-  },
-  db: {
-    schema: 'public'             // Explicitly use public schema
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'dce-blog-client'  // Identify requests from blog client
-    }
-  }
-})
+const blogClient = supabase
 
 /**
  * Blog-specific database query helpers
@@ -114,8 +86,9 @@ export const supabaseBlog = blogClient
 
 /**
  * Check if we're using placeholder configuration
+ * Uses the same logic as the main Supabase client
  */
-export const isUsingBlogPlaceholder = isPlaceholderConfig
+export const isUsingBlogPlaceholder = !supabase
 
 /**
  * Helper that throws at call-site rather than on import
