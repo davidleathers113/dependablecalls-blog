@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
 import type { BlogPostFilters, BlogPostSort, CreateBlogPostData } from '../types/blog'
+import type { ModalState, StateMachine } from './utils/stateMachines'
+import { createModalStateMachine, createEnhancedModalActions } from './utils/stateMachines'
 
 interface BlogEditorState {
   // Draft post data
@@ -63,12 +65,9 @@ interface BlogUIState {
   showFilters: boolean
   showMetrics: boolean
 
-  // Modal states
-  isCreateModalOpen: boolean
-  isEditModalOpen: boolean
-  editingPostId: string | null
-  isDeleteModalOpen: boolean
-  deletingPostId: string | null
+  // Modal state machine (replaces boolean flags)
+  modalState: ModalState
+  modalStateMachine: StateMachine<ModalState>
 
   // Feature toggles
   enableComments: boolean
@@ -79,12 +78,14 @@ interface BlogUIState {
   setViewMode: (mode: 'grid' | 'list' | 'compact') => void
   toggleFilters: () => void
   toggleMetrics: () => void
-  openCreateModal: () => void
+  // Enhanced modal actions using state machine
+  openCreateModal: (entityType?: string) => void
   closeCreateModal: () => void
-  openEditModal: (postId: string) => void
+  openEditModal: (postId: string, isDirty?: boolean) => void
   closeEditModal: () => void
-  openDeleteModal: (postId: string) => void
+  openDeleteModal: (postId: string, cascadeDelete?: boolean) => void
   closeDeleteModal: () => void
+  rollbackModal: () => boolean
   setEnableComments: (enabled: boolean) => void
   setEnableRealtime: (enabled: boolean) => void
   setShowDrafts: (show: boolean) => void
@@ -242,11 +243,8 @@ export const useBlogUIStore = create<BlogUIState>()(
       viewMode: 'grid',
       showFilters: true,
       showMetrics: true,
-      isCreateModalOpen: false,
-      isEditModalOpen: false,
-      editingPostId: null,
-      isDeleteModalOpen: false,
-      deletingPostId: null,
+      modalState: { type: null },
+      modalStateMachine: createModalStateMachine(),
       enableComments: true,
       enableRealtime: true,
       showDrafts: false,
@@ -264,33 +262,61 @@ export const useBlogUIStore = create<BlogUIState>()(
           showMetrics: !state.showMetrics,
         })),
 
-      openCreateModal: () => set({ isCreateModalOpen: true }),
+      openCreateModal: (entityType = 'blog_post') => {
+        const modalActions = createEnhancedModalActions((updater) => {
+          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
+          set({ modalState: newState })
+        }, get().modalStateMachine)
+        modalActions.openCreateModal(entityType)
+      },
 
-      closeCreateModal: () => set({ isCreateModalOpen: false }),
+      closeCreateModal: () => {
+        const modalActions = createEnhancedModalActions((updater) => {
+          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
+          set({ modalState: newState })
+        }, get().modalStateMachine)
+        modalActions.closeModal()
+      },
 
-      openEditModal: (postId) =>
-        set({
-          isEditModalOpen: true,
-          editingPostId: postId,
-        }),
+      openEditModal: (postId: string, isDirty = false) => {
+        const modalActions = createEnhancedModalActions((updater) => {
+          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
+          set({ modalState: newState })
+        }, get().modalStateMachine)
+        modalActions.openEditModal(postId, 'blog_post', isDirty)
+      },
 
-      closeEditModal: () =>
-        set({
-          isEditModalOpen: false,
-          editingPostId: null,
-        }),
+      closeEditModal: () => {
+        const modalActions = createEnhancedModalActions((updater) => {
+          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
+          set({ modalState: newState })
+        }, get().modalStateMachine)
+        modalActions.closeModal()
+      },
 
-      openDeleteModal: (postId) =>
-        set({
-          isDeleteModalOpen: true,
-          deletingPostId: postId,
-        }),
+      openDeleteModal: (postId: string, cascadeDelete = false) => {
+        const modalActions = createEnhancedModalActions((updater) => {
+          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
+          set({ modalState: newState })
+        }, get().modalStateMachine)
+        modalActions.openDeleteModal(postId, 'blog_post', cascadeDelete)
+      },
 
-      closeDeleteModal: () =>
-        set({
-          isDeleteModalOpen: false,
-          deletingPostId: null,
-        }),
+      closeDeleteModal: () => {
+        const modalActions = createEnhancedModalActions((updater) => {
+          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
+          set({ modalState: newState })
+        }, get().modalStateMachine)
+        modalActions.closeModal()
+      },
+
+      rollbackModal: () => {
+        const modalActions = createEnhancedModalActions((updater) => {
+          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
+          set({ modalState: newState })
+        }, get().modalStateMachine)
+        return modalActions.rollbackModal()
+      },
 
       setEnableComments: (enabled) => set({ enableComments: enabled }),
 
@@ -344,8 +370,24 @@ export const blogSelectors = {
     return count
   },
 
-  // UI selectors
+  // UI selectors using state machine
   hasOpenModals: (state: BlogUIState) => {
-    return state.isCreateModalOpen || state.isEditModalOpen || state.isDeleteModalOpen
+    return state.modalState.type !== null
+  },
+  getActiveModal: (state: BlogUIState) => {
+    return state.modalState.type
+  },
+
+  // Backward compatibility selectors (deprecated)
+  isCreateModalOpen: (state: BlogUIState) => state.modalState.type === 'create',
+  isEditModalOpen: (state: BlogUIState) => state.modalState.type === 'edit',
+  isDeleteModalOpen: (state: BlogUIState) => state.modalState.type === 'delete',
+  editingPostId: (state: BlogUIState) => {
+    const modalState = state.modalState
+    return modalState.type === 'edit' ? modalState.id : null
+  },
+  deletingPostId: (state: BlogUIState) => {
+    const modalState = state.modalState
+    return modalState.type === 'delete' ? modalState.id : null
   },
 }
