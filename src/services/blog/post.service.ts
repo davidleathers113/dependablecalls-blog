@@ -103,9 +103,9 @@ export class PostService {
       const mockResult = await BlogMockDataService.getBlogPosts({
         limit: params.limit,
         offset: params.page ? (params.page - 1) * (params.limit || 10) : 0,
-        status: params.filters?.status
+        status: params.filters?.status,
       })
-      
+
       if (mockResult.error) {
         throw new Error('Mock data error')
       }
@@ -180,7 +180,7 @@ export class PostService {
       }
 
       const { data: category, error: categoryError } = await categoryQuery.single()
-      
+
       if (categoryError) {
         // Category not found, skip filter
         return {
@@ -201,13 +201,16 @@ export class PostService {
         const { data: postIds, error: postIdsError } = await from('blog_post_categories')
           .select('post_id')
           .eq('category_id', category.id)
-        
+
         if (postIdsError) {
           throw handleSupabaseError(postIdsError)
         }
-        
+
         if (postIds && postIds.length > 0) {
-          query = query.in('id', postIds.map(p => p.post_id))
+          query = query.in(
+            'id',
+            postIds.map((p: { post_id: string }) => p.post_id)
+          )
         } else {
           // No posts in this category, return empty result
           return {
@@ -236,7 +239,7 @@ export class PostService {
       }
 
       const { data: tag, error: tagError } = await tagQuery.single()
-      
+
       if (tagError) {
         // Tag not found, skip filter
         return {
@@ -257,13 +260,16 @@ export class PostService {
         const { data: postIds, error: postIdsError } = await from('blog_post_tags')
           .select('post_id')
           .eq('tag_id', tag.id)
-        
+
         if (postIdsError) {
           throw handleSupabaseError(postIdsError)
         }
-        
+
         if (postIds && postIds.length > 0) {
-          query = query.in('id', postIds.map(p => p.post_id))
+          query = query.in(
+            'id',
+            postIds.map((p: { post_id: string }) => p.post_id)
+          )
         } else {
           // No posts with this tag, return empty result
           return {
@@ -322,7 +328,7 @@ export class PostService {
         },
       }
     }
-    
+
     const validPosts = data.filter(isRawPostWithAuthor) as unknown as RawPostWithAuthor[]
     if (validPosts.length === 0) {
       return {
@@ -337,8 +343,8 @@ export class PostService {
         },
       }
     }
-    
-    const postIds = validPosts.map(post => post.id)
+
+    const postIds = validPosts.map((post) => post.id)
 
     // Batch load categories and tags if requested
     const [categoryData, tagData] = await Promise.all([
@@ -348,9 +354,7 @@ export class PostService {
             .in('post_id', postIds)
         : Promise.resolve({ data: [] }),
       includeTags
-        ? from('blog_post_tags')
-            .select('post_id, tag:blog_tags(*)')
-            .in('post_id', postIds)
+        ? from('blog_post_tags').select('post_id, tag:blog_tags(*)').in('post_id', postIds)
         : Promise.resolve({ data: [] }),
     ])
 
@@ -391,7 +395,7 @@ export class PostService {
     }
 
     // Map posts with their relationships
-    const posts: BlogPost[] = validPosts.map(post => ({
+    const posts: BlogPost[] = validPosts.map((post) => ({
       ...post,
       author: post.author || undefined,
       categories: categoriesByPostId.get(post.id) || [],
@@ -419,7 +423,7 @@ export class PostService {
     if (shouldUseBlogMockData()) {
       BlogMockDataService.logUsage('getPost')
       const mockResult = await BlogMockDataService.getBlogPost(params.slug)
-      
+
       if (mockResult.error) {
         return null
       }
@@ -481,7 +485,7 @@ export class PostService {
       }
 
       blogPost.categories = (categoryData || [])
-        .map((item) => (item as unknown as { category: BlogCategory }).category)
+        .map((item: unknown) => (item as unknown as { category: BlogCategory }).category)
         .filter(Boolean)
     }
 
@@ -496,7 +500,7 @@ export class PostService {
       }
 
       blogPost.tags = (tagData || [])
-        .map((item) => (item as unknown as { tag: BlogTag }).tag)
+        .map((item: unknown) => (item as unknown as { tag: BlogTag }).tag)
         .filter(Boolean)
     }
 
@@ -551,7 +555,7 @@ export class PostService {
       .eq('slug', baseSlug)
       .neq('id', post.id) // Exclude the post we just created
       .single()
-    
+
     // For slug checks, PGRST116 (not found) is expected and not an error
     if (slugCheckError && slugCheckError.code !== 'PGRST116') {
       throw handleSupabaseError(slugCheckError)
@@ -559,7 +563,7 @@ export class PostService {
 
     // Update with human-readable slug or append timestamp if it exists
     const finalSlug = ensureUniqueSlug(baseSlug, !!existingPost)
-    
+
     const { data: updatedPost, error: updateError } = await from('blog_posts')
       .update({ slug: finalSlug })
       .eq('id', post.id)
@@ -766,7 +770,7 @@ export class PostService {
       }
     } else {
       // Mark all successful
-      results.successful = data.map((item) => item.id)
+      results.successful = data.map((item: { id: string }) => item.id)
       results.successCount = data.length
 
       // Find failed items
@@ -809,21 +813,19 @@ export class PostService {
     if (!Array.isArray(data)) {
       return []
     }
-    
+
     const validPosts = data.filter(isRawPostWithAuthor) as unknown as RawPostWithAuthor[]
     if (validPosts.length === 0) {
       return []
     }
-    const postIds = validPosts.map(post => post.id)
+    const postIds = validPosts.map((post) => post.id)
 
     // Batch load categories and tags
     const [categoryData, tagData] = await Promise.all([
       from('blog_post_categories')
         .select('post_id, category:blog_categories(*)')
         .in('post_id', postIds),
-      from('blog_post_tags')
-        .select('post_id, tag:blog_tags(*)')
-        .in('post_id', postIds),
+      from('blog_post_tags').select('post_id, tag:blog_tags(*)').in('post_id', postIds),
     ])
 
     // Create lookup maps for efficient assignment
@@ -861,7 +863,7 @@ export class PostService {
     }
 
     // Map posts with their relationships
-    const posts: BlogPost[] = validPosts.map(post => ({
+    const posts: BlogPost[] = validPosts.map((post) => ({
       ...post,
       author: post.author || undefined,
       categories: categoriesByPostId.get(post.id) || [],
@@ -876,7 +878,10 @@ export class PostService {
    */
   static async getSimilarPosts(postId: string, limit = 5): Promise<BlogPost[]> {
     // First get the post's embedding
-    const { data: post, error: postError } = await from('blog_posts').select('embedding').eq('id', postId).single()
+    const { data: post, error: postError } = await from('blog_posts')
+      .select('embedding')
+      .eq('id', postId)
+      .single()
 
     if (postError || !post?.embedding) return []
 
@@ -888,7 +893,7 @@ export class PostService {
 
     if (categoryError || !categoryData || categoryData.length === 0) return []
 
-    const categoryIds = categoryData.map(c => c.category_id)
+    const categoryIds = categoryData.map((c: { category_id: string }) => c.category_id)
 
     // Find other posts in the same categories
     const { data: relatedPostIds, error: relatedError } = await from('blog_post_categories')
@@ -900,13 +905,15 @@ export class PostService {
     if (relatedError || !relatedPostIds || relatedPostIds.length === 0) return []
 
     // Get unique post IDs
-    const uniquePostIds = Array.from(new Set(relatedPostIds.map(r => r.post_id))).slice(0, limit)
-    
+    const uniquePostIds = Array.from(
+      new Set(relatedPostIds.map((r: { post_id: string }) => r.post_id))
+    ).slice(0, limit)
+
     const { data: similarPosts, error: similarError } = await from('blog_posts')
       .select('*')
       .in('id', uniquePostIds)
       .eq('status', 'published')
-    
+
     if (similarError || !similarPosts || similarPosts.length === 0) return []
 
     // Load full relationships for similar posts
@@ -922,7 +929,7 @@ export class PostService {
 
         // Validate that fullPost is a proper post structure
         if (!isRawPostWithAuthor(fullPost)) return null
-        
+
         const blogPost: BlogPost = {
           ...fullPost,
           author: fullPost.author || undefined,
@@ -941,7 +948,7 @@ export class PostService {
         }
 
         blogPost.categories = (categoryData || [])
-          .map((item) => (item as unknown as { category: BlogCategory }).category)
+          .map((item: unknown) => (item as unknown as { category: BlogCategory }).category)
           .filter(Boolean)
 
         // Load tags
@@ -955,7 +962,7 @@ export class PostService {
         }
 
         blogPost.tags = (tagData || [])
-          .map((item) => (item as unknown as { tag: BlogTag }).tag)
+          .map((item: unknown) => (item as unknown as { tag: BlogTag }).tag)
           .filter(Boolean)
 
         return blogPost
