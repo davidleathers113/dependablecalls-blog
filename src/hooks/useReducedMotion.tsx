@@ -51,7 +51,7 @@ export function getMotionSafeClass(
  * @param Component - The component to wrap
  * @returns A wrapped component that respects motion preferences
  */
-export function withReducedMotion<T extends Record<string, any>>(
+export function withReducedMotion<T extends Record<string, unknown>>(
   Component: React.ComponentType<T>
 ) {
   return function MotionSafeComponent(props: T) {

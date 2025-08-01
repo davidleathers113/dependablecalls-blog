@@ -1,5 +1,300 @@
-# Logs
-logs
+# =============================================================================
+# DCE Website - .gitignore (Optimized for 2025)
+# =============================================================================
+# This file defines patterns for files and directories that should not be 
+# tracked by Git. Organized by category for maintainability and performance.
+#
+# Maintenance: Review quarterly for new tools and patterns
+# Performance: Patterns are ordered by frequency for optimal git performance
+# Security: All sensitive data patterns are comprehensively covered
+# =============================================================================
+
+# =============================================================================
+# 1. CORE DEPENDENCIES & BUILD ARTIFACTS
+# =============================================================================
+# Node.js dependencies and package manager artifacts
+node_modules/
+.pnpm-store/
+.yarn/
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Build outputs and distributions
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.vercel/
+.firebase/
+
+# Package manager locks (keep these tracked)
+# Note: These should typically be tracked, but listing here for reference
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# =============================================================================
+# 2. DEVELOPMENT ENVIRONMENT FILES
+# =============================================================================
+# Environment variables and configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
+.env.production
+.env.*.local
+
+# Development server and tooling
+.vite/
+.turbo/
+.parcel-cache/
+.cache/
+.temp/
+.tmp/
+
+# Hot reload and dev server files
+*.hot-update.js
+*.hot-update.json
+
+# =============================================================================
+# 3. EDITOR & IDE CONFIGURATION
+# =============================================================================
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Other editors
+.atom/
+.brackets.json
+*.sublime-*
+.vimrc.local
+.nvimrc.local
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+.#*
+\#*#
+.*.kate-swp
+.*.un~
+
+# Windows specific
+*.ntvs*
+*.njsproj
+*.sln
+*.suo
+
+# =============================================================================
+# 4. OPERATING SYSTEM FILES
+# =============================================================================
+# macOS
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# =============================================================================
+# 5. ENVIRONMENT VARIABLES & SECRETS
+# =============================================================================
+# API keys and credentials
+**/credentials*
+*.credentials
+*.secrets
+**/*secret*
+**/*key*
+**/*keys*
+**/auth-config*
+**/service-account*
+**/client-secret*
+
+# Authentication tokens and certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+
+# Cloud provider credentials
+.aws/
+.azure/
+.gcloud/
+gcloud-service-key.json
+google-credentials.json
+firebase-adminsdk-*.json
+
+# Supabase sensitive files
+SUPABASE_SERVICE_ROLE_KEY*
+supabase-service-role-key*
+.supabase/
+
+# =============================================================================
+# 6. AI DEVELOPMENT TOOLS
+# =============================================================================
+# Claude Code
+.claude/
+CLAUDE.local.md
+claude-conversations/
+.claude-cache/
+
+# Cursor IDE
+.cursor/
+.cursor-cache/
+cursor-tutor/
+
+# GitHub Copilot
+.copilot/
+copilot-chat-history/
+
+# MCP (Model Context Protocol)
+.mcp.json
+mcp-cache/
+mcp-logs/
+
+# Other AI development tools
+.codeium/
+.tabnine/
+.aicommits/
+.ai-review/
+
+# AI-generated artifacts
+ai-generated/
+temp-ai-code/
+.ai-scratch/
+
+# =============================================================================
+# 7. CONTAINER & CLOUD DEVELOPMENT
+# =============================================================================
+# Docker
+.dockerignore.local
+docker-compose.override.yml
+docker-compose.local.yml
+.docker/
+docker-data/
+
+# Kubernetes
+*.kubeconfig
+.kube/config.local
+k8s-secrets/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+terraform.tfvars.json
+
+# Local development containers
+.devcontainer/devcontainer.local.json
+.devcontainer/.env
+
+# Netlify
+.netlify/
+
+# =============================================================================
+# 8. TESTING & COVERAGE
+# =============================================================================
+# Test outputs and coverage
+coverage/
+.coverage
+.nyc_output/
+.c8_output/
+lcov.info
+junit.xml
+
+# Test results and reports
+test-results/
+playwright-report/
+.playwright/
+e2e-results/
+screenshots/
+videos/
+
+# Vitest
+.vitest/
+
+# Jest
+jest_results/
+.jest-cache/
+
+# Type coverage
+.type-coverage/
+type-coverage-report.json
+
+# =============================================================================
+# 9. SECURITY & COMPLIANCE
+# =============================================================================
+# Security scanning results
+security-report.json
+vulnerability-report.json
+sbom.json
+dependency-check-report.html
+
+# Snyk
+.snyk
+
+# OWASP ZAP
+zap-report.html
+zap-baseline.json
+
+# License compliance
+license-report.json
+license-check-results/
+
+# Audit logs
+audit.log
+security-audit.log
+
+# Test accounts and credentials (never commit)
+TEST_ACCOUNTS.md
+**/test-credentials*
+test-users.json
+
+# =============================================================================
+# 10. MONITORING & LOGGING
+# =============================================================================
+# Application logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,78 +302,105 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment variables
-.env
-.env.local
-.env.production
-
-# Supabase
-supabase/.branches
-supabase/.temp
-
-# Claude AI settings
-.claude/
-
-# Test outputs
-coverage/
-playwright-report/
-test-results/
-.nyc_output/
-
-# Monitoring files
+# Monitoring and observability
 monitor.log
+monitoring-data/
+.sentry/
+sentry-debug-meta.properties
 
-# Security - Never commit credentials
-TEST_ACCOUNTS.md
-**/test-credentials*
-**/credentials*
-*.credentials
-*.secrets
-.env.production
-.env.staging
-SUPABASE_SERVICE_ROLE_KEY*
+# Performance monitoring
+.speedcurve/
+lighthouse-reports/
+web-vitals-report.json
 
-# Local Netlify folder
-.netlify
-
-# MCP configuration with secrets
-.mcp.json
-
-
-.early.coverage
-
-# Build artifacts to prevent root clutter
-*.zip
-repomix-output.xml
-type-coverage-report.json
-sbom.json
-
-# Backup files
-*.backup
-*.bak
-vite.config.*.backup
+# Error tracking
+error-reports/
+crash-dumps/
 
 # PM oversight logs
 pm-oversight-logs/
 
-# Type coverage cache
-.type-coverage/
+# =============================================================================
+# 11. BACKUP & TEMPORARY FILES
+# =============================================================================
+# Backup files
+*.backup
+*.bak
+*.orig
+*.tmp
+*~
+.#*
 
-# Python cache (shouldn't be in TypeScript project)
-.mypy_cache/
+# Temporary directories
+tmp/
+temp/
+.temp/
+.tmp/
+
+# Archives and compressed files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Version control backups
+*.patch
+*.diff
+*.rej
+
+# Config backups
+vite.config.*.backup
+webpack.config.*.backup
+package.json.backup
+
+# =============================================================================
+# 12. FRAMEWORK-SPECIFIC FILES
+# =============================================================================
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# React
+.react/
+
+# TypeScript
+*.tsbuildinfo
+.tscache/
+
+# ESLint
+.eslintcache
+
+# Prettier
+.prettiercache
+
+# StyleLint
+.stylelintcache
+
+# PostCSS
+.postcss-cache/
+
+# Tailwind CSS
+.tailwindcss-cache/
+
+# Bundle analysis
+bundle-analyzer-report.html
+stats.json
+bundle-stats/
+
+# Size analysis
+.size-limit-cache/
+
+# Build artifacts to prevent root clutter
+repomix-output.xml
+.early.coverage
+
+# =============================================================================
+# NOTES FOR MAINTAINERS
+# =============================================================================
+# 1. Review this file quarterly for new tools and patterns
+# 2. Test new patterns with: git check-ignore -v <file>
+# 3. Use git clean -xdn to preview what would be removed
+# 4. Keep patterns specific to avoid performance issues
+# 5. Document reasoning for complex patterns
+# =============================================================================

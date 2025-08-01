@@ -34,7 +34,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
       logger.error('Error loading initial dashboard data', error as Error)
       throw error
     }
-  }, [userId, userType])
+  }, []) // No dependencies needed for mock data loading
 
   // Note: Stats updates are handled by QuickStatsBar component via real-time subscriptions
 

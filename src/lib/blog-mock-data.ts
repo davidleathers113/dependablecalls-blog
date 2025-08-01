@@ -254,7 +254,7 @@ export class BlogMockDataService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 200))
 
-    let filteredPosts = mockPosts.filter(post => post.status === status)
+    const filteredPosts = mockPosts.filter(post => post.status === status)
 
     const paginatedPosts = filteredPosts
       .sort((a, b) => new Date(b.published_at || b.created_at || '').getTime() - new Date(a.published_at || a.created_at || '').getTime())

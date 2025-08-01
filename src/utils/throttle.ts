@@ -48,21 +48,19 @@ export function throttleAdvanced<T extends (...args: unknown[]) => unknown>(
   let timeoutId: NodeJS.Timeout | null = null
   let lastExecTime = 0
   let lastArgs: Parameters<T> | null = null
-  let lastThis: unknown = null
 
   return function throttled(this: unknown, ...args: Parameters<T>) {
     const currentTime = Date.now()
     const timeSinceLastExec = currentTime - lastExecTime
+    const context = this
 
     lastArgs = args
-    lastThis = this
 
     const execute = () => {
       lastExecTime = Date.now()
-      if (lastArgs && lastThis !== undefined) {
-        func.apply(lastThis, lastArgs)
+      if (lastArgs !== null) {
+        func.apply(context, lastArgs)
         lastArgs = null
-        lastThis = null
       }
     }
 

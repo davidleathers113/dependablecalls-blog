@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../types/database-extended'
 import { SupabaseDebugger } from './supabase-debug'
+import { getEnvironmentConfig, isDevelopment } from './env'
 
 // Global instance to survive HMR and module re-evaluation
 declare global {
@@ -18,21 +19,8 @@ export function getSupabaseClient(): SupabaseClient<Database> {
     return globalThis.__supabaseClient
   }
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-  // Check for placeholder values
-  const isPlaceholderConfig = 
-    !supabaseUrl || 
-    !supabaseAnonKey || 
-    supabaseUrl === 'your_supabase_url' ||
-    supabaseAnonKey === 'your_supabase_anon_key'
-
-  if (isPlaceholderConfig) {
-    throw new Error(
-      'Supabase configuration missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.'
-    )
-  }
+  // Get environment configuration (works in both browser and Node.js)
+  const { supabaseUrl, supabaseAnonKey, appVersion } = getEnvironmentConfig()
 
   // Initialize counter
   if (globalThis.__supabaseInstanceCount === undefined) {
@@ -52,7 +40,7 @@ export function getSupabaseClient(): SupabaseClient<Database> {
     },
     global: {
       headers: {
-        'x-client-version': import.meta.env.VITE_APP_VERSION || '1.0.0',
+        'x-client-version': appVersion,
       }
     }
   })
@@ -61,7 +49,7 @@ export function getSupabaseClient(): SupabaseClient<Database> {
   globalThis.__supabaseClient = client
 
   // Development logging (minimal to avoid console spam)
-  if (import.meta.env.MODE === 'development') {
+  if (isDevelopment()) {
     SupabaseDebugger.logInstance(supabaseUrl)
   }
 
@@ -73,7 +61,7 @@ export function getSupabaseClient(): SupabaseClient<Database> {
  * Tree-shaken in production builds
  */
 /* #__PURE__ */
-if (import.meta.env.MODE === 'development' && typeof window !== 'undefined') {
+if (isDevelopment() && typeof window !== 'undefined') {
   interface WindowWithSupabaseDebug extends Window {
     __supabaseDebug: {
       reset: () => Promise<void>

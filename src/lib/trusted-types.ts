@@ -10,9 +10,9 @@ declare global {
     trustedTypes?: {
       createPolicy: (name: string, policy: TrustedTypePolicyOptions) => TrustedTypePolicy;
       getPolicyNames: () => string[];
-      isHTML: (value: any) => value is TrustedHTML;
-      isScript: (value: any) => value is TrustedScript;
-      isScriptURL: (value: any) => value is TrustedScriptURL;
+      isHTML: (value: unknown) => value is TrustedHTML;
+      isScript: (value: unknown) => value is TrustedScript;
+      isScriptURL: (value: unknown) => value is TrustedScriptURL;
     };
   }
 }
@@ -117,11 +117,11 @@ export function initializeTrustedTypes(): void {
           console.warn('Using default trusted types policy - should be avoided');
           return dompurifyPolicy?.createHTML(input) || '';
         },
-        createScript: (_input: string) => {
+        createScript: () => {
           console.warn('Using default trusted types policy for script - should be avoided');
           return '';
         },
-        createScriptURL: (_input: string) => {
+        createScriptURL: () => {
           console.warn('Using default trusted types policy for script URL - should be avoided');
           return '';
         }

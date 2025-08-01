@@ -270,8 +270,8 @@ export async function withPerformanceMonitoring<T>(
       name: transactionName,
       op: 'function',
       attributes: context ? (Object.fromEntries(
-        Object.entries(context).map(([k, v]) => [k, v as any])
-      ) as any) : undefined,
+        Object.entries(context).map(([k, v]) => [k, String(v)])
+      ) as Record<string, string>) : undefined,
     },
     async () => {
       try {

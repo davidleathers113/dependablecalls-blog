@@ -277,31 +277,39 @@ python -m container_monitor --log-level DEBUG
 
 ## Migration from Legacy System
 
-### From Old `src/security_monitor.py`
+### From Old `src/security_monitor.py` (RETIRED)
 
-The legacy monolithic system has been replaced with the new modular architecture:
+⚠️ **IMPORTANT**: The legacy monolithic system has been **RETIRED** and moved to `legacy/security_monitor_v1.py` for archival purposes only.
 
-#### Old System
+#### Old System (No longer available)
 ```bash
-python src/security_monitor.py
+python src/security_monitor.py  # ❌ REMOVED
 ```
 
-#### New System  
+#### New System (Current)
 ```bash
-python -m container_monitor
+python -m container_monitor     # ✅ ACTIVE
 ```
 
-### Docker Migration
+### Docker Migration (Complete)
 
-#### Old Dockerfile Entry Point
+#### Old Dockerfile Entry Point (Removed)
 ```dockerfile
-CMD ["python", "src/security_monitor.py"]
+CMD ["python", "src/security_monitor.py"]  # ❌ REMOVED
 ```
 
-#### New Dockerfile Entry Point
+#### New Dockerfile Entry Point (Active)
 ```dockerfile  
-CMD ["python", "-m", "container_monitor"]
+CMD ["python", "-m", "container_monitor"]  # ✅ ACTIVE
 ```
+
+### Legacy System Access
+
+If you need to reference the legacy system for historical purposes:
+- **Archive Location**: `legacy/security_monitor_v1.py`
+- **Documentation**: `legacy/README.md`
+- **Migration Guide**: `MIGRATION_GUIDE.md`
+- **Rollback Procedures**: Available in legacy documentation
 
 ### Configuration Compatibility
 

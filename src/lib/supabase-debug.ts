@@ -2,6 +2,7 @@
  * Debug utilities for monitoring Supabase client instances
  * Only active in development mode
  */
+import { isDevelopment } from './env'
 
 interface ClientInstanceInfo {
   id: number
@@ -13,7 +14,7 @@ interface ClientInstanceInfo {
 class SupabaseDebugger {
   private static instances: ClientInstanceInfo[] = []
   private static warningThreshold = 1
-  private static isEnabled = import.meta.env.MODE === 'development'
+  private static isEnabled = isDevelopment()
 
   /**
    * Log a new client instance creation
@@ -137,7 +138,7 @@ class SupabaseDebugger {
 }
 
 // Auto-enable console monitoring in development
-if (import.meta.env.MODE === 'development' && typeof window !== 'undefined') {
+if (isDevelopment() && typeof window !== 'undefined') {
   SupabaseDebugger.monitorConsoleWarnings()
   
   // Expose debugger to window for manual inspection

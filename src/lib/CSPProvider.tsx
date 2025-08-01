@@ -5,10 +5,9 @@
  * for secure inline content handling.
  */
 
-import React, { createContext, useContext, useMemo, useEffect, useState } from 'react'
+import React, { useMemo, useEffect, useState } from 'react'
 import { getCurrentNonces, refreshNonces, type CSPContext } from './csp-nonce'
-
-const CSPContext = createContext<CSPContext | null>(null)
+import { CSPContext as CSPContextProvider } from './csp-context'
 
 export interface CSPProviderProps {
   children: React.ReactNode
@@ -55,7 +54,7 @@ export function CSPProvider({
       scriptNonce: currentNonces.script,
       styleNonce: currentNonces.style
     }
-  }, [nonce, scriptNonce, styleNonce, refreshKey])
+  }, [nonce, scriptNonce, styleNonce]) // refreshKey not needed in calculation
 
   // Auto-refresh nonces for long-lived sessions (every 4 minutes)
   useEffect(() => {
@@ -71,40 +70,14 @@ export function CSPProvider({
   }, [nonce, scriptNonce, styleNonce]);
 
   return (
-    <CSPContext.Provider value={cspContext}>
+    <CSPContextProvider.Provider value={cspContext}>
       {children}
-    </CSPContext.Provider>
+    </CSPContextProvider.Provider>
   )
 }
 
-/**
- * Hook to access CSP nonce values
- */
-export function useCSPNonce(): CSPContext {
-  const context = useContext(CSPContext)
-  
-  if (!context) {
-    throw new Error('useCSPNonce must be used within a CSPProvider')
-  }
-  
-  return context
-}
-
-/**
- * Hook for script nonce specifically
- */
-export function useScriptNonce(): string {
-  const { scriptNonce } = useCSPNonce()
-  return scriptNonce
-}
-
-/**
- * Hook for style nonce specifically
- */
-export function useStyleNonce(): string {
-  const { styleNonce } = useCSPNonce()
-  return styleNonce
-}
+// Hooks have been moved to src/hooks/useCSPNonce.ts
+// This file now only exports the CSPProvider component
 
 /**
  * Component for secure inline styles with nonce

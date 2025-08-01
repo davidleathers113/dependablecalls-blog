@@ -3,6 +3,7 @@
  * Uses singleton pattern to prevent multiple GoTrueClient instances
  */
 import { getSupabaseClient, type SupabaseClientType } from './supabase-singleton'
+import { isDevelopment } from './env'
 
 // Lazy initialization to use singleton pattern
 let _supabaseClient: SupabaseClientType | null = null
@@ -17,7 +18,7 @@ function getClient(): SupabaseClientType | null {
       _supabaseClient = getSupabaseClient()
     } catch (error) {
       // Return null if configuration is missing (placeholder values)
-      if (import.meta.env.MODE === 'development') {
+      if (isDevelopment()) {
         console.warn('[Supabase] Client initialization failed:', error)
       }
       return null
