@@ -74,15 +74,17 @@
     Cross-Origin-Resource-Policy = "same-origin"
     Referrer-Policy = "no-referrer"
 
-# JavaScript files - strict security
+# JavaScript files - strict security with cache revalidation
 [[headers]]
   for = "*.js"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=3600, must-revalidate"
     Content-Type = "application/javascript; charset=utf-8"
     X-Content-Type-Options = "nosniff"
     Cross-Origin-Resource-Policy = "same-origin"
     Referrer-Policy = "no-referrer"
+    # Add ETag for efficient cache validation
+    Vary = "Accept-Encoding"
 
 # CSS files - strict security
 [[headers]]

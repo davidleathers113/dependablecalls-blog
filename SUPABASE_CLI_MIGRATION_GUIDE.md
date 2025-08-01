@@ -31,6 +31,7 @@ supabase init
 # Link to your project
 supabase link --project-ref orrasduancqrevnqiiok
 
+
 # Pull existing remote schema to avoid conflicts
 supabase db pull
 ```
@@ -81,7 +82,7 @@ supabase db push
 - **Cause**: Project recently restored or password issues
 - **Solution**: Reset database password in Supabase Dashboard, wait 24-48 hours if recently restored
 
-### 2. "SASL authentication failed" 
+### 2. "SASL authentication failed"
 - **Cause**: IP blocking or connection issues
 - **Solution**: Check if IP is blocked in Database settings, try different connection method
 

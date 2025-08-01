@@ -23,6 +23,17 @@
             ],
             "env": {}
         },
+        "supabase": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@supabase/mcp-server-supabase@latest",
+                "--project-ref=orrasduancqrevnqiiok"
+            ],
+            "env": {
+                "SUPABASE_ACCESS_TOKEN": "sbp_28ce84db77d39236a5da89575e635de77157b9e2"
+            }
+        },
         "Bright Data": {
             "command": "/Users/davidleathers/.nvm/versions/node/v22.14.0/bin/node",
             "args": [

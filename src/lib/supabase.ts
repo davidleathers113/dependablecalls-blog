@@ -1,27 +1,35 @@
-import { createClient } from '@supabase/supabase-js'
+/**
+ * Main Supabase client module
+ * Uses singleton pattern to prevent multiple GoTrueClient instances
+ */
+import { getSupabaseClient, type SupabaseClientType } from './supabase-singleton'
 import type { Database } from '../types/database-extended'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Lazy initialization to use singleton pattern
+let _supabaseClient: SupabaseClientType | null = null
 
-// Check if we're using placeholder/mock configuration
-const isPlaceholderConfig = !supabaseUrl || 
-  !supabaseAnonKey ||
-  supabaseUrl.includes('your-project.supabase.co') ||
-  supabaseUrl === 'your_supabase_url' ||
-  supabaseAnonKey === 'your_supabase_anon_key'
+/**
+ * Get the Supabase client instance
+ * This ensures we only ever have one client instance in the browser
+ */
+function getClient(): SupabaseClientType | null {
+  if (_supabaseClient === null) {
+    try {
+      _supabaseClient = getSupabaseClient()
+    } catch (error) {
+      // Return null if configuration is missing (placeholder values)
+      if (import.meta.env.MODE === 'development') {
+        console.warn('[Supabase] Client initialization failed:', error)
+      }
+      return null
+    }
+  }
+  return _supabaseClient
+}
 
-export const supabase = isPlaceholderConfig ? null as any : createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false, // We'll handle refresh via server-side
-    persistSession: false, // No localStorage, using httpOnly cookies
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-    storage: {
-      // Custom storage that does nothing - all session handling is server-side
-      getItem: async () => null,
-      setItem: async () => {},
-      removeItem: async () => {},
-    },
-  },
-})
+/**
+ * Export the supabase client
+ * For backward compatibility, we export it as a direct reference
+ * But internally it uses the singleton pattern
+ */
+export const supabase = getClient()

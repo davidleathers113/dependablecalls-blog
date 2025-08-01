@@ -1,16 +1,18 @@
-// MIGRATION PLAN: This file creates its own Supabase client instance
-// Should use: import { supabase } from './supabase-optimized'
-// Status: NEEDS MIGRATION - direct client creation reduces performance
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+/**
+ * Auth middleware using singleton Supabase client
+ * Prevents multiple GoTrueClient instances
+ */
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../types/database-extended'
+import { supabase } from './supabase'
 import { extractSessionFromCookies } from './auth-cookies'
 import { mfaService } from './mfa/mfa-service'
 import { MFASetupRequiredError, MFAVerificationRequiredError } from '../types/mfa'
 
-const supabase = createClient<Database>(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.VITE_SUPABASE_ANON_KEY || ''
-)
+// Validate that supabase client is available
+if (!supabase) {
+  throw new Error('Supabase client not initialized - check environment variables')
+}
 
 export interface AuthContext {
   user: {
