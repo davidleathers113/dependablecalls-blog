@@ -14,6 +14,9 @@ if (!supabase) {
   throw new Error('Supabase client not initialized - check environment variables')
 }
 
+// Type-safe supabase client (we know it's not null after the check above)
+const supabaseClient = supabase
+
 export interface AuthContext {
   user: {
     id: string
@@ -83,14 +86,14 @@ export async function withAuth<T>(
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser(token)
+    } = await supabaseClient.auth.getUser(token)
 
     if (error || !user) {
       throw new ApiError('Invalid or expired token', 401, 'UNAUTHORIZED')
     }
 
     // Get user role from database
-    const { error: userError } = await supabase
+    const { error: userError } = await supabaseClient
       .from('users')
       .select('id, email, metadata')
       .eq('id', user.id)
@@ -105,9 +108,9 @@ export async function withAuth<T>(
     let role: 'supplier' | 'buyer' | 'admin' | 'network' | undefined
 
     const [supplierCheck, buyerCheck, adminCheck] = await Promise.all([
-      supabase.from('suppliers').select('id').eq('user_id', user.id).single(),
-      supabase.from('buyers').select('id').eq('user_id', user.id).single(),
-      supabase.from('admins').select('id').eq('user_id', user.id).single(),
+      supabaseClient.from('suppliers').select('id').eq('user_id', user.id).single(),
+      supabaseClient.from('buyers').select('id').eq('user_id', user.id).single(),
+      supabaseClient.from('admins').select('id').eq('user_id', user.id).single(),
     ])
 
     if (adminCheck.data) {
@@ -136,7 +139,7 @@ export async function withAuth<T>(
         email: user.email!,
         role,
       },
-      supabase,
+      supabase: supabaseClient,
       mfaVerified,
       deviceTrusted,
     }
@@ -228,6 +231,11 @@ export async function withoutAuth<T>(
   handler: (supabase: SupabaseClient<Database>, request: ApiRequest) => Promise<T>
 ): Promise<ApiResponse> {
   try {
+    // Ensure supabase client is available
+    if (!supabase) {
+      throw new ApiError('Supabase client not initialized', 500, 'SUPABASE_NOT_INITIALIZED')
+    }
+    
     const result = await handler(supabase, request)
 
     return {

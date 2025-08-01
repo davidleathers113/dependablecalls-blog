@@ -315,7 +315,7 @@ export class BlogAdminService {
         })
       )
     } else {
-      results.successful = data.map(item => item.id)
+      results.successful = data.map((item: { id: string }) => item.id)
       results.successCount = data.length
 
       // Find failed items

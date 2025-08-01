@@ -3,7 +3,6 @@
  * Uses singleton pattern to prevent multiple GoTrueClient instances
  */
 import { getSupabaseClient, type SupabaseClientType } from './supabase-singleton'
-import type { Database } from '../types/database-extended'
 
 // Lazy initialization to use singleton pattern
 let _supabaseClient: SupabaseClientType | null = null

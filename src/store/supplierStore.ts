@@ -385,7 +385,7 @@ export const useSupplierStore = create<SupplierState>()(
               if (error) throw error
 
               // Transform campaigns to CallListing format
-              const listings: CallListing[] = (data || []).map(campaign => ({
+              const listings: CallListing[] = (data || []).map((campaign: any) => ({
                 id: campaign.id,
                 supplier_id: campaign.supplier_id || session.session.user.id,
                 vertical: campaign.vertical || 'general',

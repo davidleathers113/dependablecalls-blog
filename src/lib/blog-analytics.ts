@@ -748,7 +748,7 @@ class BlogAnalytics {
       const { timeWindow, limit = 10, category } = options
       const timeCondition = this.getTimeCondition(timeWindow)
       
-      let query = supabase
+      let query = supabase!
         .from('blog_posts')
         .select(`
           slug,
@@ -804,7 +804,7 @@ class BlogAnalytics {
       void _timeWindow
       // This would involve multiple queries to analytics tables
       // For now, returning a basic structure
-      const { data: post, error } = await supabase
+      const { data: post, error } = await supabase!
         .from('blog_posts')
         .select('slug, title, view_count')
         .eq('slug', postSlug)
@@ -982,7 +982,7 @@ class BlogAnalytics {
 
   private async incrementPostViewCount(postSlug: string): Promise<void> {
     try {
-      const { error } = await supabase.rpc('increment_post_view_count', {
+      const { error } = await supabase!.rpc('increment_post_view_count', {
         post_slug: postSlug
       })
       

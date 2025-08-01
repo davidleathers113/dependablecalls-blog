@@ -1,5 +1,5 @@
 import { from } from './supabase-optimized'
-import type { Database } from '../types/database-extended'
+import type { Database, Call, Campaign } from '../types/database-extended'
 
 // Table types - using actual tables instead of non-existent views
 type SupplierStats = {
@@ -65,7 +65,7 @@ export async function getSupplierStats(supplierId?: string): Promise<SupplierSta
   // Group calls by supplier (using campaign_id as proxy)
   const statsMap = new Map<string, SupplierStats>()
 
-  calls.forEach((call) => {
+  calls.forEach((call: Call) => {
     const id = call.campaign_id
     if (!id) return // Skip calls without campaign_id
 
@@ -123,7 +123,7 @@ export async function getBuyerStats(buyerId?: string): Promise<BuyerStats[]> {
   // Group calls by buyer
   const statsMap = new Map<string, BuyerStats>()
 
-  calls.forEach((call) => {
+  calls.forEach((call: Call) => {
     const id = call.buyer_campaign_id || 'unknown'
     if (!statsMap.has(id)) {
       statsMap.set(id, {
@@ -180,7 +180,7 @@ export async function getCampaignPerformance(filters?: {
   }
 
   // Get calls for these campaigns
-  const campaignIds = campaigns.map((c) => c.id)
+  const campaignIds = campaigns.map((c: Campaign) => c.id)
   const { data: calls, error: callsError } = await from('calls')
     .select('*')
     .in('campaign_id', campaignIds)
@@ -190,8 +190,8 @@ export async function getCampaignPerformance(filters?: {
   }
 
   // Calculate performance metrics
-  return campaigns.map((campaign) => {
-    const campaignCalls = calls?.filter((c) => c.campaign_id === campaign.id) || []
+  return campaigns.map((campaign: Campaign) => {
+    const campaignCalls = calls?.filter((c: Call) => c.campaign_id === campaign.id) || []
 
     return {
       campaign_id: campaign.id,
@@ -200,10 +200,10 @@ export async function getCampaignPerformance(filters?: {
       status: campaign.status || 'unknown',
       total_calls: campaignCalls.length,
       total_minutes: campaignCalls.reduce(
-        (sum, call) => sum + (call.duration_seconds || 0) / 60,
+        (sum: number, call: Call) => sum + (call.duration_seconds || 0) / 60,
         0
       ),
-      total_cost: campaignCalls.reduce((sum, call) => sum + (call.payout_amount || 0), 0),
+      total_cost: campaignCalls.reduce((sum: number, call: Call) => sum + (call.payout_amount || 0), 0),
       conversion_rate: 0.7, // Placeholder
     }
   })
@@ -241,8 +241,8 @@ export async function getUserStats(userId: string): Promise<{
   }
 
   if (calls && calls.length > 0) {
-    stats.total_minutes = calls.reduce((sum, call) => sum + (call.duration_seconds || 0) / 60, 0)
-    stats.total_revenue = calls.reduce((sum, call) => sum + (call.payout_amount || 0), 0)
+    stats.total_minutes = calls.reduce((sum: number, call: Call) => sum + (call.duration_seconds || 0) / 60, 0)
+    stats.total_revenue = calls.reduce((sum: number, call: Call) => sum + (call.payout_amount || 0), 0)
     stats.average_call_duration = stats.total_minutes / stats.total_calls
   }
 

@@ -4,10 +4,10 @@
  */
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 import type { Database } from '../types/database-extended'
-import { supabase } from './supabase'
+import { supabase as supabaseInstance } from './supabase'
 
 // Get the singleton client
-const supabaseClient = supabase
+const supabaseClient = supabaseInstance
 
 if (!supabaseClient) {
   throw new Error('Supabase client not initialized - check environment variables')
@@ -114,7 +114,7 @@ export const removeChannel = (channel: RealtimeChannel) => supabaseClient.remove
 
 // Export the full client for cases where it's still needed
 // This should be used sparingly to maintain tree-shaking benefits
-export const supabase = supabaseClient
+export { supabaseClient as supabase }
 
 // Type exports for better developer experience
 export type { SupabaseClient, Database }

@@ -86,7 +86,7 @@ export const useSettingsStore = create<SettingsState>()(
             if (!user) throw new Error('User not authenticated')
 
             // Load user settings from metadata
-            const { data: userData, error: userError } = await supabase
+            const { data: userData, error: userError } = await supabase!
               .from('users')
               .select('metadata')
               .eq('id', user.id)
@@ -106,7 +106,7 @@ export const useSettingsStore = create<SettingsState>()(
             let roleSettings = null
 
             if (userType === 'supplier') {
-              const { data, error } = await supabase
+              const { data, error } = await supabase!
                 .from('suppliers')
                 .select('settings')
                 .eq('user_id', user.id)
@@ -117,7 +117,7 @@ export const useSettingsStore = create<SettingsState>()(
                 roleSettings = data.settings
               }
             } else if (userType === 'buyer') {
-              const { data, error } = await supabase
+              const { data, error } = await supabase!
                 .from('buyers')
                 .select('settings')
                 .eq('user_id', user.id)
@@ -128,7 +128,7 @@ export const useSettingsStore = create<SettingsState>()(
                 roleSettings = data.settings
               }
             } else if (userType === 'network' && 'networkId' in user && user.networkId) {
-              const { data, error } = await supabase
+              const { data, error } = await supabase!
                 .from('networks')
                 .select('settings')
                 .eq('id', (user as { networkId: string }).networkId)
@@ -139,7 +139,7 @@ export const useSettingsStore = create<SettingsState>()(
                 roleSettings = data.settings
               }
             } else if (userType === 'admin' && 'adminId' in user && user.adminId) {
-              const { error } = await supabase
+              const { error } = await supabase!
                 .from('admins')
                 .select('permissions')
                 .eq('id', (user as { adminId: string }).adminId)
@@ -267,7 +267,7 @@ export const useSettingsStore = create<SettingsState>()(
               }
 
               // First fetch current metadata
-              const { data: userData } = await supabase
+              const { data: userData } = await supabase!
                 .from('users')
                 .select('metadata')
                 .eq('id', user.id)
@@ -280,7 +280,7 @@ export const useSettingsStore = create<SettingsState>()(
                   : {}
 
               // Then update with new settings
-              const { error } = await supabase
+              const { error } = await supabase!
                 .from('users')
                 .update({
                   metadata: {
@@ -301,7 +301,7 @@ export const useSettingsStore = create<SettingsState>()(
               }
 
               if (userType === 'supplier') {
-                const { error } = await supabase
+                const { error } = await supabase!
                   .from('suppliers')
                   .update({
                     settings: updatedSettings as unknown as Json,
@@ -311,7 +311,7 @@ export const useSettingsStore = create<SettingsState>()(
 
                 if (error) throw error
               } else if (userType === 'buyer') {
-                const { error } = await supabase
+                const { error } = await supabase!
                   .from('buyers')
                   .update({
                     settings: updatedSettings as unknown as Json,
@@ -321,7 +321,7 @@ export const useSettingsStore = create<SettingsState>()(
 
                 if (error) throw error
               } else if (userType === 'network' && 'networkId' in user && user.networkId) {
-                const { error } = await supabase
+                const { error } = await supabase!
                   .from('networks')
                   .update({
                     settings: updatedSettings as unknown as Json,
@@ -338,7 +338,7 @@ export const useSettingsStore = create<SettingsState>()(
             }
 
             // Log settings change to audit log
-            await supabase.from('settings_audit_log').insert({
+            await supabase!.from('settings_audit_log').insert({
               user_id: user.id,
               setting_type: userType as 'user' | 'supplier' | 'buyer' | 'network' | 'admin',
               setting_key: 'all',
@@ -346,7 +346,7 @@ export const useSettingsStore = create<SettingsState>()(
               new_value: {
                 user: state.userSettings,
                 role: state.roleSettings,
-              } as Json,
+              } as unknown as Json,
             })
 
             set({
@@ -401,7 +401,7 @@ export const useSettingsStore = create<SettingsState>()(
             let defaultRoleSettings = null
             if (userType === 'supplier') {
               // Load default supplier template
-              const { data } = await supabase
+              const { data } = await supabase!
                 .from('settings_templates')
                 .select('settings')
                 .eq('user_type', 'supplier')

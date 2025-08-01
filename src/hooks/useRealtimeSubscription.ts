@@ -97,12 +97,12 @@ export function useRealtimeSubscription<T extends TableName>({
       ...(sanitizedFilter && { filter: sanitizedFilter }),
     }
 
-    channelRef.current = supabase
+    channelRef.current = supabase!
       .channel(name)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on('postgres_changes' as any, config, routeEvent)
 
-    channelRef.current.subscribe((status) => {
+    channelRef.current!.subscribe((status) => {
       switch (status) {
         case 'SUBSCRIBED':
           setState((p) => ({ ...p, isConnected: true, isConnecting: false }))
@@ -124,7 +124,7 @@ export function useRealtimeSubscription<T extends TableName>({
   /** 4️⃣ Reliable unsubscribe */
   const closeChannel = useCallback(async () => {
     if (!channelRef.current) return
-    await supabase.removeChannel(channelRef.current) // await avoids race
+    await supabase!.removeChannel(channelRef.current) // await avoids race
     channelRef.current = null
   }, [supabase])
 

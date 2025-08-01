@@ -7,6 +7,7 @@ import { RecentCallsList } from './supplier/RecentCallsList'
 import { QuickStatsBar } from './supplier/QuickStatsBar'
 import { logger } from '@/lib/logger'
 import type { Database } from '@/types/database-extended'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 interface RealTimeDashboardProps {
   userId: string
@@ -48,7 +49,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
           table: 'calls',
           filter: userType === 'supplier' ? `supplier_id=eq.${userId}` : `buyer_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Database['public']['Tables']['calls']['Row']>) => {
           logger.info('Real-time call update received', payload)
 
           if (payload.eventType === 'INSERT') {
@@ -64,7 +65,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         setConnectionStatus(status === 'SUBSCRIBED' ? 'connected' : 'disconnected')
       })
 
@@ -81,7 +82,7 @@ function RealTimeDashboardInner({ userId, userType }: RealTimeDashboardProps) {
               ? `buyer_id=eq.${userId}`
               : `id=in.(select campaign_id from campaign_suppliers where supplier_id='${userId}')`,
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Database['public']['Tables']['campaigns']['Row']>) => {
           logger.info('Real-time campaign update received', payload)
           // Update campaign-related stats
         }

@@ -132,7 +132,7 @@ export async function uploadBlogImage(
   } = {}
 ): Promise<{ url: string; error: Error | null }> {
   try {
-    const { data, error } = await supabase.storage
+    const { data, error } = await supabase!.storage
       .from(BLOG_IMAGES_BUCKET)
       .upload(path, file, {
         upsert: options.upsert || false,
@@ -145,7 +145,7 @@ export async function uploadBlogImage(
     }
 
     // Get public URL
-    const { data: publicUrlData } = supabase.storage
+    const { data: publicUrlData } = supabase!.storage
       .from(BLOG_IMAGES_BUCKET)
       .getPublicUrl(data.path)
 
@@ -163,7 +163,7 @@ export async function uploadBlogImage(
  */
 export async function deleteBlogImage(path: string): Promise<{ success: boolean; error: Error | null }> {
   try {
-    const { error } = await supabase.storage
+    const { error } = await supabase!.storage
       .from(BLOG_IMAGES_BUCKET)
       .remove([path])
 
@@ -181,7 +181,7 @@ export async function deleteBlogImage(path: string): Promise<{ success: boolean;
  */
 export async function getBlogImageMetadata(path: string): Promise<ImageMetadata | null> {
   try {
-    const { data, error } = await supabase.storage
+    const { data, error } = await supabase!.storage
       .from(BLOG_IMAGES_BUCKET)
       .list(path.split('/').slice(0, -1).join('/'), {
         search: path.split('/').pop()
@@ -192,7 +192,7 @@ export async function getBlogImageMetadata(path: string): Promise<ImageMetadata 
     }
 
     const file = data[0]
-    const { data: publicUrlData } = supabase.storage
+    const { data: publicUrlData } = supabase!.storage
       .from(BLOG_IMAGES_BUCKET)
       .getPublicUrl(path)
 

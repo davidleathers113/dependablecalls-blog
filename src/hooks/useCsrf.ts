@@ -14,6 +14,7 @@ import {
   withCsrfToken 
 } from '../lib/csrf'
 import { onAuthStateChange } from '../lib/supabase-optimized'
+import type { AuthChangeEvent } from '@supabase/supabase-js'
 
 interface UseCsrfReturn {
   csrfToken: string | null
@@ -90,7 +91,7 @@ export function useCsrf(): UseCsrfReturn {
   // Listen for auth state changes
   useEffect(() => {
     const { data: { subscription } } = onAuthStateChange(
-      async (event) => {
+      async (event: AuthChangeEvent) => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           await refreshToken()
         } else if (event === 'SIGNED_OUT') {
