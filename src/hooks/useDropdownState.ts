@@ -82,11 +82,11 @@ export interface DropdownStateResult<TValue = unknown> {
   
   // Refs for DOM elements
   /** Ref for trigger element */
-  triggerRef: React.RefObject<HTMLElement>
+  triggerRef: React.RefObject<HTMLElement | null>
   /** Ref for dropdown content */
-  dropdownRef: React.RefObject<HTMLElement>
+  dropdownRef: React.RefObject<HTMLElement | null>
   /** Ref for search input */
-  searchRef: React.RefObject<HTMLInputElement>
+  searchRef: React.RefObject<HTMLInputElement | null>
   
   // Actions
   /** Open dropdown */

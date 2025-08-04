@@ -1,27 +1,27 @@
 [build]
   publish = "dist"
-  command = "npm ci --include=dev && npm run build"
+  command = "npm ci --include=dev && vite build --mode production"
   
 [build.environment]
   NODE_VERSION = "22"
 
 # Production settings
 [context.production]
-  command = "npm ci --include=dev && npm run build"
+  command = "npm ci --include=dev && vite build --mode production"
   
 [context.production.environment]
   NODE_ENV = "production"
 
 # Staging/develop branch settings
 [context.develop]
-  command = "npm ci --include=dev && npm run build"
+  command = "npm ci --include=dev && vite build --mode production"
   
 [context.develop.environment]
   NODE_ENV = "staging"
 
 # Branch deploy previews
 [context.branch-deploy]
-  command = "npm ci --include=dev && npm run build"
+  command = "npm ci --include=dev && vite build --mode production"
 
 # Security headers - Hardened CSP without unsafe-inline
 [[headers]]

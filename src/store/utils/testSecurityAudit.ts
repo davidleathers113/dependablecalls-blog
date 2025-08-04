@@ -56,24 +56,33 @@ const testStores = {
   },
 }
 
-// Persistence configs
-const persistConfigs = {
+// Persistence configs with proper typing
+const persistConfigs: Record<string, { partialize: (state: unknown) => unknown }> = {
   'auth-store-test': {
-    partialize: (state: { preferences: unknown }) => ({
-      preferences: state.preferences,
-    }),
+    partialize: (state: unknown) => {
+      const typedState = state as Record<string, unknown>
+      return {
+        preferences: typedState.preferences,
+      }
+    },
   },
   'buyer-store-test': {
-    partialize: (state: { campaigns: unknown; currentBalance: unknown; billingInfo: unknown }) => ({
-      campaigns: state.campaigns,
-      currentBalance: state.currentBalance,
-      billingInfo: state.billingInfo, // This is BAD!
-    }),
+    partialize: (state: unknown) => {
+      const typedState = state as Record<string, unknown>
+      return {
+        campaigns: typedState.campaigns,
+        currentBalance: typedState.currentBalance,
+        billingInfo: typedState.billingInfo, // This is BAD!
+      }
+    },
   },
   'settings-store-test': {
-    partialize: (state: { userSettings: unknown }) => ({
-      userSettings: state.userSettings,
-    }),
+    partialize: (state: unknown) => {
+      const typedState = state as Record<string, unknown>
+      return {
+        userSettings: typedState.userSettings,
+      }
+    },
   },
 }
 

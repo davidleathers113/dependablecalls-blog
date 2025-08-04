@@ -112,7 +112,7 @@ export interface EnhancedModalActions<T = unknown> {
 }
 
 export function createEnhancedModalActions<T = unknown>(
-  set: StateCreator<unknown, [], [], unknown>['setState'],
+  set: (partial: Partial<unknown> | ((state: unknown) => Partial<unknown>), replace?: boolean) => void,
   stateMachine: StateMachine<ModalStates, ModalEvents> & ModalState
 ): EnhancedModalActions<T> {
   return {
@@ -177,7 +177,7 @@ export function createDropdownStateMachine(
 ): StateMachine<DropdownStates, DropdownEvents> {
   let currentState: DropdownStates = initialState
 
-  const transitions: StateTransitions<DropdownStates, DropdownEvents> = {
+  const transitions: StateTransitions<DropdownStates> = {
     closed: {
       TOGGLE: 'opening',
       OPEN: 'opening',
@@ -226,7 +226,7 @@ export function createExpandableStateMachine(
 ): StateMachine<ExpandableStates, ExpandableEvents> {
   let currentState: ExpandableStates = initialState
 
-  const transitions: StateTransitions<ExpandableStates, ExpandableEvents> = {
+  const transitions: StateTransitions<ExpandableStates> = {
     collapsed: {
       TOGGLE: 'expanding',
       EXPAND: 'expanding',

@@ -3,17 +3,33 @@
 // MONITORING: Enhanced with Phase 2.4 performance monitoring and debugging
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
+import type { StateCreator } from 'zustand'
 import { createMonitoringMiddleware } from './utils/monitoringIntegration'
 import { StorageFactory } from './utils/storage/encryptedStorage'
 import { DataClassification, StorageType } from './utils/dataClassification'
 import type { Session } from '@supabase/supabase-js'
 import { signInWithOtp, signUp } from '../lib/supabase-optimized'
-import { type User, createExtendedUser } from '../types/auth'
+import { type User, createExtendedUser, type UserRole } from '../types/auth'
 
-interface AuthState {
+// Define the middleware mutators type for proper TypeScript support
+type AuthStoreMutators = [
+  ['zustand/devtools', never],
+  ['zustand/persist', unknown],
+  ['zustand/subscribeWithSelector', never]
+]
+
+// Define the StateCreator with proper middleware types
+type AuthStateCreator = StateCreator<
+  AuthState,
+  AuthStoreMutators,
+  [],
+  AuthState
+>
+
+export interface AuthState {
   user: User | null
   session: Session | null
-  userType: 'supplier' | 'buyer' | 'admin' | 'network' | null
+  userType: UserRole | null
   loading: boolean
   isAuthenticated: boolean
   // User preferences (non-sensitive)
@@ -25,18 +41,18 @@ interface AuthState {
   }
   setUser: (user: User | null) => void
   setSession: (session: Session | null) => void
-  setUserType: (userType: 'supplier' | 'buyer' | 'admin' | 'network' | null) => void
+  setUserType: (userType: UserRole | null) => void
   setPreferences: (preferences: Partial<AuthState['preferences']>) => void
   signIn: (email: string, password: string) => Promise<void>
   signInWithMagicLink: (email: string) => Promise<void>
   signUp: (
     email: string,
     password: string,
-    userType: 'supplier' | 'buyer' | 'network'
+    userType: Exclude<UserRole, 'admin'>
   ) => Promise<void>
   signOut: () => Promise<void>
   checkSession: () => Promise<void>
-  initializeFromServer: (user: User | null, session: Session | null, userType: AuthState['userType']) => void
+  initializeFromServer: (user: User | null, session: Session | null, userType: UserRole | null) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -54,7 +70,7 @@ export const useAuthStore = create<AuthState>()(
     })(
       subscribeWithSelector(
         persist(
-          (set, get) => ({
+          ((set, get, api) => ({
       user: null,
       session: null,
       userType: null,
@@ -65,15 +81,15 @@ export const useAuthStore = create<AuthState>()(
         return !!get().user && !!get().session
       },
 
-      setUser: (user) => set({ user }),
-      setSession: (session) => set({ session }),
-      setUserType: (userType) => set({ userType }),
-      setPreferences: (preferences) => 
-        set((state) => ({ 
+      setUser: (user: User | null) => set({ user }),
+      setSession: (session: Session | null) => set({ session }),
+      setUserType: (userType: UserRole | null) => set({ userType }),
+      setPreferences: (preferences: Partial<AuthState['preferences']>) => 
+        set((state: AuthState) => ({ 
           preferences: { ...state.preferences, ...preferences } 
         })),
 
-      signIn: async (email, password) => {
+      signIn: async (email: string, password: string) => {
         // Authentication is now handled server-side via Netlify functions
         // This method will make a request to the auth-login function
         const response = await fetch('/.netlify/functions/auth-login', {
@@ -104,7 +120,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signInWithMagicLink: async (email) => {
+      signInWithMagicLink: async (email: string) => {
         const { error } = await signInWithOtp({
           email,
           options: {
@@ -115,7 +131,7 @@ export const useAuthStore = create<AuthState>()(
         if (error) throw error
       },
 
-      signUp: async (email, password, userType) => {
+      signUp: async (email: string, password: string, userType: Exclude<UserRole, 'admin'>) => {
         const { data, error } = await signUp({
           email,
           password,
@@ -183,7 +199,7 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: false })
       },
       
-      initializeFromServer: (user, session, userType) => {
+      initializeFromServer: (user: User | null, session: Session | null, userType: UserRole | null) => {
         // Used by server-side rendering or when session is validated server-side
         set({ user, session, userType, loading: false })
       },
@@ -210,4 +226,4 @@ export const useAuthStore = create<AuthState>()(
       enabled: process.env.NODE_ENV === 'development',
     }
   )
-)
+))

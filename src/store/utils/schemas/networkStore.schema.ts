@@ -19,8 +19,8 @@ const QualityThresholdsSchema = z.object({
   }),
 })
 
-// Network settings schema
-const NetworkSettingsSchema = z.object({
+// Network configuration schema
+const NetworkConfigSchema = z.object({
   auto_accept_calls: z.boolean(),
   auto_route_calls: z.boolean(),
   margin_type: z.enum(['percentage', 'fixed']),
@@ -53,7 +53,7 @@ const NetworkSchema = z.object({
   quality_thresholds: QualityThresholdsSchema,
   approved_suppliers: z.array(z.string()),
   approved_buyers: z.array(z.string()),
-  settings: NetworkSettingsSchema,
+  settings: NetworkConfigSchema,
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -139,7 +139,7 @@ registerSchema(
 // Export schemas
 export {
   QualityThresholdsSchema,
-  NetworkSettingsSchema,
+  NetworkConfigSchema,
   NetworkSchema,
   NetworkCampaignSchema,
   NetworkRelationshipSchema,
@@ -150,7 +150,7 @@ export {
 
 // Export types
 export type QualityThresholds = z.infer<typeof QualityThresholdsSchema>
-export type NetworkSettings = z.infer<typeof NetworkSettingsSchema>
+export type NetworkConfig = z.infer<typeof NetworkConfigSchema>
 export type Network = z.infer<typeof NetworkSchema>
 export type NetworkCampaign = z.infer<typeof NetworkCampaignSchema>
 export type NetworkRelationship = z.infer<typeof NetworkRelationshipSchema>

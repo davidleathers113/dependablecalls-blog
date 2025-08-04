@@ -35,9 +35,12 @@ function getAllStores(): StoreConfig[] {
       getState: () => useAuthStore.getState(),
       persistConfig: {
         name: 'dce-user-preferences',
-        partialize: (state: Record<string, unknown>) => ({
-          preferences: state.preferences,
-        }),
+        partialize: (state: unknown) => {
+          const typedState = state as Record<string, unknown>
+          return {
+            preferences: typedState.preferences,
+          }
+        },
       },
     },
     {
@@ -45,11 +48,14 @@ function getAllStores(): StoreConfig[] {
       getState: () => useBuyerStore.getState(),
       persistConfig: {
         name: 'buyer-store',
-        partialize: (state: Record<string, unknown>) => ({
-          currentBalance: state.currentBalance,
-          creditLimit: state.creditLimit,
-          // Note: Full state might be persisted - this is a security issue!
-        }),
+        partialize: (state: unknown) => {
+          const typedState = state as Record<string, unknown>
+          return {
+            currentBalance: typedState.currentBalance,
+            creditLimit: typedState.creditLimit,
+            // Note: Full state might be persisted - this is a security issue!
+          }
+        },
       },
     },
     {
@@ -57,11 +63,14 @@ function getAllStores(): StoreConfig[] {
       getState: () => useSupplierStore.getState(),
       persistConfig: {
         name: 'supplier-store',
-        partialize: (state: Record<string, unknown>) => ({
-          listings: state.listings,
-          leadSources: state.leadSources,
-          // Note: Might contain sensitive data
-        }),
+        partialize: (state: unknown) => {
+          const typedState = state as Record<string, unknown>
+          return {
+            listings: typedState.listings,
+            leadSources: typedState.leadSources,
+            // Note: Might contain sensitive data
+          }
+        },
       },
     },
     {
@@ -74,10 +83,13 @@ function getAllStores(): StoreConfig[] {
       getState: () => useSettingsStore.getState(),
       persistConfig: {
         name: 'settings-storage',
-        partialize: (state: Record<string, unknown>) => ({
-          userSettings: state.userSettings,
-          lastSaved: state.lastSaved,
-        }),
+        partialize: (state: unknown) => {
+          const typedState = state as Record<string, unknown>
+          return {
+            userSettings: typedState.userSettings,
+            lastSaved: typedState.lastSaved,
+          }
+        },
       },
     },
     {
@@ -85,14 +97,17 @@ function getAllStores(): StoreConfig[] {
       getState: () => useBlogEditorStore.getState(),
       persistConfig: {
         name: 'blog-editor-storage',
-        partialize: (state: Record<string, unknown>) => ({
-          draft: state.draft,
-          editorMode: state.editorMode,
-          previewMode: state.previewMode,
-          wordWrapEnabled: state.wordWrapEnabled,
-          autosaveEnabled: state.autosaveEnabled,
-          autosaveInterval: state.autosaveInterval,
-        }),
+        partialize: (state: unknown) => {
+          const typedState = state as Record<string, unknown>
+          return {
+            draft: typedState.draft,
+            editorMode: typedState.editorMode,
+            previewMode: typedState.previewMode,
+            wordWrapEnabled: typedState.wordWrapEnabled,
+            autosaveEnabled: typedState.autosaveEnabled,
+            autosaveInterval: typedState.autosaveInterval,
+          }
+        },
       },
     },
     {
@@ -100,14 +115,17 @@ function getAllStores(): StoreConfig[] {
       getState: () => useBlogUIStore.getState(),
       persistConfig: {
         name: 'blog-ui-storage',
-        partialize: (state: Record<string, unknown>) => ({
-          viewMode: state.viewMode,
-          showFilters: state.showFilters,
-          showMetrics: state.showMetrics,
-          enableComments: state.enableComments,
-          enableRealtime: state.enableRealtime,
-          showDrafts: state.showDrafts,
-        }),
+        partialize: (state: unknown) => {
+          const typedState = state as Record<string, unknown>
+          return {
+            viewMode: typedState.viewMode,
+            showFilters: typedState.showFilters,
+            showMetrics: typedState.showMetrics,
+            enableComments: typedState.enableComments,
+            enableRealtime: typedState.enableRealtime,
+            showDrafts: typedState.showDrafts,
+          }
+        },
       },
     },
     {
@@ -304,6 +322,6 @@ if (typeof window === 'undefined' && process.argv[1]?.endsWith('runSecurityAudit
 
 // Browser console command
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as Record<string, unknown>).__runSecurityAudit = runSecurityAudit
+  (window as unknown as Record<string, unknown>).__runSecurityAudit = runSecurityAudit
   console.log('Security audit available: __runSecurityAudit()')
 }

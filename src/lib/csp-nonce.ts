@@ -4,7 +4,7 @@
  * Production-ready nonce system with strict-dynamic support,
  * edge function integration, and performance optimization.
 */
-import { randomBytes } from 'crypto'
+// Use Web Crypto API for browser compatibility
 
 // Global type declarations for CSP nonces
 declare global {
@@ -50,7 +50,10 @@ export function generateNonce(): string {
   if (typeof globalThis !== 'undefined' && typeof globalThis.window === 'undefined') {
     // Node.js environment - use crypto module
     try {
-      return randomBytes(24).toString('base64url');
+      // Use Web Crypto API for browser compatibility
+    const array = new Uint8Array(24);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode(...array)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     } catch {
       // Fallback if crypto is not available
       return generateBrowserNonce();

@@ -39,7 +39,7 @@ const SupplierPersistedV2Schema = z.object({
         name: z.string(),
         trafficSplit: z.number(), // 0-100 percentage
         isActive: z.boolean(),
-      })).default([]),
+      })),
       currentVariant: z.string().optional(),
     }).optional(),
   })),
@@ -47,10 +47,10 @@ const SupplierPersistedV2Schema = z.object({
   leadSources: z.array(LeadSourceSchema.extend({
     // NEW: Enhanced source attribution
     _attribution: z.object({
-      utmParameters: z.record(z.string()).default({}),
+      utmParameters: z.record(z.string()),
       referrerDomain: z.string().optional(),
       firstTouchDate: z.string().optional(),
-      touchpointCount: z.number().default(1),
+      touchpointCount: z.number(),
     }).optional(),
     
     // NEW: Quality scoring history
@@ -59,7 +59,7 @@ const SupplierPersistedV2Schema = z.object({
       score: z.number(),
       factors: z.array(z.string()),
       notes: z.string().optional(),
-    })).default([]),
+    })),
   })),
 })
 
@@ -153,7 +153,7 @@ const SupplierPersistedV3Schema = z.object({
         name: z.string(),
         trafficSplit: z.number(),
         isActive: z.boolean(),
-      })).default([]),
+      })),
       currentVariant: z.string().optional(),
     }).optional(),
     
@@ -168,17 +168,17 @@ const SupplierPersistedV3Schema = z.object({
   
   leadSources: z.array(LeadSourceSchema.extend({
     _attribution: z.object({
-      utmParameters: z.record(z.string()).default({}),
+      utmParameters: z.record(z.string()),
       referrerDomain: z.string().optional(),
       firstTouchDate: z.string().optional(),
-      touchpointCount: z.number().default(1),
+      touchpointCount: z.number(),
     }).optional(),
     _qualityHistory: z.array(z.object({
       date: z.string(),
       score: z.number(),
       factors: z.array(z.string()),
       notes: z.string().optional(),
-    })).default([]),
+    })),
     
     // NEW: Fraud prevention
     _fraudPrevention: z.object({
@@ -285,7 +285,7 @@ const SupplierPersistedV4Schema = z.object({
         name: z.string(),
         trafficSplit: z.number(),
         isActive: z.boolean(),
-      })).default([]),
+      })),
       currentVariant: z.string().optional(),
     }).optional(),
     _compliance: z.object({
@@ -298,29 +298,29 @@ const SupplierPersistedV4Schema = z.object({
     // NEW: AI-powered optimization
     _aiInsights: z.object({
       performancePrediction: z.number().optional(), // Predicted performance score
-      optimizationSuggestions: z.array(z.string()).default([]),
+      optimizationSuggestions: z.array(z.string()),
       marketTrends: z.array(z.object({
         trend: z.string(),
         impact: z.enum(['positive', 'negative', 'neutral']),
         confidence: z.number(), // 0-1 confidence score
-      })).default([]),
+      })),
       lastAnalysis: z.string().optional(),
     }).optional(),
   })),
   
   leadSources: z.array(LeadSourceSchema.extend({
     _attribution: z.object({
-      utmParameters: z.record(z.string()).default({}),
+      utmParameters: z.record(z.string()),
       referrerDomain: z.string().optional(),
       firstTouchDate: z.string().optional(),
-      touchpointCount: z.number().default(1),
+      touchpointCount: z.number(),
     }).optional(),
     _qualityHistory: z.array(z.object({
       date: z.string(),
       score: z.number(),
       factors: z.array(z.string()),
       notes: z.string().optional(),
-    })).default([]),
+    })),
     _fraudPrevention: z.object({
       riskScore: z.number().default(0),
       lastFraudCheck: z.string().optional(),
@@ -336,7 +336,7 @@ const SupplierPersistedV4Schema = z.object({
       seasonalityFactors: z.array(z.object({
         period: z.string(),
         multiplier: z.number(),
-      })).default([]),
+      })),
       lastPrediction: z.string().optional(),
     }).optional(),
   })),

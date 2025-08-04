@@ -45,7 +45,7 @@ export interface EncryptedStorageInterface {
 export interface EncryptedStorageConfig {
   storageType: StorageType
   classification: DataClassification
-  sessionId?: string
+  sessionId?: string | undefined
   encryptionConfig?: EncryptionConfig
   keyRotationIntervalMs?: number
   fallbackToMemory?: boolean
@@ -518,7 +518,7 @@ export class StorageFactory {
     return new EncryptedStorage({
       storageType,
       classification,
-      sessionId,
+      sessionId: sessionId || undefined,
       fallbackToMemory: true,
     })
   }
@@ -534,7 +534,7 @@ export class StorageFactory {
     return new AsyncEncryptedStorage({
       storageType,
       classification,
-      sessionId,
+      sessionId: sessionId || undefined,
       fallbackToMemory: true,
     })
   }
@@ -550,7 +550,7 @@ export class StorageFactory {
     const asyncStorage = new AsyncEncryptedStorage({
       storageType,
       classification,
-      sessionId,
+      sessionId: sessionId || undefined,
       fallbackToMemory: true,
     })
 
@@ -629,11 +629,5 @@ export const StorageUtils = {
   },
 }
 
-/**
- * Export types and main classes
- */
-export type { 
-  EncryptedStorageInterface, 
-  EncryptedStorageConfig, 
-  StorageEntry 
-}
+// Re-export types for convenience (avoid duplicate exports)
+// EncryptedStorageInterface, EncryptedStorageConfig, and StorageEntry are already exported above

@@ -5,7 +5,7 @@
 
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { getCLS, getFCP, getFID, getLCP, getTTFB } from 'web-vitals'
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals'
 import type {
   PerformanceMetrics,
   StateChangeMetric,
@@ -128,7 +128,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       set({ isEnabled: true })
 
       // Start Web Vitals collection
-      getCLS((metric) => {
+      onCLS((metric) => {
         set((state) => ({
           webVitals: {
             ...state.webVitals,
@@ -138,7 +138,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
         }))
       })
 
-      getFCP((metric) => {
+      onFCP((metric) => {
         set((state) => ({
           webVitals: {
             ...state.webVitals,
@@ -148,7 +148,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
         }))
       })
 
-      getFID((metric) => {
+      onINP((metric) => {
         set((state) => ({
           webVitals: {
             ...state.webVitals,
@@ -158,7 +158,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
         }))
       })
 
-      getLCP((metric) => {
+      onLCP((metric) => {
         set((state) => ({
           webVitals: {
             ...state.webVitals,
@@ -168,7 +168,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
         }))
       })
 
-      getTTFB((metric) => {
+      onTTFB((metric) => {
         set((state) => ({
           webVitals: {
             ...state.webVitals,

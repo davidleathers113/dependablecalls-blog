@@ -3,94 +3,7 @@ import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useCampaignWizard as useBaseCampaignWizard, type CampaignWizardFormData } from '../store/slices/campaignWizardSlice'
-
-// Schema that matches the original CreateCampaignPage form
-const createCampaignSchema = z.object({
-  name: z
-    .string()
-    .min(3, 'Campaign name must be at least 3 characters')
-    .max(100, 'Campaign name must be less than 100 characters'),
-  vertical: z.enum([
-    'insurance',
-    'home_services',
-    'legal',
-    'medical',
-    'financial',
-    'education',
-    'automotive',
-    'real_estate',
-  ]),
-  description: z
-    .string()
-    .min(10, 'Description must be at least 10 characters')
-    .max(500, 'Description must be less than 500 characters'),
-  target_cpa: z
-    .number()
-    .min(1, 'Target CPA must be at least $1')
-    .max(1000, 'Target CPA must be less than $1,000'),
-  daily_budget: z
-    .number()
-    .min(10, 'Daily budget must be at least $10')
-    .max(10000, 'Daily budget must be less than $10,000'),
-  monthly_budget: z
-    .number()
-    .min(100, 'Monthly budget must be at least $100')
-    .max(100000, 'Monthly budget must be less than $100,000'),
-  geo_targeting: z.object({
-    countries: z.array(z.string()).min(1, 'Select at least one country'),
-    states: z.array(z.string()).optional(),
-    cities: z.array(z.string()).optional(),
-    radius_miles: z.number().min(1).max(500).optional(),
-  }),
-  time_targeting: z.object({
-    days_of_week: z
-      .array(
-        z.enum([
-          'monday',
-          'tuesday',
-          'wednesday',
-          'thursday',
-          'friday',
-          'saturday',
-          'sunday',
-        ] as const)
-      )
-      .min(1, 'Select at least one day'),
-    hours: z.object({
-      start: z.string().length(5, 'Invalid time format'),
-      end: z.string().length(5, 'Invalid time format'),
-    }),
-    timezone: z.string().min(1, 'Select a timezone'),
-  }),
-  quality_requirements: z.object({
-    minimum_call_duration: z
-      .number()
-      .min(30, 'Minimum call duration must be at least 30 seconds')
-      .max(600, 'Maximum call duration is 10 minutes'),
-    quality_score_threshold: z.number().min(1).max(100),
-    allow_transferred_calls: z.boolean(),
-    require_unique_callers: z.boolean(),
-  }),
-  payout_settings: z.object({
-    payout_model: z.enum(['cpa', 'cpc', 'cpm']),
-    base_payout: z
-      .number()
-      .min(1, 'Base payout must be at least $1')
-      .max(500, 'Base payout must be less than $500'),
-    bonus_conditions: z
-      .array(
-        z.object({
-          condition: z.string(),
-          bonus_amount: z.number().min(0),
-        })
-      )
-      .optional(),
-  }),
-})
-
-export type CreateCampaignFormData = z.infer<typeof createCampaignSchema>
+import { useCampaignWizard as useBaseCampaignWizard, type CampaignWizardFormData, campaignWizardSchema } from '../store/slices/campaignWizardSlice'
 
 // Step configuration that maps to the original CreateCampaignPage steps
 export const CAMPAIGN_WIZARD_STEPS = [
@@ -140,9 +53,9 @@ export function useCampaignWizardIntegration() {
   const wizard = useBaseCampaignWizard()
   
   // React Hook Form integration
-  const form = useForm<CreateCampaignFormData>({
-    resolver: zodResolver(createCampaignSchema),
-    defaultValues: wizard.formData as CreateCampaignFormData,
+  const form = useForm<CampaignWizardFormData>({
+    resolver: zodResolver(campaignWizardSchema),
+    defaultValues: wizard.formData as CampaignWizardFormData,
     mode: 'onChange', // Enable real-time validation
   })
   
@@ -173,12 +86,12 @@ export function useCampaignWizardIntegration() {
       const currentFormData = form.getValues()
       const hasChanges = Object.keys(wizardData).some((key) => {
         const wizardValue = wizardData[key as keyof CampaignWizardFormData]
-        const formValue = currentFormData[key as keyof CreateCampaignFormData]
+        const formValue = currentFormData[key as keyof CampaignWizardFormData]
         return JSON.stringify(wizardValue) !== JSON.stringify(formValue)
       })
       
       if (hasChanges) {
-        form.reset(wizardData as CreateCampaignFormData)
+        form.reset(wizardData as CampaignWizardFormData)
       }
     }
   }, [wizard, form])
@@ -281,7 +194,7 @@ export function useCampaignWizardIntegration() {
   }, [wizard])
   
   // Form submission handler
-  const handleSubmit = useCallback(async (data: CreateCampaignFormData) => {
+  const handleSubmit = useCallback(async (data: CampaignWizardFormData) => {
     try {
       // Update wizard with final form data
       wizard.updateCurrentStepData(data)
@@ -330,7 +243,7 @@ export function useCampaignWizardIntegration() {
     const loaded = wizard.loadDraft()
     if (loaded) {
       // Sync loaded data to form
-      form.reset(wizard.formData as CreateCampaignFormData)
+      form.reset(wizard.formData as CampaignWizardFormData)
     }
     return loaded
   }, [wizard, form])
@@ -443,4 +356,5 @@ export function useWizardStep(stepId: string) {
   }
 }
 
-export type { CreateCampaignFormData }
+// Re-export the form data type for convenience
+export type { CampaignWizardFormData as CreateCampaignFormData }

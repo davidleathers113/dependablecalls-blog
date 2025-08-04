@@ -111,6 +111,9 @@ const step4Schema = z.object({
 
 export type CampaignWizardFormData = z.infer<typeof campaignWizardSchema>
 
+// Export the schema for external validation use
+export { campaignWizardSchema }
+
 // Wizard state types
 export type WizardState = 
   | { type: 'idle' }

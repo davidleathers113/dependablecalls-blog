@@ -137,7 +137,7 @@ export function BlogShareExample({ url, title, description }: ShareData) {
     <div className="relative">
       <button
         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        onClick={() => shareModal.openView('share-panel', 'share')}
+        onClick={() => shareModal.open()}
       >
         <span>📤</span>
         Share
@@ -145,7 +145,7 @@ export function BlogShareExample({ url, title, description }: ShareData) {
 
       {shareModal.isOpen && (
         <div 
-          ref={shareModal.dropdownRef}
+          ref={shareModal.modalRef}
           className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-lg border p-2 min-w-48 z-10"
         >
           <div className="text-sm font-medium text-gray-900 mb-2 px-2">Share this post</div>
@@ -194,7 +194,7 @@ export function BlogTagsExample() {
     const tagData = tagModal.content
     if (!tagData || !tagData.name.trim()) return
 
-    tagModal.showLoading('Creating tag...')
+    tagModal.showLoading()
 
     try {
       // Simulate API call
@@ -206,7 +206,7 @@ export function BlogTagsExample() {
       // Reset form
       tagModal.setContent({ name: '', description: '', color: 'blue' })
     } catch {
-      tagModal.showError('Failed to create tag. Please try again.', true)
+      tagModal.showError('Failed to create tag. Please try again.')
     }
   }, [tagModal])
 
@@ -221,7 +221,7 @@ export function BlogTagsExample() {
     <>
       <button
         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-        onClick={() => tagModal.openCreate('tag')}
+        onClick={() => tagModal.open()}
       >
         + Create Tag
       </button>
@@ -241,11 +241,11 @@ export function BlogTagsExample() {
             ) : tagModal.hasError ? (
               <div className="text-center py-8">
                 <div className="text-red-600 mb-4">❌</div>
-                <p className="text-red-600 mb-4">{tagModal.state.type === 'error' ? tagModal.state.message : 'An error occurred'}</p>
+                <p className="text-red-600 mb-4">{tagModal.errorMessage || 'An error occurred'}</p>
                 <div className="flex gap-2 justify-center">
                   <button
                     className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                    onClick={() => tagModal.openCreate('tag')}
+                    onClick={() => tagModal.open()}
                   >
                     Try Again
                   </button>
@@ -360,15 +360,15 @@ export function BlogCommentsExample({ comments }: { comments: Comment[] }) {
   })
 
   const handleReply = useCallback((commentId: string) => {
-    replyModal.openCreate('reply', commentId)
     replyModal.setContent({ commentId, content: '' })
+    replyModal.open()
   }, [replyModal])
 
   const handleSubmitReply = useCallback(async () => {
     const replyData = replyModal.content
     if (!replyData || !replyData.content.trim()) return
 
-    replyModal.showLoading('Posting reply...')
+    replyModal.showLoading()
 
     try {
       // Simulate API call
@@ -377,7 +377,7 @@ export function BlogCommentsExample({ comments }: { comments: Comment[] }) {
       console.log('Posted reply:', replyData)
       replyModal.close()
     } catch {
-      replyModal.showError('Failed to post reply. Please try again.', true)
+      replyModal.showError('Failed to post reply. Please try again.')
     }
   }, [replyModal])
 
@@ -390,8 +390,7 @@ export function BlogCommentsExample({ comments }: { comments: Comment[] }) {
 
   const isReplyingTo = useCallback((commentId: string) => {
     return replyModal.isOpen && 
-           replyModal.state.type === 'create' && 
-           replyModal.state.parentId === commentId
+           replyModal.content?.commentId === commentId
   }, [replyModal])
 
   const renderComment = (comment: Comment, depth = 0) => (
@@ -426,7 +425,6 @@ export function BlogCommentsExample({ comments }: { comments: Comment[] }) {
             ) : (
               <>
                 <textarea
-                  ref={replyModal.modalRef}
                   value={replyModal.content?.content || ''}
                   onChange={(e) => updateReplyContent(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -491,7 +489,7 @@ export function BlogNewsletterExample() {
   const handleSubscribe = useCallback(async () => {
     if (!email.trim()) return
 
-    successModal.showLoading('Subscribing...')
+    successModal.showLoading()
 
     try {
       // Simulate API call
@@ -504,7 +502,7 @@ export function BlogNewsletterExample() {
       }
       
       successModal.setContent(subscriptionData)
-      successModal.openConfirmation('subscribe', 'newsletter', false)
+      successModal.open()
       
       // Auto-close after 4 seconds
       setTimeout(() => {
@@ -516,7 +514,7 @@ export function BlogNewsletterExample() {
       setPreferences([])
       
     } catch {
-      successModal.showError('Failed to subscribe. Please try again.', true)
+      successModal.showError('Failed to subscribe. Please try again.')
     }
   }, [email, preferences, successModal])
 
@@ -600,7 +598,7 @@ export function BlogNewsletterExample() {
                 <div className="text-red-600 text-4xl mb-4">❌</div>
                 <h3 className="text-lg font-bold text-red-600 mb-2">Subscription Failed</h3>
                 <p className="text-gray-600 mb-4">
-                  {successModal.state.type === 'error' ? successModal.state.message : 'An error occurred'}
+                  {successModal.errorMessage || 'An error occurred'}
                 </p>
                 <button
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
