@@ -64,7 +64,7 @@ const authV1ToV2Migration: Migration<AuthPersistedV1, AuthPersistedV2> = {
   
   // Validation schemas
   fromSchema: AuthPersistedV1Schema,
-  toSchema: AuthPersistedV2Schema,
+  toSchema: AuthPersistedV2Schema as z.ZodType<AuthPersistedV2>,
 }
 
 // ======================
@@ -119,8 +119,8 @@ const authV2ToV3Migration: Migration<AuthPersistedV2, AuthPersistedV3> = {
   },
   
   // Validation schemas
-  fromSchema: AuthPersistedV2Schema,
-  toSchema: AuthPersistedV3Schema,
+  fromSchema: AuthPersistedV2Schema as z.ZodType<AuthPersistedV2>,
+  toSchema: AuthPersistedV3Schema as z.ZodType<AuthPersistedV3>,
 }
 
 // ======================
@@ -194,8 +194,8 @@ const authV3ToV4Migration: Migration<AuthPersistedV3, AuthPersistedV4> = {
   },
   
   // Validation schemas
-  fromSchema: AuthPersistedV3Schema,
-  toSchema: AuthPersistedV4Schema,
+  fromSchema: AuthPersistedV3Schema as z.ZodType<AuthPersistedV3>,
+  toSchema: AuthPersistedV4Schema as z.ZodType<AuthPersistedV4>,
 }
 
 // Register all migrations

@@ -48,7 +48,7 @@ const networkV1ToV2Migration: Migration<NetworkPersistedV1, NetworkPersistedV2> 
   
   // Validation schemas
   fromSchema: NetworkPersistedV1Schema,
-  toSchema: NetworkPersistedV2Schema,
+  toSchema: NetworkPersistedV2Schema as z.ZodType<NetworkPersistedV2>,
 }
 
 // ======================
@@ -91,8 +91,8 @@ const networkV2ToV3Migration: Migration<NetworkPersistedV2, NetworkPersistedV3> 
   },
   
   // Validation schemas
-  fromSchema: NetworkPersistedV2Schema,
-  toSchema: NetworkPersistedV3Schema,
+  fromSchema: NetworkPersistedV2Schema as z.ZodType<NetworkPersistedV2>,
+  toSchema: NetworkPersistedV3Schema as z.ZodType<NetworkPersistedV3>,
 }
 
 // Register migrations (even though they're no-ops)

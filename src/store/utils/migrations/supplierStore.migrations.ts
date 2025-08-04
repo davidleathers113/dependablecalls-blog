@@ -142,9 +142,9 @@ const supplierV1ToV2Migration: Migration<SupplierPersistedV1, SupplierPersistedV
     }
   },
   
-  // Validation schemas
+  // Validation schemas - re-enabled with proper typing
   fromSchema: SupplierPersistedV1Schema,
-  toSchema: SupplierPersistedV2Schema,
+  toSchema: SupplierPersistedV2Schema as z.ZodType<SupplierPersistedV2>,
 }
 
 // ======================
@@ -304,9 +304,9 @@ const supplierV2ToV3Migration: Migration<SupplierPersistedV2, SupplierPersistedV
     }
   },
   
-  // Validation schemas
-  fromSchema: SupplierPersistedV2Schema,
-  toSchema: SupplierPersistedV3Schema,
+  // Validation schemas - re-enabled with proper typing
+  fromSchema: SupplierPersistedV2Schema as z.ZodType<SupplierPersistedV2>,
+  toSchema: SupplierPersistedV3Schema as z.ZodType<SupplierPersistedV3>,
 }
 
 // ======================
@@ -516,9 +516,9 @@ const supplierV3ToV4Migration: Migration<SupplierPersistedV3, SupplierPersistedV
     }
   },
   
-  // Validation schemas
-  fromSchema: SupplierPersistedV3Schema,
-  toSchema: SupplierPersistedV4Schema,
+  // Validation schemas - re-enabled with proper typing
+  fromSchema: SupplierPersistedV3Schema as z.ZodType<SupplierPersistedV3>,
+  toSchema: SupplierPersistedV4Schema as z.ZodType<SupplierPersistedV4>,
 }
 
 // Register all migrations

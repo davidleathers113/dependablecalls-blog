@@ -105,7 +105,7 @@ const blogEditorV1ToV2Migration: Migration<BlogEditorPersistedV1, BlogEditorPers
   
   // Validation schemas
   fromSchema: BlogEditorPersistedV1Schema,
-  toSchema: BlogEditorPersistedV2Schema,
+  toSchema: BlogEditorPersistedV2Schema as z.ZodType<BlogEditorPersistedV2>,
 }
 
 // ======================
@@ -142,7 +142,7 @@ const blogFilterV1ToV2Migration: Migration<BlogFilterPersistedV1, BlogFilterPers
   
   // Validation schemas
   fromSchema: BlogFilterPersistedV1Schema,
-  toSchema: BlogFilterPersistedV2Schema,
+  toSchema: BlogFilterPersistedV2Schema as z.ZodType<BlogFilterPersistedV2>,
 }
 
 // ======================
@@ -272,7 +272,7 @@ const blogUIV1ToV2Migration: Migration<BlogUIPersistedV1, BlogUIPersistedV2> = {
   
   // Validation schemas
   fromSchema: BlogUIPersistedV1Schema,
-  toSchema: BlogUIPersistedV2Schema,
+  toSchema: BlogUIPersistedV2Schema as z.ZodType<BlogUIPersistedV2>,
 }
 
 // ======================
@@ -361,8 +361,8 @@ const blogEditorV2ToV3Migration: Migration<BlogEditorPersistedV2, BlogEditorPers
   },
   
   // Validation schemas
-  fromSchema: BlogEditorPersistedV2Schema,
-  toSchema: BlogEditorPersistedV3Schema,
+  fromSchema: BlogEditorPersistedV2Schema as z.ZodType<BlogEditorPersistedV2>,
+  toSchema: BlogEditorPersistedV3Schema as z.ZodType<BlogEditorPersistedV3>,
 }
 
 // Register all migrations

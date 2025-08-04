@@ -156,7 +156,7 @@ const settingsV1ToV2Migration: Migration<SettingsPersistedV1, SettingsPersistedV
   
   // Validation schemas
   fromSchema: SettingsPersistedV1Schema,
-  toSchema: SettingsPersistedV2Schema,
+  toSchema: SettingsPersistedV2Schema as z.ZodType<SettingsPersistedV2>,
 }
 
 // ======================
@@ -351,8 +351,8 @@ const settingsV2ToV3Migration: Migration<SettingsPersistedV2, SettingsPersistedV
   },
   
   // Validation schemas
-  fromSchema: SettingsPersistedV2Schema,
-  toSchema: SettingsPersistedV3Schema,
+  fromSchema: SettingsPersistedV2Schema as z.ZodType<SettingsPersistedV2>,
+  toSchema: SettingsPersistedV3Schema as z.ZodType<SettingsPersistedV3>,
 }
 
 // ======================
@@ -540,8 +540,8 @@ const settingsV3ToV4Migration: Migration<SettingsPersistedV3, SettingsPersistedV
   },
   
   // Validation schemas
-  fromSchema: SettingsPersistedV3Schema,
-  toSchema: SettingsPersistedV4Schema,
+  fromSchema: SettingsPersistedV3Schema as z.ZodType<SettingsPersistedV3>,
+  toSchema: SettingsPersistedV4Schema as z.ZodType<SettingsPersistedV4>,
 }
 
 // Register all migrations

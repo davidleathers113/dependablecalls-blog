@@ -55,7 +55,7 @@ const createAuthStore: StateCreator<
   AuthStoreMutators,
   [],
   AuthState
-> = (set: (partial: AuthState | Partial<AuthState> | ((state: AuthState) => AuthState | Partial<AuthState>), replace?: boolean) => void, get: () => AuthState, _api: any) => ({
+> = (set, get, _api) => ({
       user: null,
       session: null,
       userType: null,
@@ -191,18 +191,18 @@ const createAuthStore: StateCreator<
     })
 
 export const useAuthStore = create<AuthState>()(
-  devtools(
-    createMonitoringMiddleware({
-      name: 'auth-store',
-      enabled: true,
-      options: {
-        trackPerformance: true,
-        trackStateChanges: true,
-        trackSelectors: false,
-        enableTimeTravel: true,
-        maxHistorySize: 500,
-      },
-    })(
+  createMonitoringMiddleware({
+    name: 'auth-store',
+    enabled: true,
+    options: {
+      trackPerformance: true,
+      trackStateChanges: true,
+      trackSelectors: false,
+      enableTimeTravel: true,
+      maxHistorySize: 500,
+    },
+  })(
+    devtools(
       subscribeWithSelector(
         persist(
           createAuthStore,
@@ -221,11 +221,11 @@ export const useAuthStore = create<AuthState>()(
             ),
           }
         )
-      )
-    ),
-    {
-      name: 'auth-store',
-      enabled: process.env.NODE_ENV === 'development',
-    }
+      ),
+      {
+        name: 'auth-store',
+        enabled: process.env.NODE_ENV === 'development',
+      }
+    )
   )
 )

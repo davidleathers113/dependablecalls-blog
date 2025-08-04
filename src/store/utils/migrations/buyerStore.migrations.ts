@@ -82,7 +82,7 @@ const buyerV1ToV2Migration: Migration<BuyerPersistedV1, BuyerPersistedV2> = {
   
   // Validation schemas
   fromSchema: BuyerPersistedV1Schema,
-  toSchema: BuyerPersistedV2Schema,
+  toSchema: BuyerPersistedV2Schema as z.ZodType<BuyerPersistedV2>,
 }
 
 // ======================
@@ -148,8 +148,8 @@ const buyerV2ToV3Migration: Migration<BuyerPersistedV2, BuyerPersistedV3> = {
   },
   
   // Validation schemas
-  fromSchema: BuyerPersistedV2Schema,
-  toSchema: BuyerPersistedV3Schema,
+  fromSchema: BuyerPersistedV2Schema as z.ZodType<BuyerPersistedV2>,
+  toSchema: BuyerPersistedV3Schema as z.ZodType<BuyerPersistedV3>,
 }
 
 // ======================
@@ -247,8 +247,8 @@ const buyerV3ToV4Migration: Migration<BuyerPersistedV3, BuyerPersistedV4> = {
   },
   
   // Validation schemas
-  fromSchema: BuyerPersistedV3Schema,
-  toSchema: BuyerPersistedV4Schema,
+  fromSchema: BuyerPersistedV3Schema as z.ZodType<BuyerPersistedV3>,
+  toSchema: BuyerPersistedV4Schema as z.ZodType<BuyerPersistedV4>,
 }
 
 // Register all migrations
