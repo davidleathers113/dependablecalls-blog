@@ -182,20 +182,20 @@ const SupplierPersistedV3Schema = z.object({
     
     // NEW: Fraud prevention
     _fraudPrevention: z.object({
-      riskScore: z.number().default(0), // 0-100 risk score
+      riskScore: z.number(), // 0-100 risk score
       lastFraudCheck: z.string().optional(),
-      flaggedReasons: z.array(z.string()).default([]),
-      whiteListed: z.boolean().default(false),
-      quarantined: z.boolean().default(false),
+      flaggedReasons: z.array(z.string()),
+      whiteListed: z.boolean(),
+      quarantined: z.boolean(),
     }).optional(),
   })),
   
   // NEW: Supplier-level compliance settings
   _supplierCompliance: z.object({
-    tcpaConsent: z.boolean().default(false),
+    tcpaConsent: z.boolean(),
     dncListProvider: z.string().optional(),
     lastAuditDate: z.string().optional(),
-    certifications: z.array(z.string()).default([]),
+    certifications: z.array(z.string()),
     complianceContact: z.string().optional(),
   }).optional(),
 })
@@ -342,17 +342,17 @@ const SupplierPersistedV4Schema = z.object({
   })),
   
   _supplierCompliance: z.object({
-    tcpaConsent: z.boolean().default(false),
+    tcpaConsent: z.boolean(),
     dncListProvider: z.string().optional(),
     lastAuditDate: z.string().optional(),
-    certifications: z.array(z.string()).default([]),
+    certifications: z.array(z.string()),
     complianceContact: z.string().optional(),
   }).optional(),
   
   // NEW: Performance optimization settings
   _optimization: z.object({
-    autoOptimizationEnabled: z.boolean().default(false),
-    optimizationGoals: z.array(z.enum(['volume', 'quality', 'revenue', 'compliance'])).default(['quality']),
+    autoOptimizationEnabled: z.boolean(),
+    optimizationGoals: z.array(z.enum(['volume', 'quality', 'revenue', 'compliance'])),
     lastOptimizationRun: z.string().optional(),
     optimizationHistory: z.array(z.object({
       date: z.string(),
@@ -362,7 +362,7 @@ const SupplierPersistedV4Schema = z.object({
         qualityChange: z.number(),
         revenueChange: z.number(),
       }),
-    })).default([]),
+    })),
   }).optional(),
 })
 
