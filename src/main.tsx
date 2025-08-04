@@ -6,9 +6,13 @@ import { initSentry, SentryErrorBoundary, captureError } from './lib/monitoring'
 import { apm } from './lib/apm'
 import { AppErrorFallback } from './components/ui/AppErrorFallback'
 import { initializeTrustedTypes } from './lib/trusted-types'
+import { initializeCSRFProtection } from './lib/csrf-protection'
 
 // Initialize CSP v3 Trusted Types (must be done early)
 initializeTrustedTypes()
+
+// Initialize CSRF protection
+initializeCSRFProtection()
 
 // Initialize Sentry monitoring
 initSentry()
