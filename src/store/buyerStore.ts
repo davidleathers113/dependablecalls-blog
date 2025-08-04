@@ -86,7 +86,7 @@ const initialState = {
   error: null,
 }
 
-export const useBuyerStore = create<BuyerStore>()(
+const useBuyerStoreLegacy = create<BuyerStore>()(
   devtools(
     subscribeWithSelector(
       persist(
@@ -479,3 +479,23 @@ export const useBuyerStore = create<BuyerStore>()(
     }
   )
 )
+
+// Import the new v2 implementation
+let useBuyerStoreV2: any
+try {
+  const v2Module = require('./buyerStore.v2')
+  useBuyerStoreV2 = v2Module.useBuyerStore
+} catch {
+  console.warn('[Buyer Store] v2 implementation not available, using legacy')
+}
+
+// Export the appropriate implementation based on feature flag
+export const useBuyerStore = (() => {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useBuyerStoreV2) {
+    console.log('[Buyer Store] Using v2 implementation with standard middleware')
+    return useBuyerStoreV2
+  } else {
+    console.log('[Buyer Store] Using legacy implementation')
+    return useBuyerStoreLegacy
+  }
+})()

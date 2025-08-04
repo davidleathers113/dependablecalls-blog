@@ -67,7 +67,7 @@ function updateNestedObject(obj: unknown, path: string, value: unknown): unknown
   return result
 }
 
-export const useSettingsStore = create<SettingsState>()(
+const useSettingsStoreLegacy = create<SettingsState>()(
   resourceCleanup({
     enableAutoCleanup: true,
     maxAge: 5 * 60 * 1000, // 5 minutes
@@ -515,3 +515,23 @@ export const useSettingsStore = create<SettingsState>()(
   )
   )
 )
+
+// Import the new v2 implementation
+let useSettingsStoreV2: any
+try {
+  const v2Module = require('./settingsStore.v2')
+  useSettingsStoreV2 = v2Module.useSettingsStore
+} catch {
+  console.warn('[Settings Store] v2 implementation not available, using legacy')
+}
+
+// Export the appropriate implementation based on feature flag
+export const useSettingsStore = (() => {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useSettingsStoreV2) {
+    console.log('[Settings Store] Using v2 implementation with standard middleware')
+    return useSettingsStoreV2
+  } else {
+    console.log('[Settings Store] Using legacy implementation')
+    return useSettingsStoreLegacy
+  }
+})()

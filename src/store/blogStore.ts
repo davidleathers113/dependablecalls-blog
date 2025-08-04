@@ -172,7 +172,7 @@ const createBlogEditorStore: StateCreator<
     })
 
 // Editor Store - Persisted for draft recovery
-export const useBlogEditorStore = create<BlogEditorState>()(
+const useBlogEditorStoreLegacy = create<BlogEditorState>()(
   devtools(
     createMonitoringMiddleware({
       name: 'blog-editor-store',
@@ -208,7 +208,7 @@ export const useBlogEditorStore = create<BlogEditorState>()(
 )
 
 // Filter Store - Session only
-export const useBlogFilterStore = create<BlogFilterState>((set) => ({
+const useBlogFilterStoreLegacy = create<BlogFilterState>((set) => ({
   // Initial state
   filters: {},
   sort: { by: 'published_at', order: 'desc' },
@@ -372,7 +372,7 @@ const createBlogUIStore: StateCreator<
     })
 
 // UI Store - Persisted for user preferences
-export const useBlogUIStore = create<BlogUIState>()(
+const useBlogUIStoreLegacy = create<BlogUIState>()(
   devtools(
     createMonitoringMiddleware({
       name: 'blog-ui-store',
@@ -406,6 +406,50 @@ export const useBlogUIStore = create<BlogUIState>()(
     }
   )
 )
+
+// Import the new v2 implementations
+let useBlogEditorStoreV2: any
+let useBlogFilterStoreV2: any
+let useBlogUIStoreV2: any
+try {
+  const v2Module = require('./blogStore.v2')
+  useBlogEditorStoreV2 = v2Module.useBlogEditorStore
+  useBlogFilterStoreV2 = v2Module.useBlogFilterStore
+  useBlogUIStoreV2 = v2Module.useBlogUIStore
+} catch {
+  console.warn('[Blog Store] v2 implementation not available, using legacy')
+}
+
+// Export the appropriate implementations based on feature flag
+export const useBlogEditorStore = (() => {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useBlogEditorStoreV2) {
+    console.log('[Blog Editor Store] Using v2 implementation with standard middleware')
+    return useBlogEditorStoreV2
+  } else {
+    console.log('[Blog Editor Store] Using legacy implementation')
+    return useBlogEditorStoreLegacy
+  }
+})()
+
+export const useBlogFilterStore = (() => {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useBlogFilterStoreV2) {
+    console.log('[Blog Filter Store] Using v2 implementation with standard middleware')
+    return useBlogFilterStoreV2
+  } else {
+    console.log('[Blog Filter Store] Using legacy implementation')
+    return useBlogFilterStoreLegacy
+  }
+})()
+
+export const useBlogUIStore = (() => {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useBlogUIStoreV2) {
+    console.log('[Blog UI Store] Using v2 implementation with standard middleware')
+    return useBlogUIStoreV2
+  } else {
+    console.log('[Blog UI Store] Using legacy implementation')
+    return useBlogUIStoreLegacy
+  }
+})()
 
 // Combined hook for convenience
 export function useBlogStore() {

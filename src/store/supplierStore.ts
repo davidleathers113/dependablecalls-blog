@@ -145,7 +145,7 @@ const initialState = {
   error: null,
 }
 
-export const useSupplierStore = create<SupplierState>()(
+const useSupplierStoreLegacy = create<SupplierState>()(
   devtools(
     subscribeWithSelector(
       persist(
@@ -822,3 +822,23 @@ export const useSupplierStore = create<SupplierState>()(
     }
   )
 )
+
+// Import the new v2 implementation
+let useSupplierStoreV2: any
+try {
+  const v2Module = require('./supplierStore.v2')
+  useSupplierStoreV2 = v2Module.useSupplierStore
+} catch {
+  console.warn('[Supplier Store] v2 implementation not available, using legacy')
+}
+
+// Export the appropriate implementation based on feature flag
+export const useSupplierStore = (() => {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useSupplierStoreV2) {
+    console.log('[Supplier Store] Using v2 implementation with standard middleware')
+    return useSupplierStoreV2
+  } else {
+    console.log('[Supplier Store] Using legacy implementation')
+    return useSupplierStoreLegacy
+  }
+})()

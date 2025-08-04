@@ -257,7 +257,7 @@ try {
 
 // Export the appropriate implementation based on feature flag
 export const useAuthStore = (() => {
-  if (process.env.REACT_APP_USE_STANDARD_STORE === 'true' && useAuthStoreV2) {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useAuthStoreV2) {
     console.log('[Auth Store] Using v2 implementation with standard middleware')
     return useAuthStoreV2
   } else {

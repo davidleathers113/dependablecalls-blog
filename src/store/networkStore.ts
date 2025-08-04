@@ -49,7 +49,7 @@ const initialState = {
   selectedMode: 'network' as const,
 }
 
-export const useNetworkStore = create<NetworkState>()(
+const useNetworkStoreLegacy = create<NetworkState>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
@@ -318,3 +318,23 @@ export const useNetworkStore = create<NetworkState>()(
     reset: () => set(initialState),
   }))
 )
+
+// Import the new v2 implementation
+let useNetworkStoreV2: any
+try {
+  const v2Module = require('./networkStore.v2')
+  useNetworkStoreV2 = v2Module.useNetworkStore
+} catch (error) {
+  console.warn('[Network Store] v2 implementation not available, using legacy')
+}
+
+// Export the appropriate implementation based on feature flag
+export const useNetworkStore = (() => {
+  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useNetworkStoreV2) {
+    console.log('[Network Store] Using v2 implementation with standard middleware')
+    return useNetworkStoreV2
+  } else {
+    console.log('[Network Store] Using legacy implementation')
+    return useNetworkStoreLegacy
+  }
+})()
