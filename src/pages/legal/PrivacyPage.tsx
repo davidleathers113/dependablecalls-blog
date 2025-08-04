@@ -3,15 +3,16 @@ export default function PrivacyPage() {
     <div className="bg-white">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="text-4xl font-extrabold text-gray-900 mb-8">Privacy Policy</h1>
-        
+
         <div className="prose prose-lg text-gray-600 max-w-none">
           <p className="text-sm text-gray-500 mb-8">Last updated: January 20, 2025</p>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Introduction</h2>
             <p>
-              DependableCalls ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, 
-              use, disclose, and safeguard your information when you use our pay-per-call platform and related services.
+              DependableCalls ("we," "our," or "us") is committed to protecting your privacy. This
+              Privacy Policy explains how we collect, use, disclose, and safeguard your information
+              when you use our pay-per-call platform and related services.
             </p>
           </section>
 
@@ -43,7 +44,9 @@ export default function PrivacyPage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">3. How We Use Your Information</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              3. How We Use Your Information
+            </h2>
             <p className="mb-4">We use the collected information for various purposes:</p>
             <ul className="list-disc pl-6">
               <li>To provide and maintain our services</li>
@@ -57,7 +60,9 @@ export default function PrivacyPage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Information Sharing and Disclosure</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              4. Information Sharing and Disclosure
+            </h2>
             <p className="mb-4">We may share your information in the following circumstances:</p>
             <ul className="list-disc pl-6">
               <li>With your consent or at your direction</li>
@@ -71,8 +76,9 @@ export default function PrivacyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Data Security</h2>
             <p>
-              We implement appropriate technical and organizational measures to protect your information against unauthorized access, 
-              alteration, disclosure, or destruction. These measures include encryption, access controls, and regular security audits.
+              We implement appropriate technical and organizational measures to protect your
+              information against unauthorized access, alteration, disclosure, or destruction. These
+              measures include encryption, access controls, and regular security audits.
             </p>
           </section>
 
@@ -92,32 +98,36 @@ export default function PrivacyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Cookies and Tracking</h2>
             <p>
-              We use cookies and similar tracking technologies to improve your experience on our platform. You can control cookie 
-              preferences through your browser settings, though some features may not function properly without cookies.
+              We use cookies and similar tracking technologies to improve your experience on our
+              platform. You can control cookie preferences through your browser settings, though
+              some features may not function properly without cookies.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">8. Third-Party Links</h2>
             <p>
-              Our services may contain links to third-party websites. We are not responsible for the privacy practices of these 
-              external sites and encourage you to review their privacy policies.
+              Our services may contain links to third-party websites. We are not responsible for the
+              privacy practices of these external sites and encourage you to review their privacy
+              policies.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">9. Children's Privacy</h2>
             <p>
-              Our services are not intended for individuals under the age of 18. We do not knowingly collect personal information 
-              from children.
+              Our services are not intended for individuals under the age of 18. We do not knowingly
+              collect personal information from children.
             </p>
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">10. Changes to This Privacy Policy</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              10. Changes to This Privacy Policy
+            </h2>
             <p>
-              We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy 
-              Policy on this page and updating the "Last updated" date.
+              We may update this Privacy Policy from time to time. We will notify you of any changes
+              by posting the new Privacy Policy on this page and updating the "Last updated" date.
             </p>
           </section>
 
@@ -127,8 +137,8 @@ export default function PrivacyPage() {
             <div className="mt-4 bg-gray-50 p-4 rounded-lg">
               <p className="font-semibold">DependableCalls</p>
               <p>Email: privacy@dependablecalls.com</p>
-              <p>Phone: +1 (555) 123-4567</p>
-              <p>Address: 123 Business Center, Suite 400, San Francisco, CA 94105</p>
+              <p>Phone: +1 (727) 607-1692</p>
+              <p>Address: 10728 Eveningwood Ct, Trinity, FL 34655</p>
             </div>
           </section>
         </div>

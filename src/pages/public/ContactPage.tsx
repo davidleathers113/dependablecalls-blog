@@ -24,7 +24,7 @@ export default function ContactPage() {
       subject: isEnterpriseInquiry ? 'Enterprise Pricing Inquiry' : '',
       name: '',
       email: '',
-      message: ''
+      message: '',
     },
   })
 
@@ -85,7 +85,7 @@ export default function ContactPage() {
                   <PhoneIcon className="h-6 w-6 text-primary-600 mt-1" />
                   <div className="ml-4">
                     <h3 className="text-lg font-medium text-gray-900">Phone</h3>
-                    <p className="mt-1 text-gray-600">+1 (555) 123-4567</p>
+                    <p className="mt-1 text-gray-600">+1 (727) 607-1692</p>
                     <p className="text-sm text-gray-500">Mon-Fri 9AM-6PM PST</p>
                   </div>
                 </div>
@@ -104,11 +104,9 @@ export default function ContactPage() {
                   <div className="ml-4">
                     <h3 className="text-lg font-medium text-gray-900">Office</h3>
                     <p className="mt-1 text-gray-600">
-                      123 Business Center
+                      10728 Eveningwood Ct
                       <br />
-                      Suite 400
-                      <br />
-                      San Francisco, CA 94105
+                      Trinity, FL 34655
                     </p>
                   </div>
                 </div>
@@ -194,7 +192,6 @@ export default function ContactPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                   />
                 </div>
-
 
                 <div className="sm:col-span-2">
                   <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
