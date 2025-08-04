@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
 import { supabase } from '../lib/supabase'
+import { StorageFactory } from './utils/storage/encryptedStorage'
+import { DataClassification, StorageType } from './utils/dataClassification'
+import { resourceCleanup } from './utils/resourceCleanup'
+import { settingsToJson, isValidSupplierSettings, isValidBuyerSettings, isValidNetworkSettings } from './types/enhanced'
 import type {
   UserSettings,
   SupplierSettings,
@@ -15,7 +19,6 @@ import {
   isNetworkSettings,
 } from '../types/settings'
 import { useAuthStore } from './authStore'
-import type { Json } from '../types/database-extended'
 
 interface SettingsState {
   // Settings data
@@ -65,9 +68,15 @@ function updateNestedObject(obj: unknown, path: string, value: unknown): unknown
 }
 
 export const useSettingsStore = create<SettingsState>()(
-  subscribeWithSelector(
-    persist(
-      (set, get) => ({
+  resourceCleanup({
+    enableAutoCleanup: true,
+    maxAge: 5 * 60 * 1000, // 5 minutes
+    maxResources: 50,
+    cleanupInterval: 30 * 1000, // 30 seconds
+  })(
+    subscribeWithSelector(
+      persist(
+        (set, get) => ({
         // Initial state
         userSettings: null,
         roleSettings: null,
@@ -283,10 +292,10 @@ export const useSettingsStore = create<SettingsState>()(
               const { error } = await supabase!
                 .from('users')
                 .update({
-                  metadata: {
+                  metadata: settingsToJson({
                     ...metadataObject,
                     settings: updatedSettings,
-                  } as unknown as Json,
+                  }),
                 })
                 .eq('id', user.id)
 
@@ -300,31 +309,31 @@ export const useSettingsStore = create<SettingsState>()(
                 updatedAt: new Date().toISOString(),
               }
 
-              if (userType === 'supplier') {
+              if (userType === 'supplier' && isValidSupplierSettings(updatedSettings)) {
                 const { error } = await supabase!
                   .from('suppliers')
                   .update({
-                    settings: updatedSettings as unknown as Json,
+                    settings: settingsToJson(updatedSettings, isValidSupplierSettings),
                     settings_updated_at: new Date().toISOString(),
                   })
                   .eq('user_id', user.id)
 
                 if (error) throw error
-              } else if (userType === 'buyer') {
+              } else if (userType === 'buyer' && isValidBuyerSettings(updatedSettings)) {
                 const { error } = await supabase!
                   .from('buyers')
                   .update({
-                    settings: updatedSettings as unknown as Json,
+                    settings: settingsToJson(updatedSettings, isValidBuyerSettings),
                     settings_updated_at: new Date().toISOString(),
                   })
                   .eq('user_id', user.id)
 
                 if (error) throw error
-              } else if (userType === 'network' && 'networkId' in user && user.networkId) {
+              } else if (userType === 'network' && 'networkId' in user && user.networkId && isValidNetworkSettings(updatedSettings)) {
                 const { error } = await supabase!
                   .from('networks')
                   .update({
-                    settings: updatedSettings as unknown as Json,
+                    settings: settingsToJson(updatedSettings, isValidNetworkSettings),
                     settings_updated_at: new Date().toISOString(),
                   })
                   .eq('id', (user as { networkId: string }).networkId)
@@ -343,10 +352,10 @@ export const useSettingsStore = create<SettingsState>()(
               setting_type: userType as 'user' | 'supplier' | 'buyer' | 'network' | 'admin',
               setting_key: 'all',
               action: 'update',
-              new_value: {
+              new_value: settingsToJson({
                 user: state.userSettings,
                 role: state.roleSettings,
-              } as unknown as Json,
+              }),
             })
 
             set({
@@ -481,46 +490,28 @@ export const useSettingsStore = create<SettingsState>()(
       }),
       {
         name: 'settings-storage',
+        // SECURITY: Only persist non-sensitive user settings - NO API keys or credentials
         partialize: (state) => ({
-          userSettings: state.userSettings,
+          userSettings: state.userSettings ? {
+            ...state.userSettings,
+            // Remove any API keys, tokens, or sensitive configuration
+            integrations: state.userSettings.integrations ? {
+              ...state.userSettings.integrations,
+              // Clear API keys and secrets - only keep configuration flags
+              apiKeys: {},
+              credentials: {},
+            } : undefined,
+          } : null,
           lastSaved: state.lastSaved,
+          // DO NOT PERSIST roleSettings - may contain API keys and sensitive config
         }),
+        // Use encrypted storage for settings (CONFIDENTIAL classification due to potential PII)
+        storage: StorageFactory.createZustandStorage(
+          DataClassification.CONFIDENTIAL,
+          StorageType.LOCAL
+        ),
       }
     )
   )
+  )
 )
-
-// Auto-save functionality
-let autoSaveTimer: NodeJS.Timeout | null = null
-
-useSettingsStore.subscribe(
-  (state) => state.isDirty,
-  (isDirty) => {
-    if (isDirty) {
-      // Clear existing timer
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer)
-      }
-
-      // Set new timer for auto-save after 5 seconds of inactivity
-      autoSaveTimer = setTimeout(() => {
-        useSettingsStore.getState().saveSettings()
-      }, 5000)
-    }
-  }
-)
-
-// Subscribe to auth changes to reload settings
-useAuthStore.subscribe((state) => {
-  const user = state.user
-  if (user) {
-    useSettingsStore.getState().loadSettings()
-  } else {
-    // Clear settings on logout
-    useSettingsStore.setState({
-      userSettings: null,
-      roleSettings: null,
-      isDirty: false,
-    })
-  }
-})

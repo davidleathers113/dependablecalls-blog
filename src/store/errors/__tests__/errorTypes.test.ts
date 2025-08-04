@@ -2,15 +2,13 @@
  * Tests for DCE Error Types
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   DCEError,
   AuthenticationError,
   AuthorizationError,
   NetworkError,
-  APIError,
   ValidationError,
-  DataError,
   StateError,
   BusinessLogicError,
   ConfigurationError,

@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { from, getSession } from '../lib/supabase-optimized'
+import { StorageFactory } from './utils/storage/encryptedStorage'
+import { DataClassification, StorageType } from './utils/dataClassification'
+import { settingsToJson } from './types/enhanced'
 import type {
   CallListing,
   InventoryItem,
@@ -16,7 +19,7 @@ import type {
   ListingStatus,
   SaleStatus,
 } from '../types/supplier'
-import type { Database, Json } from '../types/database-extended'
+import type { Database } from '../types/database-extended'
 
 // Type definitions for Json fields in database
 interface CampaignTargeting {
@@ -183,14 +186,14 @@ export const useSupplierStore = create<SupplierState>()(
                 daily_cap: listing.daily_cap,
                 monthly_cap: listing.monthly_cap,
                 status: campaignStatus,
-                schedule: {
+                schedule: settingsToJson({
                   hours: listing.availability_hours,
                   days: listing.availability_hours.days,
-                } as unknown as Json,
-                targeting: {
+                }),
+                targeting: settingsToJson({
                   geographic_coverage: listing.geographic_coverage,
                   filters: listing.filters,
-                } as unknown as Json,
+                }),
               }
 
               const { data, error } = await from('campaigns')
@@ -393,17 +396,17 @@ export const useSupplierStore = create<SupplierState>()(
                 description: campaign.description || '',
                 price_per_call: campaign.bid_floor || 0,
                 quality_score: campaign.quality_threshold || 85,
-                geographic_coverage: (campaign.targeting as CampaignTargeting)?.geographic_coverage || [],
+                geographic_coverage: (campaign.targeting as unknown as CampaignTargeting)?.geographic_coverage || [],
                 daily_cap: campaign.daily_cap || 0,
                 weekly_cap: 0, // Not stored in campaigns table
                 monthly_cap: campaign.monthly_cap || 0,
-                availability_hours: (campaign.schedule as CampaignSchedule)?.hours || {
+                availability_hours: (campaign.schedule as unknown as CampaignSchedule)?.hours || {
                   start: '09:00',
                   end: '17:00',
                   timezone: 'America/New_York',
                   days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
                 },
-                filters: (campaign.targeting as CampaignTargeting)?.filters || {
+                filters: (campaign.targeting as unknown as CampaignTargeting)?.filters || {
                   lead_types: [],
                 },
                 performance_metrics: {
@@ -800,10 +803,17 @@ export const useSupplierStore = create<SupplierState>()(
         }),
         {
           name: 'supplier-store',
+          // SECURITY: Only persist business data, exclude financial metrics and sales data
           partialize: (state) => ({
             listings: state.listings,
             leadSources: state.leadSources,
+            // Remove metrics and sales (contains financial data) - fetch fresh from server
           }),
+          // Use encrypted storage for business data (INTERNAL classification)
+          storage: StorageFactory.createZustandStorage(
+            DataClassification.INTERNAL,
+            StorageType.LOCAL
+          ),
         }
       )
     ),

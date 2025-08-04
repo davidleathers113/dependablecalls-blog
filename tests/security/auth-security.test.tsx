@@ -229,7 +229,7 @@ describe('Authentication Security Tests', () => {
       const token = 'test-token'
       const refreshToken = 'test-refresh-token'
 
-      mockTokenService.setToken.mockImplementation((token) => {
+      mockTokenService.setToken.mockImplementation(() => {
         // Should store in httpOnly cookie or secure storage, not localStorage
         expect(localStorage.getItem('auth_token')).toBeNull()
         expect(sessionStorage.getItem('auth_token')).toBeNull()
@@ -242,7 +242,6 @@ describe('Authentication Security Tests', () => {
     })
 
     it('should handle token refresh securely', async () => {
-      const oldToken = 'old-token'
       const newToken = 'new-token'
       const refreshToken = 'refresh-token'
 
@@ -390,7 +389,7 @@ describe('Authentication Security Tests', () => {
         const { validateSession } = useAuth()
         React.useEffect(() => {
           validateSession({ ipAddress: suspiciousIP })
-        }, [])
+        }, [validateSession])
         return <div>Test</div>
       }
 
@@ -436,7 +435,6 @@ describe('Authentication Security Tests', () => {
 
     it('should prevent password reuse', async () => {
       const userId = 'user-123'
-      const newPassword = 'NewPassword123!'
       const previousPasswords = [
         'OldPassword123!',
         'AnotherOld456@',

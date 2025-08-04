@@ -412,7 +412,8 @@ class SBOMGenerator {
     return hashes;
   }
 
-  private async scanVulnerabilities(_components: ComponentInfo[]): Promise<VulnerabilityResult[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async scanVulnerabilities(components: ComponentInfo[]): Promise<VulnerabilityResult[]> {
     console.log('🔍 Scanning for vulnerabilities...');
 
     const vulnerabilities: VulnerabilityResult[] = [];
@@ -580,7 +581,7 @@ class SBOMGenerator {
         supplier: comp.supplier ? `Person: ${comp.supplier.name}` : 'NOASSERTION',
         homepage: comp.homepage || 'NOASSERTION',
         description: comp.description || '',
-        externalRefs: comp.externalReferences?.map((_ref) => ({
+        externalRefs: comp.externalReferences?.map(() => ({
           referenceCategory: 'PACKAGE-MANAGER',
           referenceType: 'purl',
           referenceLocator: comp.purl

@@ -102,17 +102,11 @@ export function createErrorManagementSystem(config: {
     },
   }
 
-  const reportingConfig = {
-    enabled: config.enableReporting ?? true,
-    sentryDsn: config.sentryDsn,
-    filters: config.customErrorFilters ?? [],
-    transformers: config.customErrorTransformers ?? [],
-  }
 
   return {
     middleware: createErrorHandlingMiddleware(errorHandlingConfig),
     reporter: new ErrorReporter(errorHandlingConfig),
     recoveryManager: new RecoveryManager(errorHandlingConfig),
-    createSafeAsync: (fn: Function) => createSafeAsync(fn, { storeName: config.storeName }),
+    createSafeAsync: <T extends unknown[], R>(fn: (...args: T) => Promise<R>) => createSafeAsync(fn, { storeName: config.storeName }),
   }
 }

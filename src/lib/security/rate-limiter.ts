@@ -17,7 +17,8 @@ export interface RateLimitResult {
 }
 
 export class RateLimiter {
-  async checkLimit(_context: UserContext): Promise<RateLimitResult> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async checkLimit(context: UserContext): Promise<RateLimitResult> {
     // Basic stub implementation - always allow
     return {
       allowed: true,

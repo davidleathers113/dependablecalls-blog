@@ -11,6 +11,21 @@
 
 import { DCEError, MonitoringError, ErrorContext, ErrorSeverity } from './errorTypes'
 import { ErrorHandlingContext, ErrorHandlingConfig } from '../middleware/errorHandling'
+import { RecoveryManager } from './recovery'
+
+// Sentry Integration Types
+// =======================
+
+interface SentryBrowserIntegration {
+  captureException: (error: Error, context?: {
+    tags?: Record<string, string>
+    extra?: Record<string, unknown>
+  }) => void
+}
+
+interface WindowWithSentry extends Window {
+  Sentry?: SentryBrowserIntegration
+}
 
 // Reporting Configuration
 // ======================
@@ -304,9 +319,10 @@ export class ErrorReporter {
     // In a real implementation, this would use the Sentry SDK
     console.log('Sending to Sentry:', errors.length, 'errors')
 
-    if (typeof window !== 'undefined' && (window as any).Sentry) {
+    const windowWithSentry = window as WindowWithSentry
+    if (typeof window !== 'undefined' && windowWithSentry.Sentry) {
       for (const error of errors) {
-        (window as any).Sentry.captureException(new Error(error.message), {
+        windowWithSentry.Sentry.captureException(new Error(error.message), {
           tags: {
             storeName: error.context.storeName,
             errorType: error.type,
@@ -508,7 +524,7 @@ export class ErrorReporter {
     }
   }
 
-  private analyzePerformanceImpact(errors: MonitoringError[]): PerformanceImpactAnalysis {
+  private analyzePerformanceImpact(_errors: MonitoringError[]): PerformanceImpactAnalysis { // eslint-disable-line @typescript-eslint/no-unused-vars
     // Would integrate with performance monitoring data
     return {
       averageResponseTime: 0,
@@ -606,7 +622,10 @@ export async function reportError(
       storeName: context.storeName || 'global',
       actionName: context.actionType,
       attempt: 0,
-      recoveryManager: null as any, // Would be injected
+      recoveryManager: new RecoveryManager({
+        maxAttempts: 3,
+        baseDelay: 1000,
+      }),
       reporter,
     }
     

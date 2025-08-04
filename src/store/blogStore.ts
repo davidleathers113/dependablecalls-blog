@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist, subscribeWithSelector } from 'zustand/middleware'
+import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
+import { createMonitoringMiddleware } from './utils/monitoringIntegration'
 import type { BlogPostFilters, BlogPostSort, CreateBlogPostData } from '../types/blog'
 import type { ModalState, StateMachine } from './utils/stateMachines'
 import { createModalStateMachine, createEnhancedModalActions } from './utils/stateMachines'
@@ -93,8 +94,20 @@ interface BlogUIState {
 
 // Editor Store - Persisted for draft recovery
 export const useBlogEditorStore = create<BlogEditorState>()(
-  persist(
-    subscribeWithSelector((set) => ({
+  devtools(
+    createMonitoringMiddleware({
+      name: 'blog-editor-store',
+      enabled: true,
+      options: {
+        trackPerformance: true,
+        trackStateChanges: true,
+        trackSelectors: false,
+        enableTimeTravel: false,
+        maxHistorySize: 200,
+      },
+    })(
+      persist(
+        subscribeWithSelector((set) => ({
       // Initial state
       draft: null,
       isDraftSaved: true,
@@ -148,17 +161,23 @@ export const useBlogEditorStore = create<BlogEditorState>()(
           autosaveEnabled: enabled,
           ...(interval && { autosaveInterval: interval }),
         }),
-    })),
+        })),
+        {
+          name: 'blog-editor-storage',
+          partialize: (state) => ({
+            draft: state.draft,
+            editorMode: state.editorMode,
+            previewMode: state.previewMode,
+            wordWrapEnabled: state.wordWrapEnabled,
+            autosaveEnabled: state.autosaveEnabled,
+            autosaveInterval: state.autosaveInterval,
+          }),
+        }
+      )
+    ),
     {
-      name: 'blog-editor-storage',
-      partialize: (state) => ({
-        draft: state.draft,
-        editorMode: state.editorMode,
-        previewMode: state.previewMode,
-        wordWrapEnabled: state.wordWrapEnabled,
-        autosaveEnabled: state.autosaveEnabled,
-        autosaveInterval: state.autosaveInterval,
-      }),
+      name: 'blog-editor-store',
+      enabled: process.env.NODE_ENV === 'development',
     }
   )
 )
@@ -237,8 +256,20 @@ export const useBlogFilterStore = create<BlogFilterState>((set) => ({
 
 // UI Store - Persisted for user preferences
 export const useBlogUIStore = create<BlogUIState>()(
-  persist(
-    (set) => ({
+  devtools(
+    createMonitoringMiddleware({
+      name: 'blog-ui-store',
+      enabled: true,
+      options: {
+        trackPerformance: true,
+        trackStateChanges: true,
+        trackSelectors: false,
+        enableTimeTravel: false,
+        maxHistorySize: 200,
+      },
+    })(
+      persist(
+        (set, get) => ({
       // Initial state
       viewMode: 'grid',
       showFilters: true,
@@ -323,17 +354,23 @@ export const useBlogUIStore = create<BlogUIState>()(
       setEnableRealtime: (enabled) => set({ enableRealtime: enabled }),
 
       setShowDrafts: (show) => set({ showDrafts: show }),
-    }),
+        }),
+        {
+          name: 'blog-ui-storage',
+          partialize: (state) => ({
+            viewMode: state.viewMode,
+            showFilters: state.showFilters,
+            showMetrics: state.showMetrics,
+            enableComments: state.enableComments,
+            enableRealtime: state.enableRealtime,
+            showDrafts: state.showDrafts,
+          }),
+        }
+      )
+    ),
     {
-      name: 'blog-ui-storage',
-      partialize: (state) => ({
-        viewMode: state.viewMode,
-        showFilters: state.showFilters,
-        showMetrics: state.showMetrics,
-        enableComments: state.enableComments,
-        enableRealtime: state.enableRealtime,
-        showDrafts: state.showDrafts,
-      }),
+      name: 'blog-ui-store',
+      enabled: process.env.NODE_ENV === 'development',
     }
   )
 )

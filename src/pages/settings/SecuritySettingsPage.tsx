@@ -45,6 +45,7 @@ export default function SecuritySettingsPage() {
   const ipWhitelist = watch('ipWhitelist') || []
 
   const onSubmit = async (data: SecurityFormData) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { newIpAddress, ...securitySettings } = data
     await updateUserSetting('security', securitySettings)
   }
@@ -69,9 +70,25 @@ export default function SecuritySettingsPage() {
   }
 
   const isValidIp = (ip: string): boolean => {
-    const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/
-    const ipv6Pattern = /^([\da-fA-F]{1,4}:){7}[\da-fA-F]{1,4}$/
-    return ipv4Pattern.test(ip) || ipv6Pattern.test(ip)
+    // Basic IPv4 validation using string methods (avoiding regex per project policy)
+    const ipv4Parts = ip.split('.')
+    if (ipv4Parts.length === 4) {
+      return ipv4Parts.every(part => {
+        const num = parseInt(part, 10)
+        return !isNaN(num) && num >= 0 && num <= 255 && part === num.toString()
+      })
+    }
+    
+    // Basic IPv6 validation using string methods
+    const ipv6Parts = ip.split(':')
+    if (ipv6Parts.length === 8) {
+      return ipv6Parts.every(part => {
+        if (part.length === 0 || part.length > 4) return false
+        return [...part].every(char => '0123456789abcdefABCDEF'.includes(char))
+      })
+    }
+    
+    return false
   }
 
   const generateApiKey = async () => {

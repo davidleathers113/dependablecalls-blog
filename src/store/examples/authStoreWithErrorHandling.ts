@@ -23,12 +23,20 @@ import {
   createError,
   DCEError,
   ErrorHandlingMiddleware,
-  RecoveryManager,
   createRetryableOperation,
 } from '../errors'
 
 // Types
 // =====
+
+// Zustand function type aliases for better type safety
+type ZustandSetter<T> = (
+  partial: Partial<T> | ((state: T) => Partial<T>),
+  replace?: boolean,
+  action?: string
+) => void
+
+type ZustandGetter<T> = () => T
 
 interface User {
   id: string
@@ -192,17 +200,33 @@ export const useEnhancedAuthStore = create<AuthState & ErrorHandlingMiddleware>(
                   try {
                     await createRetryableOperation(
                       async () => {
-                        const response = await fetch('/.netlify/functions/auth-magic-link', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ email }),\n        })
+                        const response = await fetch('/.netlify/functions/auth-magic-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
 
                         if (!response.ok) {
                           const errorData = await response.json()
-                          throw createError.api(\n            errorData.message || 'Magic link request failed',\n            response.status,\n            errorData.code\n          )
+                          throw createError.api(
+            errorData.message || 'Magic link request failed',
+            response.status,
+            errorData.code
+          )
                         }
 
                         return response.json()
                       },
-                      {\n        storeName: 'enhanced-auth-store',\n        actionType: 'signInWithMagicLink',\n        userId: undefined,\n      },
-                      {\n        shouldRetry: (error, attempt) => {\n          return error.message.includes('rate limit') ? attempt < 2 : attempt < 3\n        }\n      }
+                      {
+        storeName: 'enhanced-auth-store',
+        actionType: 'signInWithMagicLink',
+        userId: undefined,
+      },
+                      {
+        shouldRetry: (error, attempt) => {
+          return error.message.includes('rate limit') ? attempt < 2 : attempt < 3
+        }
+      }
                     )
                     
                     set({ loading: false }, false, 'magicLink:success')
@@ -234,13 +258,24 @@ export const useEnhancedAuthStore = create<AuthState & ErrorHandlingMiddleware>(
                     // Call server-side logout with retry
                     await createRetryableOperation(
                       async () => {
-                        const response = await fetch('/.netlify/functions/auth-logout', {\n          method: 'POST',\n          credentials: 'include',\n        })
+                        const response = await fetch('/.netlify/functions/auth-logout', {
+          method: 'POST',
+          credentials: 'include',
+        })
                         
                         if (!response.ok) {
-                          throw createError.network(\n            'Logout request failed',\n            response.status,\n            '/.netlify/functions/auth-logout',\n            'POST'\n          )
+                          throw createError.network(
+            'Logout request failed',
+            response.status,
+            '/.netlify/functions/auth-logout',
+            'POST'
+          )
                         }
                       },
-                      {\n        storeName: 'enhanced-auth-store',\n        actionType: 'signOut',\n      }
+                      {
+        storeName: 'enhanced-auth-store',
+        actionType: 'signOut',
+      }
                     )
                   } catch (error) {
                     // Even if server logout fails, clear local state
@@ -248,14 +283,18 @@ export const useEnhancedAuthStore = create<AuthState & ErrorHandlingMiddleware>(
                   }
                   
                   // Always clear local state
-                  set({ \n    user: null, \n    session: null, \n    userType: null \n  }, false, 'signOut:complete')
+                  set({ 
+    user: null, 
+    session: null, 
+    userType: null 
+  }, false, 'signOut:complete')
                 },
 
                 checkSession: async () => {
                   set({ loading: true }, false, 'checkSession:start')
                   
                   try {
-                    const result = await safeCheckSession(set, get)
+                    await safeCheckSession(set, get)
                     set({ loading: false }, false, 'checkSession:complete')
                   } catch (error) {
                     set({ loading: false }, false, 'checkSession:error')
@@ -268,7 +307,11 @@ export const useEnhancedAuthStore = create<AuthState & ErrorHandlingMiddleware>(
                     await safeRefreshSession(set, get)
                   } catch (error) {
                     // If refresh fails, clear session
-                    set({ \n    user: null, \n    session: null, \n    userType: null \n  }, false, 'refreshSession:failed')
+                    set({ 
+                      user: null, 
+                      session: null, 
+                      userType: null 
+                    }, false, 'refreshSession:failed')
                     throw error
                   }
                 },
@@ -331,8 +374,8 @@ export const useEnhancedAuthStore = create<AuthState & ErrorHandlingMiddleware>(
 async function signInOperation(
   email: string, 
   password: string, 
-  set: Function, 
-  get: Function
+  set: ZustandSetter<AuthState & ErrorHandlingMiddleware>, 
+  _get: ZustandGetter<AuthState & ErrorHandlingMiddleware>
 ): Promise<boolean> {
   const response = await fetch('/.netlify/functions/auth-login', {
     method: 'POST',
@@ -385,8 +428,8 @@ async function signUpOperation(
   email: string, 
   password: string, 
   userType: 'supplier' | 'buyer' | 'admin',
-  set: Function, 
-  get: Function
+  set: ZustandSetter<AuthState & ErrorHandlingMiddleware>, 
+  _get: ZustandGetter<AuthState & ErrorHandlingMiddleware>
 ): Promise<boolean> {
   const response = await fetch('/.netlify/functions/auth-signup', {
     method: 'POST',
@@ -435,7 +478,10 @@ async function signUpOperation(
   return false
 }
 
-async function checkSessionOperation(set: Function, get: Function): Promise<void> {
+async function checkSessionOperation(
+  set: ZustandSetter<AuthState & ErrorHandlingMiddleware>, 
+  _get: ZustandGetter<AuthState & ErrorHandlingMiddleware>
+): Promise<void> {
   const response = await fetch('/.netlify/functions/auth-session', {
     method: 'GET',
     credentials: 'include',
@@ -474,7 +520,10 @@ async function checkSessionOperation(set: Function, get: Function): Promise<void
   }
 }
 
-async function refreshSessionOperation(set: Function, get: Function): Promise<void> {
+async function refreshSessionOperation(
+  set: ZustandSetter<AuthState & ErrorHandlingMiddleware>, 
+  _get: ZustandGetter<AuthState & ErrorHandlingMiddleware>
+): Promise<void> {
   const response = await fetch('/.netlify/functions/auth-refresh', {
     method: 'POST',
     credentials: 'include',
@@ -495,7 +544,7 @@ async function refreshSessionOperation(set: Function, get: Function): Promise<vo
   const data = await response.json()
   
   if (data.session) {
-    set((state: any) => ({ 
+    set((state: AuthState & ErrorHandlingMiddleware) => ({ 
       ...state,
       session: data.session 
     }), false, 'refreshSession:updateSession')

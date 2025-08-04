@@ -11,8 +11,9 @@ import {
   DEFAULT_ERROR_FILTERS,
   DEFAULT_ERROR_TRANSFORMERS,
 } from '../reporting'
-import { createError, NetworkError, ValidationError } from '../errorTypes'
+import { createError, DCEError } from '../errorTypes'
 import { ErrorHandlingConfig, ErrorHandlingContext } from '../../middleware/errorHandling'
+import { RecoveryManager } from '../recovery'
 
 // Mock fetch
 global.fetch = vi.fn()
@@ -35,15 +36,15 @@ describe('Error Reporting System', () => {
       },
     }
 
+    errorReporter = new ErrorReporter(mockConfig)
+
     mockContext = {
       storeName: 'test-store',
       actionName: 'testAction',
       attempt: 1,
-      recoveryManager: null as any,
-      reporter: null as any,
+      recoveryManager: new RecoveryManager(mockConfig),
+      reporter: errorReporter,
     }
-
-    errorReporter = new ErrorReporter(mockConfig)
     vi.clearAllMocks()
   })
 
@@ -80,7 +81,7 @@ describe('Error Reporting System', () => {
         ...mockConfig,
         customFilters: [{
           name: 'excludeValidation',
-          predicate: (error: any) => !error.message.includes('validation'),
+          predicate: (error: DCEError) => !error.message.includes('validation'),
         }],
       }
       
@@ -167,9 +168,9 @@ describe('Error Reporting System', () => {
     it('should analyze trends', async () => {
       const now = Date.now()
       const errors = [
-        { ...createError.network('Error 1', 500), timestamp: now - 1000 },
-        { ...createError.network('Error 2', 500), timestamp: now - 2000 },
-        { ...createError.validation('Error 3', 'field'), timestamp: now - 3000 },
+        createError.network('Error 1', 500, undefined, undefined, { timestamp: now - 1000 }),
+        createError.network('Error 2', 500, undefined, undefined, { timestamp: now - 2000 }),
+        createError.validation('Error 3', 'field', undefined, undefined, { timestamp: now - 3000 }),
       ]
 
       for (const error of errors) {
@@ -298,7 +299,7 @@ describe('Error Reporting System', () => {
     })
 
     it('should handle missing global reporter', async () => {
-      setGlobalErrorReporter(null as any)
+      setGlobalErrorReporter(null as unknown as ErrorReporter)
       
       const error = createError.network('Test error', 500)
       

@@ -138,7 +138,7 @@ describe('PCI DSS Compliance Tests', () => {
       }
 
       await expect(
-        paymentSecurity.assessFraudRisk(invalidTransaction as any)
+        paymentSecurity.assessFraudRisk(invalidTransaction as unknown as Transaction)
       ).rejects.toThrow()
     })
 
@@ -166,8 +166,14 @@ describe('PCI DSS Compliance Tests', () => {
         account_id: 'acct_12345',
       }
 
-      expect(sanitized.card_number).not.toContain('4242424242424242')
+      // Verify original sensitive data contains full card number
+      expect(sensitiveData.card_number).toBe('4242424242424242')
+      expect(sensitiveData.cvc).toBe('123')
+      
+      // Verify sanitized data masks sensitive information
+      expect(sanitized.card_number).not.toContain(sensitiveData.card_number)
       expect(sanitized.cvc).toBe('***')
+      expect(sanitized.account_id).toBe(sensitiveData.account_id) // Non-sensitive data preserved
     })
   })
 

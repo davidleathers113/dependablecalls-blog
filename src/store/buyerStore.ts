@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { from, getSession } from '../lib/supabase-optimized'
+import { StorageFactory } from './utils/storage/encryptedStorage'
+import { DataClassification, StorageType } from './utils/dataClassification'
 import type { Database } from '../types/database-extended'
 import type {
   MarketplaceListing,
@@ -457,12 +459,18 @@ export const useBuyerStore = create<BuyerStore>()(
         }),
         {
           name: 'buyer-store',
+          // SECURITY: Remove financial data (currentBalance, creditLimit) from persistence
+          // Only persist non-sensitive business data
           partialize: (state) => ({
-            currentBalance: state.currentBalance,
-            creditLimit: state.creditLimit,
             campaigns: state.campaigns,
             savedSearches: state.savedSearches,
+            // Remove currentBalance and creditLimit - fetch fresh from server
           }),
+          // Use encrypted storage for business data (INTERNAL classification)
+          storage: StorageFactory.createZustandStorage(
+            DataClassification.INTERNAL,
+            StorageType.LOCAL
+          ),
         }
       )
     ),

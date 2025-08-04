@@ -52,14 +52,13 @@ export function throttleAdvanced<T extends (...args: unknown[]) => unknown>(
   return function throttled(this: unknown, ...args: Parameters<T>) {
     const currentTime = Date.now()
     const timeSinceLastExec = currentTime - lastExecTime
-    const context = this
 
     lastArgs = args
 
     const execute = () => {
       lastExecTime = Date.now()
       if (lastArgs !== null) {
-        func.apply(context, lastArgs)
+        func.apply(this, lastArgs)
         lastArgs = null
       }
     }

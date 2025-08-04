@@ -10,8 +10,6 @@ import { setupServer } from 'msw/node'
 
 // Mock components - would import actual components in real implementation
 const Marketplace = () => <div>Marketplace Component</div>
-const MarketplaceSearch = () => <div>Search Component</div>
-const CallListings = () => <div>Call Listings Component</div>
 
 // MSW server setup
 const server = setupServer(
@@ -435,7 +433,6 @@ describe('Buyer Marketplace Integration', () => {
   
   describe('Performance and Pagination', () => {
     it('implements infinite scroll for large result sets', async () => {
-      const user = userEvent.setup()
       renderWithProviders(<Marketplace />)
       
       // Initial load

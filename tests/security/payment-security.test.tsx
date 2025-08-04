@@ -364,7 +364,7 @@ describe('Payment Security Tests', () => {
       }
 
       mockPaymentService.validatePaymentMethodOwnership.mockImplementation((pmId, customerId) => {
-        if (pmId === 'pm_card_visa' && customerId !== 'cus_buyer123') {
+        if (pmId === paymentMethod.id && customerId !== paymentMethod.customer_id) {
           throw new Error('Payment method does not belong to customer')
         }
         return Promise.resolve(true)
@@ -372,12 +372,12 @@ describe('Payment Security Tests', () => {
 
       // Test with correct customer
       await expect(
-        paymentService.validatePaymentMethodOwnership('pm_card_visa', 'cus_buyer123')
+        paymentService.validatePaymentMethodOwnership(paymentMethod.id, paymentMethod.customer_id)
       ).resolves.toBe(true)
 
       // Test with wrong customer
       await expect(
-        paymentService.validatePaymentMethodOwnership('pm_card_visa', 'cus_different')
+        paymentService.validatePaymentMethodOwnership(paymentMethod.id, 'cus_different')
       ).rejects.toThrow('Payment method does not belong to customer')
     })
 
@@ -485,7 +485,8 @@ describe('Payment Security Tests', () => {
       const invalidSignature = 'v1=invalid_signature_hash'
 
       mockPaymentService.validateWebhookSignature.mockImplementation((payload, signature, secret) => {
-        if (signature !== validSignature) {
+        // Verify secret is provided for signature validation
+        if (!secret || signature !== validSignature) {
           throw new Error('Invalid webhook signature')
         }
         return true

@@ -21,7 +21,7 @@ function loadEnv() {
         }
       }
     }
-  } catch (error) {
+  } catch {
     console.error('⚠️  Could not load .env file. Using existing environment variables.');
   }
 }
@@ -87,7 +87,7 @@ function generateSecurePassword(): string {
   const hasUpperCase = /[A-Z]/.test(password);
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password);
   
   if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial) {
     // Recursively generate a new password if it doesn't meet requirements

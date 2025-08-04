@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { apiClient } from '../../src/services/api-client'
-import { authService } from '../../src/services/auth'
 
 // Mock server for API testing
 const server = setupServer()
@@ -67,7 +65,7 @@ describe('API Security Tests', () => {
       const rateLimit = 100 // requests per minute
       
       server.use(
-        http.get('/api/campaigns', ({ request }) => {
+        http.get('/api/campaigns', () => {
           requestCount++
           if (requestCount > rateLimit) {
             return HttpResponse.json(

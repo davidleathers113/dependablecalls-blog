@@ -49,7 +49,7 @@ export function withValidation<T>(
       }
       
       return handler(event, result.data)
-    } catch (error) {
+    } catch {
       return {
         statusCode: 400,
         body: JSON.stringify({

@@ -9,8 +9,9 @@ import {
   isRetryableError,
   calculateNextRetryDelay,
 } from '../recovery'
-import { createError, NetworkError, AuthenticationError } from '../errorTypes'
+import { createError } from '../errorTypes'
 import { ErrorHandlingConfig, ErrorHandlingContext } from '../../middleware/errorHandling'
+import { ErrorReporter } from '../reporting'
 
 // Mock timers
 vi.useFakeTimers()
@@ -33,8 +34,8 @@ describe('Recovery System', () => {
       storeName: 'test-store',
       actionName: 'testAction',
       attempt: 1,
-      recoveryManager: null as any,
-      reporter: null as any,
+      recoveryManager: null as unknown as RecoveryManager,
+      reporter: null as unknown as ErrorReporter,
     }
 
     recoveryManager = new RecoveryManager(mockConfig)
@@ -67,7 +68,7 @@ describe('Recovery System', () => {
       for (let i = 0; i < 6; i++) {
         try {
           await recoveryManager.recover(networkError, { ...mockContext, attempt: i + 1 })
-        } catch (error) {
+        } catch (_error) { // eslint-disable-line @typescript-eslint/no-unused-vars
           // Expected to fail
         }
       }
@@ -288,7 +289,7 @@ describe('Recovery System', () => {
       for (let i = 0; i < 5; i++) {
         try {
           await recoveryManager.recover(error, { ...mockContext, attempt: i + 1 })
-        } catch (e) {
+        } catch (_e) { // eslint-disable-line @typescript-eslint/no-unused-vars
           // Expected
         }
       }
@@ -305,7 +306,7 @@ describe('Recovery System', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await recoveryManager.recover(error, { ...mockContext, attempt: i + 1 })
-        } catch (e) {
+        } catch (_e) { // eslint-disable-line @typescript-eslint/no-unused-vars
           // Expected
         }
       }

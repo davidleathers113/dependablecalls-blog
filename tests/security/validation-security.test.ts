@@ -14,7 +14,6 @@ import {
   escapeHtml,
   stripHtmlTags,
   ContactFormSchema,
-  RegisterSchema,
   LoginSchema,
 } from '../../src/lib/validation'
 

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { HandlerEvent, HandlerResponse } from '@netlify/functions';
+import type { HandlerEvent } from '@netlify/functions';
 import { withRateLimit, detectDDoS, applyDDoSMitigation } from '../../../netlify/functions/_shared/rate-limit-middleware';
 
 // Mock external dependencies
@@ -33,7 +33,7 @@ describe('Rate Limiting Middleware Integration', () => {
       multiValueQueryStringParameters: null,
       queryStringParameters: null,
       pathParameters: null,
-      requestContext: {} as any,
+      requestContext: {} as unknown as HandlerEvent['requestContext'],
       stageVariables: null,
       rawUrl: 'https://test.com/api/test'
     };

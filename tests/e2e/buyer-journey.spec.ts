@@ -514,7 +514,7 @@ describe('Buyer Complete User Journey', () => {
       
       // Color contrast
       cy.get('[data-testid="call-price"]').should('have.css', 'color')
-        .and('satisfy', (color) => {
+        .and('satisfy', () => {
           // Verify sufficient contrast ratio
           return true // Actual contrast calculation would go here
         })

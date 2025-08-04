@@ -1,6 +1,6 @@
 import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
-import { parseCookies, extractSessionFromCookies, isSessionExpired, createSessionCookies } from '../../src/lib/auth-cookies'
+import { extractSessionFromCookies, isSessionExpired, createSessionCookies } from '../../src/lib/auth-cookies'
 import type { Database } from '../../src/types/database'
 
 // Handle development vs production environment variables

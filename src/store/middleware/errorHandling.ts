@@ -9,8 +9,8 @@
  * - Integration with performance monitoring
  */
 
-import { StateCreator, StoreMutatorIdentifier } from 'zustand'
-import { DCEError, createError, ErrorContext, RecoveryStrategy, MonitoringError } from '../errors/errorTypes'
+import { StateCreator } from 'zustand'
+import { DCEError, createError, ErrorContext, RecoveryStrategy } from '../errors/errorTypes'
 import { reportError, ErrorReporter } from '../errors/reporting'
 import { RecoveryManager } from '../errors/recovery'
 
@@ -129,7 +129,7 @@ type ErrorHandlingMiddlewareImpl = <
 ) => StateCreator<T, [], [], T & ErrorHandlingMiddleware, A>
 
 declare module 'zustand/vanilla' {
-  interface StoreMutators<S, A extends string> {
+  interface StoreMutators<S> {
     errorHandling: Write<S, StoreErrorHandling<S>>
   }
 }
@@ -159,7 +159,7 @@ export const createErrorHandlingMiddleware: ErrorHandlingMiddlewareImpl = (confi
   let recoveryAttempts = 0
   let isRecovering = false
 
-  return (stateCreator, name) => (set, get, api) => {
+  return (stateCreator) => (set, get, api) => {
     // Wrap setState to intercept errors
     const wrappedSet: typeof set = (partial, replace, action) => {
       try {
@@ -320,8 +320,9 @@ export const createErrorHandlingMiddleware: ErrorHandlingMiddlewareImpl = (confi
     // Log in development
     if (fullConfig.development.logErrors) {
       console.error(`[${fullConfig.storeName}] Error:`, dceError)
-      if (fullConfig.development.breakOnErrors) {
-        debugger
+      if (fullConfig.development.breakOnErrors && process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-debugger
+        debugger // Only in development
       }
     }
 
@@ -418,7 +419,7 @@ export const createErrorHandlingMiddleware: ErrorHandlingMiddlewareImpl = (confi
         const rollbackData = {}
         for (const key of config.rollbackStrategy.rollbackKeys) {
           if (key in (initialState as object)) {
-            rollbackData[key] = (initialState as any)[key]
+            rollbackData[key] = (initialState as Record<string, unknown>)[key]
           }
         }
         set((state) => ({ ...state, ...rollbackData }), false, 'rollbackPartial')
@@ -439,9 +440,9 @@ export const createErrorHandlingMiddleware: ErrorHandlingMiddlewareImpl = (confi
 
   async function executeWithRetry(
     action: { name: string; args: unknown[] },
-    set: any,
-    get: any,
-    api: any,
+    set: typeof api.setState,
+    get: typeof api.getState,
+    api: typeof api,
     config: Required<Omit<ErrorHandlingConfig, 'storeName' | 'customHandlers' | 'customContext'>>
   ): Promise<void> {
     // This would be implemented based on specific store action patterns

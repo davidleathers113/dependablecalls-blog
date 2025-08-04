@@ -2,8 +2,6 @@
 
 // Direct migration runner using Supabase API
 import { createClient } from '@supabase/supabase-js'
-import { readFileSync } from 'fs'
-import { resolve, join } from 'path'
 import { config } from 'dotenv'
 
 // Load environment variables
@@ -40,60 +38,61 @@ const migrations = [
   '027_blog_api_performance_fixes.sql'
 ]
 
-async function runMigration(filename: string): Promise<void> {
-  console.log(`\n📄 Running migration: ${filename}`)
-  
-  try {
-    const sql = readFileSync(
-      join(process.cwd(), 'supabase', 'migrations', filename),
-      'utf-8'
-    )
-    
-    // Execute the SQL
-    const { error } = await supabase.rpc('exec_sql', {
-      sql_query: sql
-    }).single()
-    
-    if (error && error.message.includes('exec_sql')) {
-      // Try direct execution as fallback
-      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/sql`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-          'apikey': supabaseServiceKey
-        },
-        body: JSON.stringify({ query: sql })
-      })
-      
-      if (!response.ok) {
-        // Last resort: execute statements one by one
-        const statements = sql
-          .split(';')
-          .map(s => s.trim())
-          .filter(s => s.length > 0)
-        
-        for (const statement of statements) {
-          const { error: stmtError } = await supabase.from('_migrations').select('*').limit(0)
-          if (stmtError) {
-            console.error(`   ❌ Error: ${stmtError.message}`)
-          }
-        }
-        console.log(`   ⚠️  Migration may require manual execution in Supabase dashboard`)
-      } else {
-        console.log(`   ✅ Migration applied successfully`)
-      }
-    } else if (error) {
-      console.error(`   ❌ Error: ${error.message}`)
-      throw error
-    } else {
-      console.log(`   ✅ Migration applied successfully`)
-    }
-  } catch (error) {
-    console.error(`   ❌ Failed to run ${filename}:`, error)
-    throw error
-  }
-}
+// Unused function - kept for future direct migration execution
+// async function runMigration(filename: string): Promise<void> {
+//   console.log(`\n📄 Running migration: ${filename}`)
+//   
+//   try {
+//     const sql = readFileSync(
+//       join(process.cwd(), 'supabase', 'migrations', filename),
+//       'utf-8'
+//     )
+//     
+//     // Execute the SQL
+//     const { error } = await supabase.rpc('exec_sql', {
+//       sql_query: sql
+//     }).single()
+//     
+//     if (error && error.message.includes('exec_sql')) {
+//       // Try direct execution as fallback
+//       const response = await fetch(`${supabaseUrl}/rest/v1/rpc/sql`, {
+//         method: 'POST',
+//         headers: {
+//           'Authorization': `Bearer ${supabaseServiceKey}`,
+//           'Content-Type': 'application/json',
+//           'apikey': supabaseServiceKey
+//         },
+//         body: JSON.stringify({ query: sql })
+//       })
+//       
+//       if (!response.ok) {
+//         // Last resort: execute statements one by one
+//         const statements = sql
+//           .split(';')
+//           .map(s => s.trim())
+//           .filter(s => s.length > 0)
+//         
+//         for (const statement of statements) {
+//           const { error: stmtError } = await supabase.from('_migrations').select('*').limit(0)
+//           if (stmtError) {
+//             console.error(`   ❌ Error: ${stmtError.message}`)
+//           }
+//         }
+//         console.log(`   ⚠️  Migration may require manual execution in Supabase dashboard`)
+//       } else {
+//         console.log(`   ✅ Migration applied successfully`)
+//       }
+//     } else if (error) {
+//       console.error(`   ❌ Error: ${error.message}`)
+//       throw error
+//     } else {
+//       console.log(`   ✅ Migration applied successfully`)
+//     }
+//   } catch (error) {
+//     console.error(`   ❌ Failed to run ${filename}:`, error)
+//     throw error
+//   }
+// }
 
 async function createStorageBucket(): Promise<void> {
   console.log('\n🪣 Creating storage bucket...')

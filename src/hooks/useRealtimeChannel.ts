@@ -69,7 +69,7 @@ export function useRealtimeChannel(
       console.error(`Failed to setup realtime channel ${channelName}:`, error)
       onError?.(error as Error)
     }
-  }, [channelName, enabled]) // setupChannel excluded to prevent re-runs
+  }, [channelName, enabled, setupChannel, onError]) // Include all dependencies
 
   return channelRef.current
 }

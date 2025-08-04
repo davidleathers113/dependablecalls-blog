@@ -10,8 +10,6 @@ import { setupServer } from 'msw/node'
 
 // Mock components
 const InventoryManagement = () => <div>Inventory Management Component</div>
-const CallListingForm = () => <div>Call Listing Form Component</div>
-const BulkUploader = () => <div>Bulk Uploader Component</div>
 
 // MSW server setup
 const server = setupServer(

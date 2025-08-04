@@ -140,7 +140,7 @@ serve(async (req) => {
 
         const jsonString = decoder.decode(decrypted)
         importData = JSON.parse(jsonString)
-      } catch (error) {
+      } catch {
         throw new Error('Failed to decrypt settings. Please check your password.')
       }
     } else {
@@ -149,7 +149,7 @@ serve(async (req) => {
         importData = typeof requestData.data === 'string' 
           ? JSON.parse(requestData.data)
           : requestData.data
-      } catch (error) {
+      } catch {
         throw new Error('Invalid settings format. Expected JSON.')
       }
     }
@@ -291,7 +291,7 @@ serve(async (req) => {
         let currentRoleTable: string | null = null
         
         switch (validatedData.roleType) {
-          case 'supplier':
+          case 'supplier': {
             const { data: supplierExists } = await supabaseClient
               .from('suppliers')
               .select('id')
@@ -299,8 +299,9 @@ serve(async (req) => {
               .single()
             if (supplierExists) currentRoleTable = 'suppliers'
             break
+          }
             
-          case 'buyer':
+          case 'buyer': {
             const { data: buyerExists } = await supabaseClient
               .from('buyers')
               .select('id')
@@ -308,8 +309,9 @@ serve(async (req) => {
               .single()
             if (buyerExists) currentRoleTable = 'buyers'
             break
+          }
             
-          case 'network':
+          case 'network': {
             const { data: networkExists } = await supabaseClient
               .from('networks')
               .select('id')
@@ -317,8 +319,9 @@ serve(async (req) => {
               .single()
             if (networkExists) currentRoleTable = 'networks'
             break
+          }
             
-          case 'admin':
+          case 'admin': {
             const { data: adminExists } = await supabaseClient
               .from('admins')
               .select('id')
@@ -327,6 +330,7 @@ serve(async (req) => {
               .single()
             if (adminExists) currentRoleTable = 'admins'
             break
+          }
         }
 
         if (!currentRoleTable) {

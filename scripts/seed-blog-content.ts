@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import type { Database } from '../src/types/database'
-import type { BlogPostInsert, BlogCategoryInsert, BlogTagInsert, BlogAuthorInsert } from '../src/types/blog'
+import type { BlogCategoryInsert, BlogTagInsert } from '../src/types/blog'
 
 // ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url)
@@ -681,7 +681,7 @@ async function seedBlogContent() {
                 console.log(`  📷 Uploaded featured image`)
               }
             }
-          } catch (error) {
+          } catch {
             console.warn(`  ⚠️  Could not upload image: ${post.featured_image}`)
           }
         } else {

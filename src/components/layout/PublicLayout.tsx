@@ -1,6 +1,7 @@
 import { Outlet, Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useAuthStore } from '../../store/authStore'
+import { useNavigation } from '../../store/slices/navigationSlice'
 import { navigateToHomeSection } from '../../utils/navigation'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import ErrorBoundary from '../common/ErrorBoundary'
@@ -61,7 +62,32 @@ const socialLinks = [
 
 export default function PublicLayout() {
   const { user } = useAuthStore()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
+  // Use the navigation state machine for mobile menu
+  const {
+    isMobileMenuOpen,
+    toggleMobileMenu,
+    closeMobileMenu,
+    preferences,
+    updateAriaStates
+  } = useNavigation()
+
+  // Initialize aria states on mount
+  useEffect(() => {
+    updateAriaStates()
+  }, [updateAriaStates])
+
+  // Close mobile menu when clicking outside (handled by escape key)
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isMobileMenuOpen) {
+        closeMobileMenu()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isMobileMenuOpen, closeMobileMenu])
 
   return (
     <div className="bg-gray-50">
@@ -130,11 +156,14 @@ export default function PublicLayout() {
             {/* Mobile menu button */}
             <div className="md:hidden">
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                id="public-mobile-menu-button"
+                onClick={toggleMobileMenu}
                 className="text-gray-700 hover:text-primary-600 p-2 rounded-md min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="Toggle mobile menu"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="public-mobile-menu"
               >
-                {mobileMenuOpen ? (
+                {isMobileMenuOpen ? (
                   <XMarkIcon className="h-6 w-6" />
                 ) : (
                   <Bars3Icon className="h-6 w-6" />
@@ -145,31 +174,47 @@ export default function PublicLayout() {
         </div>
 
         {/* Mobile Navigation Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-200">
+        {isMobileMenuOpen && (
+          <div 
+            id="public-mobile-menu"
+            className="md:hidden bg-white border-t border-gray-200"
+            role="menu"
+            aria-label="Mobile navigation menu"
+          >
             <div className="px-2 pt-2 pb-3 space-y-1">
               <button
                 onClick={() => {
                   navigateToHomeSection('features')
-                  setMobileMenuOpen(false)
+                  if (preferences.autoCloseMobileMenu) {
+                    closeMobileMenu()
+                  }
                 }}
                 className="block w-full text-left text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
+                role="menuitem"
               >
                 Features
               </button>
               <button
                 onClick={() => {
                   navigateToHomeSection('about')
-                  setMobileMenuOpen(false)
+                  if (preferences.autoCloseMobileMenu) {
+                    closeMobileMenu()
+                  }
                 }}
                 className="block w-full text-left text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
+                role="menuitem"
               >
                 About
               </button>
               <Link
                 to="/blog"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => {
+                  if (preferences.autoCloseMobileMenu) {
+                    closeMobileMenu()
+                  }
+                }}
                 className="block text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
+                role="menuitem"
               >
                 Blog
               </Link>
@@ -177,8 +222,13 @@ export default function PublicLayout() {
               {user ? (
                 <Link
                   to="/app/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={() => {
+                    if (preferences.autoCloseMobileMenu) {
+                      closeMobileMenu()
+                    }
+                  }}
                   className="block bg-primary-600 text-white hover:bg-primary-700 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
+                  role="menuitem"
                 >
                   Dashboard
                 </Link>
@@ -186,15 +236,25 @@ export default function PublicLayout() {
                 <>
                   <Link
                     to="/login"
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => {
+                      if (preferences.autoCloseMobileMenu) {
+                        closeMobileMenu()
+                      }
+                    }}
                     className="block text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
+                    role="menuitem"
                   >
                     Login
                   </Link>
                   <Link
                     to="/register"
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => {
+                      if (preferences.autoCloseMobileMenu) {
+                        closeMobileMenu()
+                      }
+                    }}
                     className="block bg-primary-600 text-white hover:bg-primary-700 px-3 py-3 rounded-md text-base font-medium transition-colors min-h-[44px]"
+                    role="menuitem"
                   >
                     Get Started
                   </Link>

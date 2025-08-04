@@ -102,7 +102,7 @@ class SupplyChainSecurityChecker {
     try {
       const lockPath = join(process.cwd(), 'package-lock.json');
       return JSON.parse(readFileSync(lockPath, 'utf8')) as PackageLockJson;
-    } catch (error) {
+    } catch {
       console.error('Failed to load package-lock.json:', error);
       process.exit(1);
     }
@@ -112,7 +112,7 @@ class SupplyChainSecurityChecker {
     try {
       const packagePath = join(process.cwd(), 'package.json');
       return JSON.parse(readFileSync(packagePath, 'utf8')) as PackageJson;
-    } catch (error) {
+    } catch {
       console.error('Failed to load package.json:', error);
       process.exit(1);
     }
@@ -155,7 +155,7 @@ class SupplyChainSecurityChecker {
           console.log(`  ⚠️  Invalid signature: ${pkg.name}@${pkg.version}`);
         });
       }
-    } catch (error) {
+    } catch {
       this.report.integrityIssues.push('Unable to verify package signatures');
       console.log('  ⚠️  Could not verify package signatures');
     }
@@ -324,7 +324,7 @@ class SupplyChainSecurityChecker {
       });
 
       console.log(`  ✅ License compliance check complete (${conflictCount} conflicts found)\n`);
-    } catch (error) {
+    } catch {
       console.log('  ⚠️  Could not verify license compliance\n');
       this.report.licenseConflicts.push('Unable to verify license compliance');
     }
@@ -361,7 +361,7 @@ class SupplyChainSecurityChecker {
           provenanceIssues++;
         }
 
-      } catch (error) {
+      } catch {
         console.log(`  ⚠️  Could not analyze ${packageName}`);
         provenanceIssues++;
       }
@@ -455,7 +455,7 @@ async function main() {
     checker.printSummary();
     
     process.exit(0);
-  } catch (error) {
+  } catch {
     console.error('❌ Supply chain security check failed:', error);
     process.exit(1);
   }

@@ -7,10 +7,10 @@
 
 import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { CSPProvider } from '../../src/lib/CSPProvider'
 import { initializeTrustedTypes, createTrustedHTML } from '../../src/lib/trusted-types'
-import { generateNonce, getCurrentNonces, refreshNonces } from '../../src/lib/csp-nonce'
+import { generateNonce, getCurrentNonces } from '../../src/lib/csp-nonce'
 
 // Mock third-party services
 const mockStripe = {
@@ -24,19 +24,6 @@ const mockStripe = {
   confirmCardPayment: vi.fn()
 }
 
-const mockSupabase = {
-  auth: {
-    signIn: vi.fn(),
-    signOut: vi.fn(),
-    onAuthStateChange: vi.fn()
-  },
-  from: vi.fn(() => ({
-    select: vi.fn(),
-    insert: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn()
-  }))
-}
 
 // Mock global objects
 Object.defineProperty(window, 'Stripe', {
@@ -65,7 +52,7 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
     vi.clearAllMocks()
     
     // Reset trusted types
-    delete (window as any).__CSP_NONCES__
+    delete (window as unknown as { __CSP_NONCES__?: unknown }).__CSP_NONCES__
   })
 
   afterEach(() => {
@@ -101,7 +88,7 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
         timestamp: Date.now()
       }
       
-      ;(window as any).__CSP_NONCES__ = mockNonces
+      ;(window as unknown as { __CSP_NONCES__: string[] }).__CSP_NONCES__ = mockNonces
       
       const nonces = getCurrentNonces()
       expect(nonces.script).toBe('edge-script-nonce')
@@ -110,7 +97,7 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
 
     it('should refresh nonces after TTL expires', () => {
       const oldTimestamp = Date.now() - 400000 // 6+ minutes ago
-      ;(window as any).__CSP_NONCES__ = {
+      ;(window as unknown as { __CSP_NONCES__: object }).__CSP_NONCES__ = {
         script: 'old-script-nonce',
         style: 'old-style-nonce',
         timestamp: oldTimestamp
@@ -223,9 +210,6 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
 
   describe('Supabase Integration', () => {
     it('should connect to Supabase with proper CSP', async () => {
-      // Mock Supabase connection
-      const mockConnect = vi.fn()
-      
       // Simulate WebSocket connection (should be allowed by CSP)
       const mockWs = {
         readyState: WebSocket.OPEN,
@@ -251,7 +235,7 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
           ok: true,
           json: () => Promise.resolve({ data: [] })
         })
-      ) as any
+      ) as typeof fetch
       
       // Test API call (should be allowed by connect-src)
       const response = await fetch('https://test.supabase.co/rest/v1/table')
@@ -362,7 +346,7 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
       }
       
       // Simulate edge function injection
-      ;(window as any).__CSP_NONCES__ = mockNonces
+      ;(window as unknown as { __CSP_NONCES__: string[] }).__CSP_NONCES__ = mockNonces
       
       expect(window.__CSP_NONCES__).toEqual(mockNonces)
     })
@@ -372,7 +356,7 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
     it('should work in browsers without Trusted Types support', () => {
       // Temporarily remove trusted types support
       const originalTrustedTypes = window.trustedTypes
-      delete (window as any).trustedTypes
+      delete (window as unknown as { trustedTypes?: unknown }).trustedTypes
       
       const html = '<p>Test content</p>'
       const result = createTrustedHTML(html)
@@ -380,20 +364,20 @@ describe('CSP v3 Strict-Dynamic Compatibility', () => {
       expect(result).toBe(html) // Should fallback gracefully
       
       // Restore
-      ;(window as any).trustedTypes = originalTrustedTypes
+      ;(window as unknown as { trustedTypes: unknown }).trustedTypes = originalTrustedTypes
     })
 
     it('should work in browsers without Web Crypto API', () => {
       // Mock old browser environment
       const originalCrypto = window.crypto
-      delete (window as any).crypto
+      delete (window as unknown as { crypto?: unknown }).crypto
       
       const nonce = generateNonce()
       expect(nonce).toBeTruthy()
       expect(nonce.length).toBeGreaterThan(16)
       
       // Restore
-      ;(window as any).crypto = originalCrypto
+      ;(window as unknown as { crypto: Crypto }).crypto = originalCrypto
     })
   })
 })

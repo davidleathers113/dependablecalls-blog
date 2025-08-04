@@ -5,9 +5,10 @@
  * for secure inline content handling.
  */
 
-import React, { useMemo, useEffect, useState } from 'react'
-import { getCurrentNonces, refreshNonces, type CSPContext } from './csp-nonce'
+import React, { useMemo, useEffect } from 'react'
+import { getCurrentNonces, refreshNonces } from './csp-nonce'
 import { CSPContext as CSPContextProvider } from './csp-context'
+import { useCSPNonce } from '../hooks/useCSPNonce'
 
 export interface CSPProviderProps {
   children: React.ReactNode
@@ -28,7 +29,6 @@ export function CSPProvider({
   scriptNonce, 
   styleNonce 
 }: CSPProviderProps) {
-  const [refreshKey, setRefreshKey] = useState(0);
   
   const cspContext = useMemo(() => {
     if (scriptNonce && styleNonce) {
@@ -54,7 +54,7 @@ export function CSPProvider({
       scriptNonce: currentNonces.script,
       styleNonce: currentNonces.style
     }
-  }, [nonce, scriptNonce, styleNonce]) // refreshKey not needed in calculation
+  }, [nonce, scriptNonce, styleNonce])
 
   // Auto-refresh nonces for long-lived sessions (every 4 minutes)
   useEffect(() => {
@@ -62,7 +62,6 @@ export function CSPProvider({
       // Only refresh if no explicit nonces were provided
       if (!nonce && !scriptNonce && !styleNonce) {
         refreshNonces();
-        setRefreshKey(prev => prev + 1);
       }
     }, 240000); // 4 minutes
 

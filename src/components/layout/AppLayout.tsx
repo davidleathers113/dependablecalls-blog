@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
+import { useNavigation } from '../../store/slices/navigationSlice'
 import {
   HomeIcon,
   ChartBarIcon,
@@ -71,8 +71,19 @@ export default function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, userType, signOut } = useAuthStore()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  
+  // Use the navigation state machine
+  const {
+    isSidebarCollapsed,
+    isSidebarExpanded,
+    isMobileMenuOpen,
+    isUserDropdownOpen,
+    toggleSidebar,
+    toggleMobileMenu,
+    toggleUserDropdown,
+    closeMobileMenu,
+    closeUserDropdown
+  } = useNavigation()
 
   // Get navigation items based on user type
   const navigation = getNavigation(userType)
@@ -92,26 +103,26 @@ export default function AppLayout() {
         Skip to main content
       </a>
       {/* Mobile sidebar */}
-      {sidebarOpen && (
+      {isMobileMenuOpen && (
         <div className="fixed inset-0 flex z-40 lg:hidden">
           <div
             className={classNames(
               'fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity ease-linear duration-300',
-              sidebarOpen ? 'opacity-100' : 'opacity-0'
+              isMobileMenuOpen ? 'opacity-100' : 'opacity-0'
             )}
-            onClick={() => setSidebarOpen(false)}
+            onClick={closeMobileMenu}
           />
 
           <div
             className={classNames(
               'relative flex-1 flex flex-col max-w-xs w-full pt-5 pb-4 bg-white transition ease-in-out duration-300 transform',
-              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+              isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
             )}
           >
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
                 className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                onClick={() => setSidebarOpen(false)}
+                onClick={closeMobileMenu}
                 aria-label="Close sidebar"
               >
                 <AccessibleIcon icon={XMarkIcon} decorative className="h-6 w-6 text-white" />
@@ -138,7 +149,7 @@ export default function AppLayout() {
                           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
                         'group flex items-center px-2 py-2 text-base font-medium rounded-md'
                       )}
-                      onClick={() => setSidebarOpen(false)}
+                      onClick={closeMobileMenu}
                     >
                       <AccessibleIcon
                         icon={item.icon}
@@ -181,8 +192,10 @@ export default function AppLayout() {
                       location.pathname === item.href
                         ? 'bg-gray-100 text-gray-900'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                      'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
+                      'group flex items-center px-2 py-2 text-sm font-medium rounded-md',
+                      isSidebarCollapsed ? 'justify-center' : ''
                     )}
+                    title={isSidebarCollapsed ? item.name : undefined}
                   >
                     <AccessibleIcon
                       icon={item.icon}
@@ -191,10 +204,11 @@ export default function AppLayout() {
                         location.pathname === item.href
                           ? 'text-gray-500'
                           : 'text-gray-400 group-hover:text-gray-500',
-                        'mr-3 flex-shrink-0 h-6 w-6'
+                        'flex-shrink-0 h-6 w-6',
+                        isSidebarCollapsed ? '' : 'mr-3'
                       )}
                     />
-                    {item.name}
+                    {!isSidebarCollapsed && item.name}
                   </Link>
                 ))}
               </nav>
@@ -204,16 +218,33 @@ export default function AppLayout() {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64 flex flex-col flex-1">
+      <div className={classNames(
+        "flex flex-col flex-1 transition-all duration-200",
+        isSidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+      )}>
         {/* Top navigation */}
         <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white shadow">
           <button
+            id="mobile-menu-button"
             type="button"
             className="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 lg:hidden"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
+            onClick={toggleMobileMenu}
+            aria-label="Open mobile navigation menu"
+            aria-expanded={isMobileMenuOpen}
           >
             <AccessibleIcon icon={Bars3Icon} decorative className="h-6 w-6" />
+          </button>
+
+          {/* Desktop sidebar toggle */}
+          <button
+            id="sidebar-toggle"
+            type="button"
+            className="hidden lg:flex px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 items-center"
+            onClick={toggleSidebar}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={isSidebarExpanded}
+          >
+            <AccessibleIcon icon={Bars3Icon} decorative className="h-5 w-5" />
           </button>
 
           <div className="flex-1 px-4 flex justify-between">
@@ -224,15 +255,19 @@ export default function AppLayout() {
               <div className="ml-3 relative">
                 <div>
                   <button
+                    id="user-menu-button"
                     className="max-w-xs bg-white flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    onClick={toggleUserDropdown}
+                    aria-expanded={isUserDropdownOpen}
+                    aria-haspopup="true"
+                    aria-label="User account menu"
                   >
-                    <AccessibleIcon icon={UserCircleIcon} aria-label="User profile" className="h-8 w-8 text-gray-400" />
+                    <AccessibleIcon icon={UserCircleIcon} decorative className="h-8 w-8 text-gray-400" />
                     <span className="ml-3 text-gray-700 text-sm font-medium">{user?.email}</span>
                   </button>
                 </div>
 
-                {userMenuOpen && (
+                {isUserDropdownOpen && (
                   <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
                     <div className="px-4 py-2 text-xs text-gray-500">
                       {userType && userType.charAt(0).toUpperCase() + userType.slice(1)} Account
@@ -240,12 +275,15 @@ export default function AppLayout() {
                     <Link
                       to="/app/settings"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
+                      onClick={closeUserDropdown}
                     >
                       Account Settings
                     </Link>
                     <button
-                      onClick={handleSignOut}
+                      onClick={() => {
+                        handleSignOut()
+                        closeUserDropdown()
+                      }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       Sign out

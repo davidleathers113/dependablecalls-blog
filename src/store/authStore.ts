@@ -1,7 +1,11 @@
 // MIGRATION PLAN: This file partially uses optimized imports from lib/supabase-optimized
 // Status: PARTIAL MIGRATION ✅ - uses signInWithOtp, signUp from optimized, type imports only
+// MONITORING: Enhanced with Phase 2.4 performance monitoring and debugging
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
+import { createMonitoringMiddleware } from './utils/monitoringIntegration'
+import { StorageFactory } from './utils/storage/encryptedStorage'
+import { DataClassification, StorageType } from './utils/dataClassification'
 import type { Session } from '@supabase/supabase-js'
 import { signInWithOtp, signUp } from '../lib/supabase-optimized'
 import { type User, createExtendedUser } from '../types/auth'
@@ -36,8 +40,21 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
+  devtools(
+    createMonitoringMiddleware({
+      name: 'auth-store',
+      enabled: true,
+      options: {
+        trackPerformance: true,
+        trackStateChanges: true,
+        trackSelectors: false,
+        enableTimeTravel: true,
+        maxHistorySize: 500,
+      },
+    })(
+      subscribeWithSelector(
+        persist(
+          (set, get) => ({
       user: null,
       session: null,
       userType: null,
@@ -170,15 +187,27 @@ export const useAuthStore = create<AuthState>()(
         // Used by server-side rendering or when session is validated server-side
         set({ user, session, userType, loading: false })
       },
-    }),
+          }),
+          {
+            name: 'dce-user-preferences',
+            // SECURITY: Only persist non-sensitive user preferences - NO auth data
+            partialize: (state) => ({
+              preferences: state.preferences,
+            }),
+            // Skip hydration to prevent sensitive data leakage on SSR
+            skipHydration: true,
+            // Use encrypted storage for user preferences (INTERNAL classification)
+            storage: StorageFactory.createZustandStorage(
+              DataClassification.INTERNAL,
+              StorageType.LOCAL
+            ),
+          }
+        )
+      )
+    ),
     {
-      name: 'dce-user-preferences',
-      // SECURITY: Only persist non-sensitive user preferences - NO auth data
-      partialize: (state) => ({
-        preferences: state.preferences,
-      }),
-      // Skip hydration to prevent sensitive data leakage on SSR
-      skipHydration: true,
+      name: 'auth-store',
+      enabled: process.env.NODE_ENV === 'development',
     }
   )
 )
