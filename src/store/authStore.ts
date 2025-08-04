@@ -21,6 +21,7 @@ export interface AuthState {
   userType: UserRole | null
   loading: boolean
   isAuthenticated: boolean
+  _hasHydrated: boolean
   // User preferences (non-sensitive)
   preferences: {
     theme?: 'light' | 'dark'
@@ -50,6 +51,7 @@ const createAuthStore: StateCreator<AuthState> = (set, get) => ({
       session: null,
       userType: null,
       loading: true,
+      _hasHydrated: false,
       preferences: {},
 
       get isAuthenticated() {
@@ -199,7 +201,8 @@ const authStoreWithMiddleware = process.env.NODE_ENV === 'development'
     })
   : <T>(f: StateCreator<T, [], [], T>): StateCreator<T, [], [], T> => f
 
-export const useAuthStore = create<AuthState>()(
+// Legacy store implementation (emergency fix)
+export const useAuthStoreLegacy = create<AuthState>()(
   authStoreWithMiddleware(
     devtools(
       subscribeWithSelector(
@@ -213,6 +216,12 @@ export const useAuthStore = create<AuthState>()(
             }),
             // Skip hydration to prevent sensitive data leakage on SSR
             skipHydration: true,
+            // Set hydration flag when store has rehydrated
+            onRehydrateStorage: () => (state) => {
+              if (state) {
+                state._hasHydrated = true
+              }
+            },
             // Use localStorage for preferences (simplified for now)
             storage: {
               getItem: (name: string) => {
@@ -236,3 +245,23 @@ export const useAuthStore = create<AuthState>()(
     )
   )
 )
+
+// Import the new v2 implementation
+let useAuthStoreV2: any
+try {
+  const v2Module = require('./authStore.v2')
+  useAuthStoreV2 = v2Module.useAuthStoreV2
+} catch (error) {
+  console.warn('[Auth Store] v2 implementation not available, using legacy')
+}
+
+// Export the appropriate implementation based on feature flag
+export const useAuthStore = (() => {
+  if (process.env.REACT_APP_USE_STANDARD_STORE === 'true' && useAuthStoreV2) {
+    console.log('[Auth Store] Using v2 implementation with standard middleware')
+    return useAuthStoreV2
+  } else {
+    console.log('[Auth Store] Using legacy implementation (emergency fix)')
+    return useAuthStoreLegacy
+  }
+})()
