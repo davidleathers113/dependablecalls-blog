@@ -1,8 +1,10 @@
 // Navigation State Machine Slice
 // Manages navigation state for layout components (mobile menu, sidebar, user dropdown)
 
+import { create } from 'zustand'
+import { devtools, persist } from 'zustand/middleware'
 import type { BaseSlice, LoadingState } from '../utils/createSlice'
-import { createSlice, createBaseActions } from '../utils/createSlice'
+import { createBaseActions } from '../utils/createSlice'
 // Local interfaces for navigation state machine
 export interface StateTransition {
   from: string
@@ -346,8 +348,10 @@ const initialState = {
 // Navigation Slice Implementation
 // =============================================================================
 
-export const useNavigationStore = createSlice<NavigationSliceState>(
-  (set, get) => {
+export const useNavigationStore = create<NavigationSliceState>()(
+  devtools(
+    persist(
+      (set, get) => {
     
     // Helper function to update element state and state machine
     const updateElementState = (
@@ -625,24 +629,27 @@ export const useNavigationStore = createSlice<NavigationSliceState>(
       // Reset functionality
       reset: () => set(initialState),
     }
-  },
-  {
-    name: 'navigation',
-    persist: {
-      partialize: (state) => ({
-        // Persist user preferences and sidebar state
-        preferences: state.preferences,
-        desktopSidebar: {
-          ...state.desktopSidebar,
-          // Only persist the collapsed/expanded state, not transitioning states
-          state: state.desktopSidebar.state.type === 'collapsed' || state.desktopSidebar.state.type === 'expanded' 
-                 ? state.desktopSidebar.state 
-                 : { type: 'expanded', element: 'desktop_sidebar' }
-        }
-      }),
-      version: 1,
-    },
-  }
+      },
+      {
+        name: 'navigation',
+        partialize: (state) => ({
+          // Persist user preferences and sidebar state
+          preferences: state.preferences,
+          desktopSidebar: {
+            ...state.desktopSidebar,
+            // Only persist the collapsed/expanded state, not transitioning states
+            state: state.desktopSidebar.state.type === 'collapsed' || state.desktopSidebar.state.type === 'expanded' 
+                   ? state.desktopSidebar.state 
+                   : { type: 'expanded', element: 'desktop_sidebar' }
+          }
+        }),
+        version: 1,
+      }
+    ),
+    {
+      name: 'navigation-store',
+    }
+  )
 )
 
 // =============================================================================

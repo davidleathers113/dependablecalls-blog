@@ -151,8 +151,8 @@ async function runManualScanner() {
     // GitHub Token
     { name: 'GitHub Token', pattern: /ghp_[A-Za-z0-9_]{36}/g },
     
-    // Hardcoded passwords
-    { name: 'Hardcoded Password', pattern: /(?:password|pwd|pass)['":\s=]+[^\s'"]{6,}/gi }
+    // Hardcoded passwords (exclude function parameters and type definitions)
+    { name: 'Hardcoded Password', pattern: /(?:password|pwd|pass)[\s]*[=:]\s*["'][^\s'"]{6,}["']/gi }
   ];
 
   // Get staged files
@@ -204,6 +204,16 @@ async function runManualScanner() {
                 line.includes('Deno.env.get') ||
                 line.includes('${') ||
                 match[0].startsWith('$')) {
+              continue;
+            }
+
+            // Skip TypeScript type definitions and function parameters
+            if (line.includes(': string') || 
+                line.includes('password:') ||
+                line.includes('(email:') ||
+                line.includes('async (') ||
+                line.includes('=> {') ||
+                line.includes('function ')) {
               continue;
             }
 

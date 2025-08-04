@@ -12,16 +12,17 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import { persist } from 'zustand/middleware'
 import type { 
   StoreConfig, 
-  StandardStoreConfig,
-  LightweightStoreConfig,
-  recordStoreUpdate
+  StandardStoreConfig
 } from '../types/mutators'
 import { isLightweightConfig } from '../types/mutators'
 
 // Import our custom monitoring middleware if available
-let createMonitoringMiddleware: any
+import type { StateCreator } from 'zustand'
+
+let createMonitoringMiddleware: ((config: unknown) => (f: unknown) => unknown) | undefined
 try {
   // Dynamic import to avoid circular dependencies
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const monitoringModule = require('../utils/monitoringIntegration')
   createMonitoringMiddleware = monitoringModule.createMonitoringMiddleware
 } catch {
@@ -46,7 +47,14 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
   const standardConfig = config as StandardStoreConfig<T>
   
   // Build middleware chain from inside out
+  // Correct order: immer (innermost) → subscribeWithSelector → persist → devtools (outermost)
   let middleware = standardConfig.creator
+
+  // Apply immer for immutable updates (innermost)
+  middleware = immer(middleware as any) as any
+
+  // Apply subscribeWithSelector for granular subscriptions
+  middleware = subscribeWithSelector(middleware as any) as any
 
   // Apply persist middleware if configured
   if (standardConfig.persist) {
@@ -56,10 +64,7 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
     }) as any
   }
 
-  // Apply subscribeWithSelector for granular subscriptions
-  middleware = subscribeWithSelector(middleware as any) as any
-
-  // Apply devtools in development
+  // Apply devtools in development (outermost)
   if (process.env.NODE_ENV === 'development') {
     middleware = devtools(middleware as any, {
       name: standardConfig.name,
@@ -67,9 +72,6 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
       ...standardConfig.devtools,
     }) as any
   }
-
-  // Apply immer for immutable updates
-  middleware = immer(middleware as any) as any
 
   // Apply monitoring in development if available and enabled
   if (
@@ -150,5 +152,11 @@ export const createAuthStore = <T>(
     },
     devtools: {
       trace: true, // Enable action tracing for auth debugging
+      // SECURITY: Sanitize sensitive data from DevTools
+      stateSanitizer: (state: any) => ({
+        ...state,
+        session: state.session ? { id: state.session.id, expires_at: state.session.expires_at } : null,
+        // Never expose tokens or sensitive session data
+      }),
     },
   })

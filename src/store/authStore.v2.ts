@@ -19,6 +19,22 @@ import { addCSRFHeaders } from '../lib/csrf-protection'
 import { createAuthStore } from './factories/createStandardStore'
 import type { StandardStateCreator } from './types/mutators'
 
+// Safe fetch with timeout
+async function safeFetch(input: RequestInfo, init: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  
+  try {
+    const response = await fetch(input, { 
+      ...init, 
+      signal: controller.signal 
+    })
+    return response
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 // Auth Store State Interface (unchanged from original)
 export interface AuthState {
   user: User | null
@@ -26,6 +42,7 @@ export interface AuthState {
   userType: UserRole | null
   loading: boolean
   isAuthenticated: boolean
+  _hasHydrated: boolean
   // User preferences (non-sensitive)
   preferences: {
     theme?: 'light' | 'dark'
@@ -55,27 +72,29 @@ const initialState = {
   session: null,
   userType: null,
   loading: true,
+  _hasHydrated: false,
   preferences: {},
 }
 
 // Create auth store using StandardStateCreator with proper typing
-const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
+const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
   ...initialState,
-
-  get isAuthenticated() {
-    return !!get().user && !!get().session
-  },
+  
+  // Remove getter from state - will create as selector instead
+  isAuthenticated: false,
 
   // State setters with immer support
   setUser: (user: User | null) => {
     set((state) => {
       state.user = user
+      state.isAuthenticated = !!user && !!state.session
     })
   },
 
   setSession: (session: Session | null) => {
     set((state) => {
       state.session = session
+      state.isAuthenticated = !!state.user && !!session
     })
   },
 
@@ -95,7 +114,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
   signIn: async (email: string, password: string) => {
     // Authentication is now handled server-side via Netlify functions
     // This method will make a request to the auth-login function
-    const response = await fetch('/.netlify/functions/auth-login', {
+    const response = await safeFetch('/.netlify/functions/auth-login', {
       method: 'POST',
       headers: addCSRFHeaders({
         'Content-Type': 'application/json',
@@ -119,6 +138,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
         state.session = data.session // Store session metadata only
         state.userType = data.user.userType
         state.loading = false
+        state.isAuthenticated = true
       })
     }
   },
@@ -161,7 +181,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
   signOut: async () => {
     // Call server-side logout to clear httpOnly cookies
     try {
-      await fetch('/.netlify/functions/auth-logout', {
+      await safeFetch('/.netlify/functions/auth-logout', {
         method: 'POST',
         headers: addCSRFHeaders({}),
         credentials: 'include',
@@ -175,6 +195,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
       state.user = null
       state.session = null
       state.userType = null
+      state.isAuthenticated = false
     })
   },
 
@@ -185,7 +206,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
 
     try {
       // Check session via server-side function that reads httpOnly cookies
-      const response = await fetch('/.netlify/functions/auth-session', {
+      const response = await safeFetch('/.netlify/functions/auth-session', {
         method: 'GET',
         headers: addCSRFHeaders({}),
         credentials: 'include',
@@ -201,6 +222,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
             state.session = data.session
             // SECURITY: Get userType from server-validated JWT claims only
             state.userType = data.user.userType || null
+            state.isAuthenticated = true
           })
         } else {
           set((state) => {
@@ -237,6 +259,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, get) => ({
       state.session = session
       state.userType = userType
       state.loading = false
+      state.isAuthenticated = !!user && !!session
     })
   },
 })
@@ -249,9 +272,15 @@ export const useAuthStoreV2 = createAuthStore<AuthState>(
     // SECURITY: Only persist non-sensitive user preferences - NO auth data
     partialize: (state: AuthState) => ({
       preferences: state.preferences,
+      _hasHydrated: state._hasHydrated,
     }),
-    // Skip hydration to prevent sensitive data leakage on SSR
-    skipHydration: true,
+    // Remove skipHydration to allow proper hydration
+    // Set _hasHydrated when store is rehydrated
+    onRehydrateStorage: () => (state) => {
+      if (state) {
+        state._hasHydrated = true
+      }
+    },
     // Use localStorage for preferences (could be upgraded to encrypted storage later)
     storage: {
       getItem: (name: string) => {
@@ -273,7 +302,8 @@ export const useAuthUser = () => useAuthStoreV2((state) => state.user)
 export const useAuthSession = () => useAuthStoreV2((state) => state.session)
 export const useAuthUserType = () => useAuthStoreV2((state) => state.userType)
 export const useAuthLoading = () => useAuthStoreV2((state) => state.loading)
-export const useIsAuthenticated = () => useAuthStoreV2((state) => state.isAuthenticated)
+// Derived selector for isAuthenticated instead of stored value
+export const useIsAuthenticated = () => useAuthStoreV2((state) => !!state.user && !!state.session)
 export const useAuthPreferences = () => useAuthStoreV2((state) => state.preferences)
 
 // Auth actions
@@ -292,6 +322,6 @@ export const useAuthActions = () => useAuthStoreV2((state) => ({
 
 // Development helpers
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as any).__authStoreV2 = useAuthStoreV2
+  (window as unknown as { __authStoreV2: typeof useAuthStoreV2 }).__authStoreV2 = useAuthStoreV2
   console.log('[Auth Store v2] Loaded with standard middleware chain')
 }

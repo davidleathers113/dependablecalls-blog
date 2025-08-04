@@ -5,8 +5,7 @@ import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import type { StateCreator } from 'zustand'
 import { createMonitoringMiddleware } from './utils/monitoringIntegration'
-import { StorageFactory } from './utils/storage/encryptedStorage'
-import { DataClassification, StorageType } from './utils/dataClassification'
+// Removed unused imports for StorageFactory, DataClassification, StorageType
 import type { Session } from '@supabase/supabase-js'
 import { signInWithOtp, signUp } from '../lib/supabase-optimized'
 import { type User, createExtendedUser, type UserRole } from '../types/auth'
@@ -246,22 +245,11 @@ export const useAuthStoreLegacy = create<AuthState>()(
   )
 )
 
-// Import the new v2 implementation
-let useAuthStoreV2: any
-try {
-  const v2Module = require('./authStore.v2')
-  useAuthStoreV2 = v2Module.useAuthStoreV2
-} catch (error) {
-  console.warn('[Auth Store] v2 implementation not available, using legacy')
-}
+// Import the v2 implementation
+import { useAuthStoreV2 } from './authStore.v2'
 
 // Export the appropriate implementation based on feature flag
-export const useAuthStore = (() => {
-  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useAuthStoreV2) {
-    console.log('[Auth Store] Using v2 implementation with standard middleware')
-    return useAuthStoreV2
-  } else {
-    console.log('[Auth Store] Using legacy implementation (emergency fix)')
-    return useAuthStoreLegacy
-  }
-})()
+// Default to v2 implementation for better performance and stability
+export const useAuthStore = import.meta.env.VITE_USE_LEGACY_AUTH_STORE === 'true' 
+  ? useAuthStoreLegacy 
+  : useAuthStoreV2
