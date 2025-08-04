@@ -13,7 +13,7 @@ interface BudgetScheduleStepProps {
   errors: Record<string, string[]>
 }
 
-export function BudgetScheduleStep({ form, formData: _formData, updateData: _updateData, errors: _errors }: BudgetScheduleStepProps) { // eslint-disable-line @typescript-eslint/no-unused-vars
+export function BudgetScheduleStep({ form, formData: _formData, updateData: _updateData, errors: _errors }: BudgetScheduleStepProps) {  
   return (
     <div className="space-y-6">
       <Card>

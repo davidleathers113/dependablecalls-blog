@@ -138,7 +138,7 @@ const buyerV2ToV3Migration: Migration<BuyerPersistedV2, BuyerPersistedV3> = {
   down: (state: BuyerPersistedV3): BuyerPersistedV2 => {
     return {
       campaigns: state.campaigns.map(campaign => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _privacy, ...rest } = campaign
         return rest
       }),
@@ -238,7 +238,7 @@ const buyerV3ToV4Migration: Migration<BuyerPersistedV3, BuyerPersistedV4> = {
     return {
       campaigns: state.campaigns,
       savedSearches: state.savedSearches.map(search => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _gdpr, ...rest } = search
         return rest
       }),

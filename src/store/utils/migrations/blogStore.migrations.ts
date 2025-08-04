@@ -98,7 +98,7 @@ const blogEditorV1ToV2Migration: Migration<BlogEditorPersistedV1, BlogEditorPers
   
   // Rollback migration: V2 -> V1
   down: (state: BlogEditorPersistedV2): BlogEditorPersistedV1 => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { editorTheme: _editorTheme, showLineNumbers: _showLineNumbers, enableVimMode: _enableVimMode, draftHistory: _draftHistory, collaboration: _collaboration, ...rest } = state
     return rest
   },
@@ -129,13 +129,13 @@ const blogFilterV1ToV2Migration: Migration<BlogFilterPersistedV1, BlogFilterPers
   isBreaking: false,
   
   // Forward migration: V1 -> V2 (no-op)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   up: (_state: BlogFilterPersistedV1): BlogFilterPersistedV2 => {
     return {}
   },
   
   // Rollback migration: V2 -> V1 (no-op)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   down: (_state: BlogFilterPersistedV2): BlogFilterPersistedV1 => {
     return {}
   },
@@ -265,7 +265,7 @@ const blogUIV1ToV2Migration: Migration<BlogUIPersistedV1, BlogUIPersistedV2> = {
   
   // Rollback migration: V2 -> V1
   down: (state: BlogUIPersistedV2): BlogUIPersistedV1 => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { gridSettings: _gridSettings, listSettings: _listSettings, workspace: _workspace, accessibility: _accessibility, ...rest } = state
     return rest
   },
@@ -355,7 +355,7 @@ const blogEditorV2ToV3Migration: Migration<BlogEditorPersistedV2, BlogEditorPers
   
   // Rollback migration: V3 -> V2
   down: (state: BlogEditorPersistedV3): BlogEditorPersistedV2 => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { performance: _performance, ...rest } = state
     return rest
   },

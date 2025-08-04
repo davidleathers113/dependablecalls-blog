@@ -20,9 +20,9 @@ interface BasicInfoStepProps {
 
 export function BasicInfoStep({ 
   form, 
-  formData: _formData, // eslint-disable-line @typescript-eslint/no-unused-vars
-  updateData: _updateData, // eslint-disable-line @typescript-eslint/no-unused-vars
-  errors: _errors, // eslint-disable-line @typescript-eslint/no-unused-vars
+  formData: _formData,  
+  updateData: _updateData,  
+  errors: _errors,  
   verticals 
 }: BasicInfoStepProps) {
   return (

@@ -524,7 +524,7 @@ export class ErrorReporter {
     }
   }
 
-  private analyzePerformanceImpact(_errors: MonitoringError[]): PerformanceImpactAnalysis { // eslint-disable-line @typescript-eslint/no-unused-vars
+  private analyzePerformanceImpact(_errors: MonitoringError[]): PerformanceImpactAnalysis {  
     // Would integrate with performance monitoring data
     return {
       averageResponseTime: 0,

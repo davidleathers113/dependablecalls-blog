@@ -361,7 +361,7 @@ class RedirectRecoveryStrategy extends RecoveryStrategyHandler {
   async execute(
     error: DCEError, 
     strategy: RecoveryStrategy, 
-    _context: ErrorHandlingContext // eslint-disable-line @typescript-eslint/no-unused-vars
+    _context: ErrorHandlingContext  
   ): Promise<boolean> {
     switch (strategy.action) {
       case 'signOut':

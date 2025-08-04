@@ -25,7 +25,7 @@ const DAYS_OF_WEEK = [
   { value: 'sunday', label: 'Sunday' },
 ] as const
 
-export function ReviewLaunchStep({ form, formData: _formData, verticals }: ReviewLaunchStepProps) { // eslint-disable-line @typescript-eslint/no-unused-vars
+export function ReviewLaunchStep({ form, formData: _formData, verticals }: ReviewLaunchStepProps) {  
   return (
     <div className="space-y-6">
       <Card>

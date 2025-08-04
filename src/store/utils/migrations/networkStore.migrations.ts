@@ -33,14 +33,14 @@ const networkV1ToV2Migration: Migration<NetworkPersistedV1, NetworkPersistedV2> 
   isBreaking: false,
   
   // Forward migration: V1 -> V2 (no-op)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   up: (_state: NetworkPersistedV1): NetworkPersistedV2 => {
     // Network store has no persisted data, so this is a no-op
     return {}
   },
   
   // Rollback migration: V2 -> V1 (no-op)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   down: (_state: NetworkPersistedV2): NetworkPersistedV1 => {
     // Network store has no persisted data, so this is a no-op
     return {}
@@ -77,14 +77,14 @@ const networkV2ToV3Migration: Migration<NetworkPersistedV2, NetworkPersistedV3> 
   isBreaking: false,
   
   // Forward migration: V2 -> V3
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   up: (_state: NetworkPersistedV2): NetworkPersistedV3 => {
     // Still no-op until network store needs persistence
     return {}
   },
   
   // Rollback migration: V3 -> V2
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   down: (_state: NetworkPersistedV3): NetworkPersistedV2 => {
     // Still no-op until network store needs persistence
     return {}

@@ -13,7 +13,7 @@ interface CallHandlingStepProps {
   errors: Record<string, string[]>
 }
 
-export function CallHandlingStep({ form, formData: _formData, updateData: _updateData, errors: _errors }: CallHandlingStepProps) { // eslint-disable-line @typescript-eslint/no-unused-vars
+export function CallHandlingStep({ form, formData: _formData, updateData: _updateData, errors: _errors }: CallHandlingStepProps) {  
   return (
     <div className="space-y-6">
       <Card>

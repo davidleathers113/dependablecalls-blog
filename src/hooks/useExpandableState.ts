@@ -2,14 +2,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Local type definitions for expandable state management
-export interface ExpandableItem {
+export interface ExpandableItem<TData = unknown> {
   id: string
   title: string
   level: number
   parentId?: string
   hasChildren: boolean
   isLoaded: boolean
-  data?: unknown
+  data?: TData
 }
 
 export type ExpandableState =
@@ -21,14 +21,22 @@ export type ExpandableState =
 export interface StateMachine<TState> {
   state: TState
   previousState: TState | null
+  transitions: Array<{
+    from: string | null
+    to: string
+    timestamp: number
+    reason?: string
+    metadata?: Record<string, unknown>
+  }>
+  canTransitionTo: (newType: TState extends { type: string } ? TState['type'] : string) => boolean
   transition: (newState: TState, reason?: string, metadata?: Record<string, unknown>) => void
   rollback: () => boolean
 }
 
 
-export interface ExpandableStateOptions {
+export interface ExpandableStateOptions<TData = unknown> {
   /** Initial items */
-  initialItems?: ExpandableItem[]
+  initialItems?: ExpandableItem<TData>[]
   /** Initial expanded items */
   initialExpanded?: Set<string>
   /** Maximum expanded level (0 = no limit) */
@@ -42,24 +50,24 @@ export interface ExpandableStateOptions {
   /** Animation duration in milliseconds */
   animationDuration?: number
   /** Async data loader function */
-  loadChildren?: (itemId: string) => Promise<ExpandableItem[]>
+  loadChildren?: (itemId: string) => Promise<ExpandableItem<TData>[]>
   /** Callback when item expands */
-  onExpand?: (itemId: string, item: ExpandableItem) => void
+  onExpand?: (itemId: string, item: ExpandableItem<TData>) => void
   /** Callback when item collapses */
-  onCollapse?: (itemId: string, item: ExpandableItem) => void
+  onCollapse?: (itemId: string, item: ExpandableItem<TData>) => void
   /** Callback when loading starts */
   onLoadingStart?: (itemId: string) => void
   /** Callback when loading completes */
-  onLoadingComplete?: (itemId: string, children: ExpandableItem[]) => void
+  onLoadingComplete?: (itemId: string, children: ExpandableItem<TData>[]) => void
   /** Callback when loading fails */
   onLoadingError?: (itemId: string, error: Error) => void
 }
 
-export interface ExpandableStateResult {
+export interface ExpandableStateResult<TData = unknown> {
   /** Current expandable state */
   state: ExpandableState
   /** All items */
-  items: ExpandableItem[]
+  items: ExpandableItem<TData>[]
   /** Set of expanded item IDs */
   expandedItems: Set<string>
   /** Set of currently loading item IDs */
@@ -87,17 +95,17 @@ export interface ExpandableStateResult {
   /** Check if item is loading */
   isLoading: (itemId: string) => boolean
   /** Get children of an item */
-  getChildren: (itemId: string) => ExpandableItem[]
+  getChildren: (itemId: string) => ExpandableItem<TData>[]
   /** Get parent of an item */
-  getParent: (itemId: string) => ExpandableItem | undefined
+  getParent: (itemId: string) => ExpandableItem<TData> | undefined
   /** Get siblings of an item */
-  getSiblings: (itemId: string) => ExpandableItem[]
+  getSiblings: (itemId: string) => ExpandableItem<TData>[]
   /** Add new items */
-  addItems: (items: ExpandableItem[]) => void
+  addItems: (items: ExpandableItem<TData>[]) => void
   /** Remove items */
   removeItems: (itemIds: string[]) => void
   /** Update item data */
-  updateItem: (itemId: string, updates: Partial<ExpandableItem>) => void
+  updateItem: (itemId: string, updates: Partial<ExpandableItem<TData>>) => void
 }
 
 // State machine implementation with transition tracking
@@ -119,7 +127,7 @@ function createBaseStateMachine<TState extends { type: string }>(
     previousState,
     transitions,
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     canTransitionTo: (_newType: TState['type']): boolean => {
       return true // Default implementation - allows all transitions
     },
@@ -224,7 +232,7 @@ export function useExpandableState<TData = unknown>(
     createBaseStateMachine<ExpandableState>({ type: 'collapsed', itemId: '' })
   )
   const [state, setState] = useState<ExpandableState>({ type: 'collapsed', itemId: '' })
-  const [items, setItems] = useState<ExpandableItem[]>(initialItems)
+  const [items, setItems] = useState<ExpandableItem<TData>[]>(initialItems)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(getInitialState)
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set())
   
@@ -245,20 +253,20 @@ export function useExpandableState<TData = unknown>(
   }, [persistState, storageKey])
 
   // Helper functions
-  const findItem = useCallback((itemId: string): ExpandableItem | undefined => {
+  const findItem = useCallback((itemId: string): ExpandableItem<TData> | undefined => {
     return items.find(item => item.id === itemId)
   }, [items])
 
-  const getChildren = useCallback((itemId: string): ExpandableItem[] => {
+  const getChildren = useCallback((itemId: string): ExpandableItem<TData>[] => {
     return items.filter(item => item.parentId === itemId)
   }, [items])
 
-  const getParent = useCallback((itemId: string): ExpandableItem | undefined => {
+  const getParent = useCallback((itemId: string): ExpandableItem<TData> | undefined => {
     const item = findItem(itemId)
     return item?.parentId ? findItem(item.parentId) : undefined
   }, [findItem])
 
-  const getSiblings = useCallback((itemId: string): ExpandableItem[] => {
+  const getSiblings = useCallback((itemId: string): ExpandableItem<TData>[] => {
     const item = findItem(itemId)
     if (!item) return []
     return items.filter(i => i.parentId === item.parentId && i.id !== itemId)
@@ -428,7 +436,7 @@ export function useExpandableState<TData = unknown>(
     }
   }, [findItem, loadChildrenFn, isLoading, transitionToState, loadingItems, onLoadingStart, onLoadingComplete, onLoadingError])
 
-  const addItems = useCallback((newItems: ExpandableItem[]): void => {
+  const addItems = useCallback((newItems: ExpandableItem<TData>[]): void => {
     setItems(prevItems => [...prevItems, ...newItems])
   }, [])
 
@@ -442,7 +450,7 @@ export function useExpandableState<TData = unknown>(
     persistStateToStorage(newExpanded)
   }, [expandedItems, persistStateToStorage])
 
-  const updateItem = useCallback((itemId: string, updates: Partial<ExpandableItem>): void => {
+  const updateItem = useCallback((itemId: string, updates: Partial<ExpandableItem<TData>>): void => {
     setItems(prevItems => prevItems.map(item => 
       item.id === itemId ? { ...item, ...updates } : item
     ))

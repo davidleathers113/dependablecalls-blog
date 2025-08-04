@@ -43,7 +43,7 @@ const TIMEZONES = [
   'Pacific/Honolulu',
 ]
 
-export function TargetingStep({ form, formData: _formData, updateData: _updateData, errors: _errors }: TargetingStepProps) { // eslint-disable-line @typescript-eslint/no-unused-vars
+export function TargetingStep({ form, formData: _formData, updateData: _updateData, errors: _errors }: TargetingStepProps) {  
   return (
     <div className="space-y-6">
       <Card>

@@ -75,7 +75,7 @@ export default function BlogPostPage() {
           title: post?.title,
           url: window.location.href
         })
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
       } catch (_error) {
         // User cancelled share - error intentionally unused
       }

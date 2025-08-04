@@ -117,12 +117,12 @@ const supplierV1ToV2Migration: Migration<SupplierPersistedV1, SupplierPersistedV
   down: (state: SupplierPersistedV2): SupplierPersistedV1 => {
     return {
       listings: state.listings.map(listing => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _analytics, _testing, ...rest } = listing
         return rest
       }),
       leadSources: state.leadSources.map(source => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _attribution, _qualityHistory, ...rest } = source
         return rest
       }),
@@ -249,12 +249,12 @@ const supplierV2ToV3Migration: Migration<SupplierPersistedV2, SupplierPersistedV
   down: (state: SupplierPersistedV3): SupplierPersistedV2 => {
     return {
       listings: state.listings.map(listing => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _compliance, ...rest } = listing
         return rest
       }),
       leadSources: state.leadSources.map(source => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _fraudPrevention, ...rest } = source
         return rest
       }),
@@ -415,12 +415,12 @@ const supplierV3ToV4Migration: Migration<SupplierPersistedV3, SupplierPersistedV
   down: (state: SupplierPersistedV4): SupplierPersistedV3 => {
     return {
       listings: state.listings.map(listing => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _aiInsights, ...rest } = listing
         return rest
       }),
       leadSources: state.leadSources.map(source => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { _predictiveAnalytics, ...rest } = source
         return rest
       }),

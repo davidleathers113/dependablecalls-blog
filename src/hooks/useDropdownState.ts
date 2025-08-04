@@ -82,11 +82,11 @@ export interface DropdownStateResult<TValue = unknown> {
   
   // Refs for DOM elements
   /** Ref for trigger element */
-  triggerRef: React.RefObject<HTMLElement | null>
+  triggerRef: React.RefObject<HTMLElement>
   /** Ref for dropdown content */
-  dropdownRef: React.RefObject<HTMLElement | null>
+  dropdownRef: React.RefObject<HTMLElement>
   /** Ref for search input */
-  searchRef: React.RefObject<HTMLInputElement | null>
+  searchRef: React.RefObject<HTMLInputElement>
   
   // Actions
   /** Open dropdown */
@@ -440,9 +440,9 @@ export function useDropdownState<TValue = unknown>(
     disabled,
     filteredItems,
     selectedItems,
-    triggerRef,
-    dropdownRef,
-    searchRef,
+    triggerRef: triggerRef as React.RefObject<HTMLElement>,
+    dropdownRef: dropdownRef as React.RefObject<HTMLElement>,
+    searchRef: searchRef as React.RefObject<HTMLInputElement>,
     open,
     close,
     toggle,

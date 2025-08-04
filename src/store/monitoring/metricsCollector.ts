@@ -713,8 +713,8 @@ function getElementSelector(element: HTMLElement): string {
 }
 
 function setupSentryIntegration() {
-  // Configure Sentry with custom metrics
-  Sentry.addGlobalEventProcessor((event) => {
+  // Configure Sentry with custom metrics using v8 API
+  Sentry.addEventProcessor((event) => {
     const collector = useMetricsCollector.getState()
     event.extra = {
       ...event.extra,

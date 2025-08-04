@@ -68,7 +68,7 @@ describe('Recovery System', () => {
       for (let i = 0; i < 6; i++) {
         try {
           await recoveryManager.recover(networkError, { ...mockContext, attempt: i + 1 })
-        } catch (_error) { // eslint-disable-line @typescript-eslint/no-unused-vars
+        } catch (_error) {  
           // Expected to fail
         }
       }
@@ -289,7 +289,7 @@ describe('Recovery System', () => {
       for (let i = 0; i < 5; i++) {
         try {
           await recoveryManager.recover(error, { ...mockContext, attempt: i + 1 })
-        } catch (_e) { // eslint-disable-line @typescript-eslint/no-unused-vars
+        } catch (_e) {  
           // Expected
         }
       }
@@ -306,7 +306,7 @@ describe('Recovery System', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await recoveryManager.recover(error, { ...mockContext, attempt: i + 1 })
-        } catch (_e) { // eslint-disable-line @typescript-eslint/no-unused-vars
+        } catch (_e) {  
           // Expected
         }
       }
