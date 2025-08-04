@@ -190,6 +190,9 @@ copilot-chat-history/
 mcp-cache/
 mcp-logs/
 
+# Serena MCP
+.serena/
+
 # Other AI development tools
 .codeium/
 .tabnine/
