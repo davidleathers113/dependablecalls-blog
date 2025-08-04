@@ -285,9 +285,10 @@ export const versionedPersistence = <
       }
       
       // Update state with persistence timestamp
-      set({ 
-        _lastPersisted: new Date().toISOString() 
-      } as Partial<T & VersionedPersistenceState & VersionedPersistenceApi>)
+      set((state: T & VersionedPersistenceState) => ({
+        ...state,
+        _lastPersisted: new Date().toISOString()
+      }))
       
       if (opts.development?.verbose) {
         console.log(`💾 [${storeName}] Persisted state (v${currentVersion})`)
@@ -350,9 +351,10 @@ export const versionedPersistence = <
             },
           ]
           
-          set({ 
-            _migrationHistory: migrationHistory 
-          } as Partial<T & VersionedPersistenceState & VersionedPersistenceApi>)
+          set((state: T & VersionedPersistenceState) => ({
+            ...state,
+            _migrationHistory: migrationHistory
+          }))
           
           if (opts.migrations?.logMigrations) {
             console.log(`🔄 [${storeName}] Migrated from v${storedVersion} to v${latestVersion}`)
@@ -379,9 +381,10 @@ export const versionedPersistence = <
             },
           ]
           
-          set({ 
-            _migrationHistory: migrationHistory 
-          } as Partial<T & VersionedPersistenceState & VersionedPersistenceApi>)
+          set((state: T & VersionedPersistenceState) => ({
+            ...state,
+            _migrationHistory: migrationHistory
+          }))
           
           return // Don't apply failed migration data
         }
@@ -401,11 +404,14 @@ export const versionedPersistence = <
       }
       
       // Apply rehydrated data to state
-      set({
-        ...data,
+      // Ensure data is an object type before spreading
+      const rehydratedData = (typeof data === 'object' && data !== null) ? data as Record<string, unknown> : {}
+      set((state: T & VersionedPersistenceState) => ({
+        ...state,
+        ...rehydratedData,
         _version: latestVersion,
         _lastPersisted: new Date().toISOString(),
-      } as Partial<T & VersionedPersistenceState & VersionedPersistenceApi>)
+      }))
       
       if (opts.development?.verbose) {
         console.log(`✅ [${storeName}] Rehydration complete`)
@@ -456,10 +462,13 @@ export const versionedPersistence = <
     const result = await migrate(storeName, persistedData, currentVersion, targetVersion)
     
     if (result.success) {
-      set({
-        ...result.data,
+      // Ensure result.data is an object type before spreading
+      const migrationData = (typeof result.data === 'object' && result.data !== null) ? result.data as Record<string, unknown> : {}
+      set((state: T & VersionedPersistenceState) => ({
+        ...state,
+        ...migrationData,
         _version: targetVersion,
-      } as Partial<T & VersionedPersistenceState & VersionedPersistenceApi>)
+      }))
       
       await debouncedPersist() // Persist the migrated data
     }
@@ -503,7 +512,18 @@ export type VersionedPersistenceMiddleware = typeof versionedPersistence
 
 // Development utilities
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as Record<string, unknown>).__dceVersionedPersistence = {
+  // Safely extend window object with proper typing
+  interface WindowWithDCE extends Window {
+    __dceVersionedPersistence?: {
+      getStorageKey: typeof getStorageKey
+      getVersionKey: typeof getVersionKey
+      getMetadataKey: typeof getMetadataKey
+      extractPersistedFields: typeof extractPersistedFields
+    }
+  }
+  
+  const windowWithDCE = window as WindowWithDCE
+  windowWithDCE.__dceVersionedPersistence = {
     getStorageKey,
     getVersionKey,
     getMetadataKey,

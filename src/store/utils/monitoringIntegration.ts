@@ -399,7 +399,7 @@ export function setupEnhancedDevTools(storeNames: string[]) {
 // ==================== React Integration Hook ====================
 
 export function useMonitoringIntegration(
-  storeName: string,
+  _storeName: string,
   enabled: boolean = process.env.NODE_ENV === 'development'
 ) {
   if (!enabled) return null

@@ -22,6 +22,18 @@ interface NonceContext {
   style: string;
 }
 
+/**
+ * Context interface for CSP nonce values in React components
+ */
+export interface CSPContext {
+  /** Script nonce for inline scripts */
+  scriptNonce: string;
+  /** Style nonce for inline styles */
+  styleNonce: string;
+  /** Legacy nonce property for backward compatibility */
+  nonce: string;
+}
+
 // Private nonce storage (not exposed globally)
 let currentNonces: NonceContext | null = null;
 
@@ -129,6 +141,20 @@ export function getCurrentNonces(): NonceContext {
   
   // Return copy to prevent tampering
   return { ...currentNonces };
+}
+
+/**
+ * Get CSP context data for React components
+ * Returns nonces in the format expected by CSPContext interface
+ */
+export function getCSPContextData(): CSPContext {
+  const nonces = getCurrentNonces();
+  
+  return {
+    scriptNonce: nonces.script,
+    styleNonce: nonces.style,
+    nonce: nonces.script // Legacy compatibility - uses script nonce
+  };
 }
 
 /**

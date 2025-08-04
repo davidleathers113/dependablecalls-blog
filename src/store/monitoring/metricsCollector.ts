@@ -178,7 +178,7 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
       setupEventListeners()
       
       // Set up periodic cleanup
-      setInterval(() => {
+      gcTimer = setInterval(() => {
         get().clearOldMetrics()
       }, 60000) // Clean up every minute
 
@@ -213,9 +213,14 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         },
       }
 
-      set((state) => ({
-        userInteractions: [...state.userInteractions, fullInteraction].slice(-state.maxStorageSize),
-      }))
+      set((state) => {
+        const newInteractions = [...state.userInteractions, fullInteraction]
+        // Efficient trimming: only remove first element if over limit
+        if (newInteractions.length > state.maxStorageSize) {
+          newInteractions.shift()
+        }
+        return { userInteractions: newInteractions }
+      })
 
       // Send to analytics service (if configured)
       sendToAnalytics('user_interaction', fullInteraction)
@@ -231,9 +236,14 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         timestamp: Date.now(),
       }
 
-      set((state) => ({
-        apiCalls: [...state.apiCalls, fullAPICall].slice(-state.maxStorageSize),
-      }))
+      set((state: MetricsCollectorState) => {
+        const newApiCalls = [...state.apiCalls, fullAPICall]
+        // Efficient trimming: only remove first element if over limit
+        if (newApiCalls.length > state.maxStorageSize) {
+          newApiCalls.shift()
+        }
+        return { apiCalls: newApiCalls }
+      })
 
       // Track slow API calls
       if (apiCall.duration > 2000) { // 2 seconds
@@ -278,9 +288,14 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         timestamp: Date.now(),
       }
 
-      set((state) => ({
-        stateHydrations: [...state.stateHydrations, fullHydration].slice(-state.maxStorageSize),
-      }))
+      set((state: MetricsCollectorState) => {
+        const newHydrations = [...state.stateHydrations, fullHydration]
+        // Efficient trimming: only remove first element if over limit
+        if (newHydrations.length > state.maxStorageSize) {
+          newHydrations.shift()
+        }
+        return { stateHydrations: newHydrations }
+      })
 
       // Track slow hydrations
       if (hydration.duration > 100) { // 100ms
@@ -310,9 +325,14 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         timestamp: Date.now(),
       }
 
-      set((state) => ({
-        bundleMetrics: [...state.bundleMetrics, fullBundle].slice(-state.maxStorageSize),
-      }))
+      set((state: MetricsCollectorState) => {
+        const newBundles = [...state.bundleMetrics, fullBundle]
+        // Efficient trimming: only remove first element if over limit
+        if (newBundles.length > state.maxStorageSize) {
+          newBundles.shift()
+        }
+        return { bundleMetrics: newBundles }
+      })
 
       sendToAnalytics('bundle_metrics', fullBundle)
     },
@@ -332,9 +352,14 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         },
       }
 
-      set((state) => ({
-        errors: [...state.errors, fullError].slice(-state.maxStorageSize),
-      }))
+      set((state: MetricsCollectorState) => {
+        const newErrors = [...state.errors, fullError]
+        // Efficient trimming: only remove first element if over limit
+        if (newErrors.length > state.maxStorageSize) {
+          newErrors.shift()
+        }
+        return { errors: newErrors }
+      })
 
       // Send critical errors to Sentry
       if (error.severity === 'critical' || error.severity === 'high') {
@@ -357,16 +382,16 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
 
       const summary = {
         total: errors.length,
-        byType: errors.reduce((acc, error) => {
+        byType: errors.reduce((acc: Record<string, number>, error: MonitoringError) => {
           acc[error.type] = (acc[error.type] || 0) + 1
           return acc
         }, {} as Record<string, number>),
-        bySeverity: errors.reduce((acc, error) => {
+        bySeverity: errors.reduce((acc: Record<string, number>, error: MonitoringError) => {
           acc[error.severity] = (acc[error.severity] || 0) + 1
           return acc
         }, {} as Record<string, number>),
-        resolved: errors.filter(e => e.resolved).length,
-        unresolved: errors.filter(e => !e.resolved).length,
+        resolved: errors.filter((e: MonitoringError) => e.resolved).length,
+        unresolved: errors.filter((e: MonitoringError) => !e.resolved).length,
       }
 
       const now = Date.now()
@@ -387,7 +412,7 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
       const state = get()
       const interactions = state.userInteractions
 
-      const interactionsByType = interactions.reduce((acc, interaction) => {
+      const interactionsByType = interactions.reduce((acc: Record<string, number>, interaction: UserInteractionMetric) => {
         acc[interaction.type] = (acc[interaction.type] || 0) + 1
         return acc
       }, {} as Record<string, number>)
@@ -399,15 +424,15 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
 
       const bounceRate = calculateBounceRate(interactions)
 
-      const elementCounts = interactions.reduce((acc, interaction) => {
+      const elementCounts = interactions.reduce((acc: Record<string, number>, interaction: UserInteractionMetric) => {
         acc[interaction.target] = (acc[interaction.target] || 0) + 1
         return acc
       }, {} as Record<string, number>)
 
       const mostInteractedElements = Object.entries(elementCounts)
-        .sort(([, a], [, b]) => b - a)
+        .sort(([, a], [, b]) => (b as number) - (a as number))
         .slice(0, 10)
-        .map(([target, count]) => ({ target, count }))
+        .map(([target, count]) => ({ target, count: count as number }))
 
       return {
         totalInteractions: interactions.length,
@@ -424,16 +449,16 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
 
       const totalCalls = apiCalls.length
       const averageResponseTime = totalCalls > 0 
-        ? apiCalls.reduce((sum, call) => sum + call.duration, 0) / totalCalls 
+        ? apiCalls.reduce((sum: number, call: APICallMetric) => sum + call.duration, 0) / totalCalls 
         : 0
 
-      const errorCalls = apiCalls.filter(call => call.status >= 400)
+      const errorCalls = apiCalls.filter((call: APICallMetric) => call.status >= 400)
       const errorRate = totalCalls > 0 ? errorCalls.length / totalCalls : 0
 
-      const cacheHits = apiCalls.filter(call => call.cacheHit)
+      const cacheHits = apiCalls.filter((call: APICallMetric) => call.cacheHit)
       const cacheHitRate = totalCalls > 0 ? cacheHits.length / totalCalls : 0
 
-      const endpointTimes = apiCalls.reduce((acc, call) => {
+      const endpointTimes = apiCalls.reduce((acc: Record<string, { total: number; count: number }>, call: APICallMetric) => {
         if (!acc[call.url]) {
           acc[call.url] = { total: 0, count: 0 }
         }
@@ -443,11 +468,14 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
       }, {} as Record<string, { total: number; count: number }>)
 
       const slowestEndpoints = Object.entries(endpointTimes)
-        .map(([url, { total, count }]) => ({ url, averageTime: total / count }))
+        .map(([url, data]) => {
+          const typedData = data as { total: number; count: number }
+          return { url, averageTime: typedData.total / typedData.count }
+        })
         .sort((a, b) => b.averageTime - a.averageTime)
         .slice(0, 10)
 
-      const errorsByStatus = errorCalls.reduce((acc, call) => {
+      const errorsByStatus = errorCalls.reduce((acc: Record<number, number>, call: APICallMetric) => {
         acc[call.status] = (acc[call.status] || 0) + 1
         return acc
       }, {} as Record<number, number>)
@@ -469,7 +497,7 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
       const hydrationMetrics = state.stateHydrations
 
       const averageLoadTime = bundleMetrics.length > 0
-        ? bundleMetrics.reduce((sum, bundle) => sum + bundle.totalLoadTime, 0) / bundleMetrics.length
+        ? bundleMetrics.reduce((sum: number, bundle: BundleMetric) => sum + bundle.totalLoadTime, 0) / bundleMetrics.length
         : 0
 
       const bundleSize = bundleMetrics.length > 0
@@ -477,7 +505,7 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         : 0
 
       const hydrationTime = hydrationMetrics.length > 0
-        ? hydrationMetrics.reduce((sum, hydration) => sum + hydration.duration, 0) / hydrationMetrics.length
+        ? hydrationMetrics.reduce((sum: number, hydration: StateHydrationMetric) => sum + hydration.duration, 0) / hydrationMetrics.length
         : 0
 
       const criticalPathTime = bundleMetrics.length > 0
@@ -504,12 +532,12 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
       const state = get()
       const cutoff = Date.now() - state.retentionPeriod
 
-      set((state) => ({
-        userInteractions: state.userInteractions.filter(i => i.timestamp > cutoff),
-        apiCalls: state.apiCalls.filter(c => c.timestamp > cutoff),
-        stateHydrations: state.stateHydrations.filter(h => h.timestamp > cutoff),
-        bundleMetrics: state.bundleMetrics.filter(b => b.timestamp > cutoff),
-        errors: state.errors.filter(e => e.timestamp > cutoff),
+      set((state: MetricsCollectorState) => ({
+        userInteractions: state.userInteractions.filter((i: UserInteractionMetric) => i.timestamp > cutoff),
+        apiCalls: state.apiCalls.filter((c: APICallMetric) => c.timestamp > cutoff),
+        stateHydrations: state.stateHydrations.filter((h: StateHydrationMetric) => h.timestamp > cutoff),
+        bundleMetrics: state.bundleMetrics.filter((b: BundleMetric) => b.timestamp > cutoff),
+        errors: state.errors.filter((e: MonitoringError) => e.timestamp > cutoff),
       }))
     },
 
@@ -548,7 +576,7 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         performance: get().getPerformanceStats(),
         errors: {
           total: state.errors.length,
-          byType: state.errors.reduce((acc, error) => {
+          byType: state.errors.reduce((acc: Record<string, number>, error: MonitoringError) => {
             acc[error.type] = (acc[error.type] || 0) + 1
             return acc
           }, {} as Record<string, number>),
@@ -643,6 +671,9 @@ function sendToAnalytics(eventType: string, data: unknown) {
 
 // ==================== Event Listeners Setup ====================
 
+// Store cleanup handles at module scope to prevent memory leaks
+let cleanupHandles: Array<() => void> = []
+let gcTimer: ReturnType<typeof setInterval> | null = null
 let eventListenersSetup = false
 
 function setupEventListeners() {
@@ -651,15 +682,17 @@ function setupEventListeners() {
   const collector = useMetricsCollector.getState()
   
   // Click tracking
-  window.addEventListener('click', (event) => {
+  const clickHandler = (event: MouseEvent) => {
     const target = event.target as HTMLElement
     collector.recordUserInteraction({
       type: 'click',
       target: getElementSelector(target),
     })
-  })
+  }
+  window.addEventListener('click', clickHandler, { passive: true })
+  cleanupHandles.push(() => window.removeEventListener('click', clickHandler))
 
-  // Navigation tracking
+  // Navigation tracking with proper cleanup
   const originalPushState = history.pushState
   const originalReplaceState = history.replaceState
 
@@ -679,16 +712,24 @@ function setupEventListeners() {
     })
   }
 
-  window.addEventListener('popstate', () => {
+  // Store cleanup for history methods
+  cleanupHandles.push(() => {
+    history.pushState = originalPushState
+    history.replaceState = originalReplaceState
+  })
+
+  const popstateHandler = () => {
     collector.recordUserInteraction({
       type: 'navigation',
       target: window.location.pathname,
     })
-  })
+  }
+  window.addEventListener('popstate', popstateHandler, { passive: true })
+  cleanupHandles.push(() => window.removeEventListener('popstate', popstateHandler))
 
-  // Scroll tracking (throttled)
+  // Scroll tracking (throttled) with passive listener
   let scrollTimeout: number | NodeJS.Timeout
-  window.addEventListener('scroll', () => {
+  const scrollHandler = () => {
     clearTimeout(scrollTimeout as NodeJS.Timeout)
     scrollTimeout = setTimeout(() => {
       collector.recordUserInteraction({
@@ -696,14 +737,28 @@ function setupEventListeners() {
         target: `${window.scrollY}px`,
       })
     }, 100)
+  }
+  window.addEventListener('scroll', scrollHandler, { passive: true })
+  cleanupHandles.push(() => {
+    window.removeEventListener('scroll', scrollHandler)
+    clearTimeout(scrollTimeout as NodeJS.Timeout)
   })
 
   eventListenersSetup = true
 }
 
 function cleanupEventListeners() {
+  // Execute all cleanup handlers
+  cleanupHandles.forEach(fn => fn())
+  cleanupHandles = []
+  
+  // Clear the GC timer
+  if (gcTimer) {
+    clearInterval(gcTimer)
+    gcTimer = null
+  }
+  
   eventListenersSetup = false
-  // Event listeners will be cleaned up when the page unloads
 }
 
 function getElementSelector(element: HTMLElement): string {

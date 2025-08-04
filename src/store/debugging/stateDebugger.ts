@@ -449,7 +449,7 @@ export const useStateDebugger = create<StateDebuggerState>()(
         if (snapshots.length < 5) continue
 
         const recentSnapshots = snapshots.slice(-5)
-        const isGrowing = recentSnapshots.every((snapshot, i) => 
+        const isGrowing = recentSnapshots.every((snapshot: StateSnapshot, i: number) => 
           i === 0 || snapshot.metadata.size > recentSnapshots[i - 1].metadata.size
         )
 
@@ -484,7 +484,7 @@ export const useStateDebugger = create<StateDebuggerState>()(
         }
 
         const recent = snapshots.slice(-3)
-        const sizes = recent.map(s => s.metadata.size)
+        const sizes = recent.map((s: StateSnapshot) => s.metadata.size)
         const avgGrowth = (sizes[sizes.length - 1] - sizes[0]) / (sizes.length - 1)
 
         if (avgGrowth > 1024) { // Growing by 1KB per snapshot

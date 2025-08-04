@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { createMonitoringMiddleware } from './utils/monitoringIntegration'
 import type { BlogPostFilters, BlogPostSort, CreateBlogPostData } from '../types/blog'
-import type { ModalState, StateMachine } from './utils/stateMachines'
-import { createModalStateMachine, createEnhancedModalActions } from './utils/stateMachines'
+import type { StateMachine, ModalStates, ModalEvents } from './utils/stateMachines'
+import { createModalStateMachine } from './utils/stateMachines'
+import type { StateCreator } from 'zustand'
 
 interface BlogEditorState {
   // Draft post data
@@ -60,6 +61,15 @@ interface BlogFilterState {
   setSelectedTag: (tagId: string | null) => void
 }
 
+// Custom modal state interface for blog UI
+interface BlogModalState {
+  type: 'create' | 'edit' | 'delete' | 'bulk_delete' | 'bulk_edit' | 'preview' | null
+  id?: string
+  entityType?: string
+  isDirty?: boolean
+  cascadeDelete?: boolean
+}
+
 interface BlogUIState {
   // Layout preferences
   viewMode: 'grid' | 'list' | 'compact'
@@ -67,8 +77,8 @@ interface BlogUIState {
   showMetrics: boolean
 
   // Modal state machine (replaces boolean flags)
-  modalState: ModalState
-  modalStateMachine: StateMachine<ModalState>
+  modalState: BlogModalState
+  modalStateMachine: StateMachine<ModalStates, ModalEvents>
 
   // Feature toggles
   enableComments: boolean
@@ -92,22 +102,20 @@ interface BlogUIState {
   setShowDrafts: (show: boolean) => void
 }
 
-// Editor Store - Persisted for draft recovery
-export const useBlogEditorStore = create<BlogEditorState>()(
-  devtools(
-    createMonitoringMiddleware({
-      name: 'blog-editor-store',
-      enabled: true,
-      options: {
-        trackPerformance: true,
-        trackStateChanges: true,
-        trackSelectors: false,
-        enableTimeTravel: false,
-        maxHistorySize: 200,
-      },
-    })(
-      persist(
-        subscribeWithSelector((set) => ({
+// Define middleware mutators for blog editor store
+type BlogEditorStoreMutators = [
+  ['zustand/devtools', never],
+  ['zustand/persist', unknown],
+  ['zustand/subscribeWithSelector', never]
+]
+
+// Create blog editor store with proper StateCreator typing
+const createBlogEditorStore: StateCreator<
+  BlogEditorState,
+  BlogEditorStoreMutators,
+  [],
+  BlogEditorState
+> = (set) => ({
       // Initial state
       draft: null,
       isDraftSaved: true,
@@ -161,7 +169,24 @@ export const useBlogEditorStore = create<BlogEditorState>()(
           autosaveEnabled: enabled,
           ...(interval && { autosaveInterval: interval }),
         }),
-        })),
+    })
+
+// Editor Store - Persisted for draft recovery
+export const useBlogEditorStore = create<BlogEditorState>()(
+  devtools(
+    createMonitoringMiddleware({
+      name: 'blog-editor-store',
+      enabled: true,
+      options: {
+        trackPerformance: true,
+        trackStateChanges: true,
+        trackSelectors: false,
+        enableTimeTravel: false,
+        maxHistorySize: 200,
+      },
+    })(
+      persist(
+        subscribeWithSelector(createBlogEditorStore),
         {
           name: 'blog-editor-storage',
           partialize: (state) => ({
@@ -254,22 +279,19 @@ export const useBlogFilterStore = create<BlogFilterState>((set) => ({
     }),
 }))
 
-// UI Store - Persisted for user preferences
-export const useBlogUIStore = create<BlogUIState>()(
-  devtools(
-    createMonitoringMiddleware({
-      name: 'blog-ui-store',
-      enabled: true,
-      options: {
-        trackPerformance: true,
-        trackStateChanges: true,
-        trackSelectors: false,
-        enableTimeTravel: false,
-        maxHistorySize: 200,
-      },
-    })(
-      persist(
-        (set, get) => ({
+// Define middleware mutators for blog UI store
+type BlogUIStoreMutators = [
+  ['zustand/devtools', never],
+  ['zustand/persist', unknown]
+]
+
+// Create blog UI store with proper StateCreator typing
+const createBlogUIStore: StateCreator<
+  BlogUIState,
+  BlogUIStoreMutators,
+  [],
+  BlogUIState
+> = (set, _get) => ({
       // Initial state
       viewMode: 'grid',
       showFilters: true,
@@ -294,59 +316,52 @@ export const useBlogUIStore = create<BlogUIState>()(
         })),
 
       openCreateModal: (entityType = 'blog_post') => {
-        const modalActions = createEnhancedModalActions((updater) => {
-          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
-          set({ modalState: newState })
-        }, get().modalStateMachine)
-        modalActions.openCreateModal(entityType)
+        set({ 
+          modalState: { 
+            type: 'create', 
+            entityType 
+          } 
+        })
       },
 
       closeCreateModal: () => {
-        const modalActions = createEnhancedModalActions((updater) => {
-          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
-          set({ modalState: newState })
-        }, get().modalStateMachine)
-        modalActions.closeModal()
+        set({ modalState: { type: null } })
       },
 
       openEditModal: (postId: string, isDirty = false) => {
-        const modalActions = createEnhancedModalActions((updater) => {
-          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
-          set({ modalState: newState })
-        }, get().modalStateMachine)
-        modalActions.openEditModal(postId, 'blog_post', isDirty)
+        set({ 
+          modalState: { 
+            type: 'edit', 
+            id: postId, 
+            entityType: 'blog_post',
+            isDirty 
+          } 
+        })
       },
 
       closeEditModal: () => {
-        const modalActions = createEnhancedModalActions((updater) => {
-          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
-          set({ modalState: newState })
-        }, get().modalStateMachine)
-        modalActions.closeModal()
+        set({ modalState: { type: null } })
       },
 
       openDeleteModal: (postId: string, cascadeDelete = false) => {
-        const modalActions = createEnhancedModalActions((updater) => {
-          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
-          set({ modalState: newState })
-        }, get().modalStateMachine)
-        modalActions.openDeleteModal(postId, 'blog_post', cascadeDelete)
+        set({ 
+          modalState: { 
+            type: 'delete', 
+            id: postId, 
+            entityType: 'blog_post',
+            cascadeDelete 
+          } 
+        })
       },
 
       closeDeleteModal: () => {
-        const modalActions = createEnhancedModalActions((updater) => {
-          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
-          set({ modalState: newState })
-        }, get().modalStateMachine)
-        modalActions.closeModal()
+        set({ modalState: { type: null } })
       },
 
       rollbackModal: () => {
-        const modalActions = createEnhancedModalActions((updater) => {
-          const newState = typeof updater === 'function' ? updater(get().modalState) : updater
-          set({ modalState: newState })
-        }, get().modalStateMachine)
-        return modalActions.rollbackModal()
+        // Simple rollback - just close the modal
+        set({ modalState: { type: null } })
+        return true
       },
 
       setEnableComments: (enabled) => set({ enableComments: enabled }),
@@ -354,7 +369,24 @@ export const useBlogUIStore = create<BlogUIState>()(
       setEnableRealtime: (enabled) => set({ enableRealtime: enabled }),
 
       setShowDrafts: (show) => set({ showDrafts: show }),
-        }),
+    })
+
+// UI Store - Persisted for user preferences
+export const useBlogUIStore = create<BlogUIState>()(
+  devtools(
+    createMonitoringMiddleware({
+      name: 'blog-ui-store',
+      enabled: true,
+      options: {
+        trackPerformance: true,
+        trackStateChanges: true,
+        trackSelectors: false,
+        enableTimeTravel: false,
+        maxHistorySize: 200,
+      },
+    })(
+      persist(
+        createBlogUIStore,
         {
           name: 'blog-ui-storage',
           partialize: (state) => ({
@@ -407,7 +439,7 @@ export const blogSelectors = {
     return count
   },
 
-  // UI selectors using state machine
+  // UI selectors using custom modal state
   hasOpenModals: (state: BlogUIState) => {
     return state.modalState.type !== null
   },
@@ -421,10 +453,10 @@ export const blogSelectors = {
   isDeleteModalOpen: (state: BlogUIState) => state.modalState.type === 'delete',
   editingPostId: (state: BlogUIState) => {
     const modalState = state.modalState
-    return modalState.type === 'edit' ? modalState.id : null
+    return modalState.type === 'edit' ? modalState.id || null : null
   },
   deletingPostId: (state: BlogUIState) => {
     const modalState = state.modalState
-    return modalState.type === 'delete' ? modalState.id : null
+    return modalState.type === 'delete' ? modalState.id || null : null
   },
 }

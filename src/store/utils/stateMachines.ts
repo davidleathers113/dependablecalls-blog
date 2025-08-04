@@ -1,5 +1,4 @@
 // State machine utilities for modal and UI state management
-import { StateCreator } from 'zustand'
 
 // Modal state types
 export interface ModalState {

@@ -1,12 +1,12 @@
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore, type AuthState } from '../store/authStore'
 
 export function useAuth() {
-  const user = useAuthStore((state) => state.user)
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-  const signIn = useAuthStore((state) => state.signIn)
-  const signUp = useAuthStore((state) => state.signUp)
-  const signOut = useAuthStore((state) => state.signOut)
-  const loading = useAuthStore((state) => state.loading)
+  const user = useAuthStore((state: AuthState) => state.user)
+  const isAuthenticated = useAuthStore((state: AuthState) => state.isAuthenticated)
+  const signIn = useAuthStore((state: AuthState) => state.signIn)
+  const signUp = useAuthStore((state: AuthState) => state.signUp)
+  const signOut = useAuthStore((state: AuthState) => state.signOut)
+  const loading = useAuthStore((state: AuthState) => state.loading)
 
   return {
     user,

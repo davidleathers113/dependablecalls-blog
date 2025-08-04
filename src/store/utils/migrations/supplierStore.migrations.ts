@@ -30,7 +30,12 @@ const SupplierPersistedV2Schema = z.object({
       averageCallDuration: z.number().default(0),
       qualityTrend: z.enum(['improving', 'stable', 'declining']).default('stable'),
       lastOptimized: z.string().optional(),
-    }).optional(),
+    }).default({
+      conversionRate: 0,
+      averageCallDuration: 0,
+      qualityTrend: 'stable',
+      lastOptimized: undefined,
+    }),
     
     // NEW: A/B testing support
     _testing: z.object({
@@ -41,7 +46,10 @@ const SupplierPersistedV2Schema = z.object({
         isActive: z.boolean(),
       })),
       currentVariant: z.string().optional(),
-    }).optional(),
+    }).default({
+      variants: [],
+      currentVariant: undefined,
+    }),
   })),
   
   leadSources: z.array(LeadSourceSchema.extend({
@@ -51,7 +59,12 @@ const SupplierPersistedV2Schema = z.object({
       referrerDomain: z.string().optional(),
       firstTouchDate: z.string().optional(),
       touchpointCount: z.number(),
-    }).optional(),
+    }).default({
+      utmParameters: {},
+      referrerDomain: undefined,
+      firstTouchDate: undefined,
+      touchpointCount: 1,
+    }),
     
     // NEW: Quality scoring history
     _qualityHistory: z.array(z.object({
@@ -146,7 +159,12 @@ const SupplierPersistedV3Schema = z.object({
       averageCallDuration: z.number().default(0),
       qualityTrend: z.enum(['improving', 'stable', 'declining']).default('stable'),
       lastOptimized: z.string().optional(),
-    }).optional(),
+    }).default({
+      conversionRate: 0,
+      averageCallDuration: 0,
+      qualityTrend: 'stable',
+      lastOptimized: undefined,
+    }),
     _testing: z.object({
       variants: z.array(z.object({
         id: z.string(),
@@ -155,7 +173,10 @@ const SupplierPersistedV3Schema = z.object({
         isActive: z.boolean(),
       })),
       currentVariant: z.string().optional(),
-    }).optional(),
+    }).default({
+      variants: [],
+      currentVariant: undefined,
+    }),
     
     // NEW: Compliance tracking
     _compliance: z.object({
@@ -163,7 +184,12 @@ const SupplierPersistedV3Schema = z.object({
       dncScrubbed: z.boolean().default(false),
       lastComplianceCheck: z.string().optional(),
       complianceNotes: z.string().optional(),
-    }).optional(),
+    }).default({
+      tcpaCompliant: true,
+      dncScrubbed: false,
+      lastComplianceCheck: undefined,
+      complianceNotes: undefined,
+    }),
   })),
   
   leadSources: z.array(LeadSourceSchema.extend({
@@ -172,7 +198,12 @@ const SupplierPersistedV3Schema = z.object({
       referrerDomain: z.string().optional(),
       firstTouchDate: z.string().optional(),
       touchpointCount: z.number(),
-    }).optional(),
+    }).default({
+      utmParameters: {},
+      referrerDomain: undefined,
+      firstTouchDate: undefined,
+      touchpointCount: 1,
+    }),
     _qualityHistory: z.array(z.object({
       date: z.string(),
       score: z.number(),
@@ -187,7 +218,13 @@ const SupplierPersistedV3Schema = z.object({
       flaggedReasons: z.array(z.string()),
       whiteListed: z.boolean(),
       quarantined: z.boolean(),
-    }).optional(),
+    }).default({
+      riskScore: 0,
+      lastFraudCheck: undefined,
+      flaggedReasons: [],
+      whiteListed: false,
+      quarantined: false,
+    }),
   })),
   
   // NEW: Supplier-level compliance settings
@@ -197,7 +234,13 @@ const SupplierPersistedV3Schema = z.object({
     lastAuditDate: z.string().optional(),
     certifications: z.array(z.string()),
     complianceContact: z.string().optional(),
-  }).optional(),
+  }).default({
+    tcpaConsent: false,
+    dncListProvider: undefined,
+    lastAuditDate: undefined,
+    certifications: [],
+    complianceContact: undefined,
+  }),
 })
 
 type SupplierPersistedV3 = z.infer<typeof SupplierPersistedV3Schema>
@@ -278,7 +321,12 @@ const SupplierPersistedV4Schema = z.object({
       averageCallDuration: z.number().default(0),
       qualityTrend: z.enum(['improving', 'stable', 'declining']).default('stable'),
       lastOptimized: z.string().optional(),
-    }).optional(),
+    }).default({
+      conversionRate: 0,
+      averageCallDuration: 0,
+      qualityTrend: 'stable',
+      lastOptimized: undefined,
+    }),
     _testing: z.object({
       variants: z.array(z.object({
         id: z.string(),
@@ -287,13 +335,21 @@ const SupplierPersistedV4Schema = z.object({
         isActive: z.boolean(),
       })),
       currentVariant: z.string().optional(),
-    }).optional(),
+    }).default({
+      variants: [],
+      currentVariant: undefined,
+    }),
     _compliance: z.object({
       tcpaCompliant: z.boolean().default(true),
       dncScrubbed: z.boolean().default(false),
       lastComplianceCheck: z.string().optional(),
       complianceNotes: z.string().optional(),
-    }).optional(),
+    }).default({
+      tcpaCompliant: true,
+      dncScrubbed: false,
+      lastComplianceCheck: undefined,
+      complianceNotes: undefined,
+    }),
     
     // NEW: AI-powered optimization
     _aiInsights: z.object({
@@ -305,7 +361,12 @@ const SupplierPersistedV4Schema = z.object({
         confidence: z.number(), // 0-1 confidence score
       })),
       lastAnalysis: z.string().optional(),
-    }).optional(),
+    }).default({
+      performancePrediction: undefined,
+      optimizationSuggestions: [],
+      marketTrends: [],
+      lastAnalysis: undefined,
+    }),
   })),
   
   leadSources: z.array(LeadSourceSchema.extend({
@@ -314,7 +375,12 @@ const SupplierPersistedV4Schema = z.object({
       referrerDomain: z.string().optional(),
       firstTouchDate: z.string().optional(),
       touchpointCount: z.number(),
-    }).optional(),
+    }).default({
+      utmParameters: {},
+      referrerDomain: undefined,
+      firstTouchDate: undefined,
+      touchpointCount: 1,
+    }),
     _qualityHistory: z.array(z.object({
       date: z.string(),
       score: z.number(),
@@ -327,7 +393,13 @@ const SupplierPersistedV4Schema = z.object({
       flaggedReasons: z.array(z.string()).default([]),
       whiteListed: z.boolean().default(false),
       quarantined: z.boolean().default(false),
-    }).optional(),
+    }).default({
+      riskScore: 0,
+      lastFraudCheck: undefined,
+      flaggedReasons: [],
+      whiteListed: false,
+      quarantined: false,
+    }),
     
     // NEW: Predictive analytics
     _predictiveAnalytics: z.object({
@@ -338,7 +410,12 @@ const SupplierPersistedV4Schema = z.object({
         multiplier: z.number(),
       })),
       lastPrediction: z.string().optional(),
-    }).optional(),
+    }).default({
+      expectedVolume: undefined,
+      qualityForecast: undefined,
+      seasonalityFactors: [],
+      lastPrediction: undefined,
+    }),
   })),
   
   _supplierCompliance: z.object({
@@ -347,7 +424,13 @@ const SupplierPersistedV4Schema = z.object({
     lastAuditDate: z.string().optional(),
     certifications: z.array(z.string()),
     complianceContact: z.string().optional(),
-  }).optional(),
+  }).default({
+    tcpaConsent: false,
+    dncListProvider: undefined,
+    lastAuditDate: undefined,
+    certifications: [],
+    complianceContact: undefined,
+  }),
   
   // NEW: Performance optimization settings
   _optimization: z.object({
@@ -363,7 +446,12 @@ const SupplierPersistedV4Schema = z.object({
         revenueChange: z.number(),
       }),
     })),
-  }).optional(),
+  }).default({
+    autoOptimizationEnabled: false,
+    optimizationGoals: ['quality'],
+    lastOptimizationRun: undefined,
+    optimizationHistory: [],
+  }),
 })
 
 type SupplierPersistedV4 = z.infer<typeof SupplierPersistedV4Schema>

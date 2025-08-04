@@ -1,6 +1,5 @@
 // Review & Launch step component for the campaign wizard
-import React from 'react'
-import { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { Card, CardContent, CardHeader } from '../../../components/common/Card'
 import type { CreateCampaignFormData } from '../../../hooks/useCampaignWizard'

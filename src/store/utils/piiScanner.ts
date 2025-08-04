@@ -11,36 +11,38 @@
 /**
  * Types of PII that can be detected
  */
-export enum PIIType {
-  EMAIL = 'email',
-  PHONE = 'phone',
-  SSN = 'ssn',
-  CREDIT_CARD = 'credit_card',
-  BANK_ACCOUNT = 'bank_account',
-  DRIVER_LICENSE = 'driver_license',
-  PASSPORT = 'passport',
-  IP_ADDRESS = 'ip_address',
-  PHYSICAL_ADDRESS = 'physical_address',
-  DATE_OF_BIRTH = 'date_of_birth',
-  FULL_NAME = 'full_name',
-  USERNAME = 'username',
-  PASSWORD = 'password',
-  API_KEY = 'api_key',
-  AUTH_TOKEN = 'auth_token',
-  BIOMETRIC = 'biometric',
-  MEDICAL_INFO = 'medical_info',
-  FINANCIAL_INFO = 'financial_info',
-}
+export const PIIType = {
+  EMAIL: 'email',
+  PHONE: 'phone',
+  SSN: 'ssn',
+  CREDIT_CARD: 'credit_card',
+  BANK_ACCOUNT: 'bank_account',
+  DRIVER_LICENSE: 'driver_license',
+  PASSPORT: 'passport',
+  IP_ADDRESS: 'ip_address',
+  PHYSICAL_ADDRESS: 'physical_address',
+  DATE_OF_BIRTH: 'date_of_birth',
+  FULL_NAME: 'full_name',
+  USERNAME: 'username',
+  PASSWORD: 'password',
+  API_KEY: 'api_key',
+  AUTH_TOKEN: 'auth_token',
+  BIOMETRIC: 'biometric',
+  MEDICAL_INFO: 'medical_info',
+  FINANCIAL_INFO: 'financial_info',
+} as const
+export type PIIType = typeof PIIType[keyof typeof PIIType]
 
 /**
  * Severity levels for PII exposure
  */
-export enum PIISeverity {
-  CRITICAL = 'critical', // Passwords, SSN, credit cards
-  HIGH = 'high',         // Email, phone, full names
-  MEDIUM = 'medium',     // IP addresses, usernames
-  LOW = 'low',           // Non-sensitive but trackable
-}
+export const PIISeverity = {
+  CRITICAL: 'critical', // Passwords, SSN, credit cards
+  HIGH: 'high',         // Email, phone, full names
+  MEDIUM: 'medium',     // IP addresses, usernames
+  LOW: 'low',           // Non-sensitive but trackable
+} as const
+export type PIISeverity = typeof PIISeverity[keyof typeof PIISeverity]
 
 /**
  * PII detection result

@@ -102,7 +102,7 @@ const shareOptions = [
 ]
 
 export function BlogShareExample({ url, title, description }: ShareData) {
-  const shareModal = useModalState<ShareData>({
+  const shareModal = useModalState<ShareData, HTMLDivElement>({
     closeOnEscape: true,
     closeOnClickOutside: true,
     lockBodyScroll: false,
@@ -183,7 +183,7 @@ const tagColors = [
 ]
 
 export function BlogTagsExample() {
-  const tagModal = useModalState<CreateTagData>({
+  const tagModal = useModalState<CreateTagData, HTMLDivElement>({
     closeOnEscape: true,
     lockBodyScroll: true,
     autoFocus: true,

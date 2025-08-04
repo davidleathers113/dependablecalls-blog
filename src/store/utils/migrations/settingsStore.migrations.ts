@@ -31,7 +31,13 @@ const SettingsPersistedV2Schema = z.object({
       language: z.string().default('en'),
       dateFormat: z.string().default('MM/DD/YYYY'),
       timeFormat: z.enum(['12h', '24h']).default('12h'),
-    }).optional(),
+    }).default({
+      displayName: undefined,
+      timezone: 'UTC',
+      language: 'en',
+      dateFormat: 'MM/DD/YYYY',
+      timeFormat: '12h',
+    }),
     notifications: z.object({
       email: z.object({
         enabled: z.boolean().default(true),

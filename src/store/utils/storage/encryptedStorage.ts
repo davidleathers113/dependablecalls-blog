@@ -622,7 +622,7 @@ export const StorageUtils = {
   /**
    * Clean up expired encrypted data
    */
-  cleanupExpiredData(storage: EncryptedStorage, maxAgeMs: number = 7 * 24 * 60 * 60 * 1000): void {
+  cleanupExpiredData(_storage: EncryptedStorage, maxAgeMs: number = 7 * 24 * 60 * 60 * 1000): void {
     // This would need to be implemented to check encryption timestamps
     // and remove expired entries based on maxAgeMs
     console.log(`Cleanup not implemented in current version (maxAge: ${maxAgeMs}ms)`)

@@ -294,9 +294,57 @@ export function useExpandableState<TData = unknown>(
       clearTimeout(animationTimeoutRef.current)
     }
     animationTimeoutRef.current = setTimeout(() => {
-      setState(prev => ({ ...prev, type: prev.type === 'loading' ? 'expanded' : prev.type }))
+      setState(prev => {
+        // Create properly typed state transitions
+        if (prev.type === 'loading') {
+          return { type: 'expanded', itemId: prev.itemId, childrenLoaded: true }
+        }
+        return prev
+      })
     }, animationDuration)
   }, [stateMachine, animationDuration])
+
+  // Load children function - defined before expand to avoid forward reference
+  const loadChildren = useCallback(async (itemId: string): Promise<void> => {
+    const item = findItem(itemId)
+    if (!item || !loadChildrenFn || isLoading(itemId)) return
+
+    transitionToState({ type: 'loading', itemId, operation: 'load_children' }, 'load_children')
+    
+    const newLoading = new Set(loadingItems)
+    newLoading.add(itemId)
+    setLoadingItems(newLoading)
+    
+    if (onLoadingStart) onLoadingStart(itemId)
+
+    try {
+      const children = await loadChildrenFn(itemId)
+      
+      // Update items
+      setItems(prevItems => {
+        const updatedItems = [...prevItems]
+        const itemIndex = updatedItems.findIndex(i => i.id === itemId)
+        if (itemIndex !== -1) {
+          updatedItems[itemIndex] = { ...updatedItems[itemIndex], isLoaded: true }
+        }
+        return [...updatedItems, ...children]
+      })
+      
+      if (onLoadingComplete) onLoadingComplete(itemId, children)
+    } catch (error) {
+      transitionToState({ 
+        type: 'error', 
+        itemId, 
+        message: error instanceof Error ? error.message : 'Failed to load children' 
+      }, 'load_error')
+      
+      if (onLoadingError) onLoadingError(itemId, error instanceof Error ? error : new Error('Unknown error'))
+    } finally {
+      const newLoading = new Set(loadingItems)
+      newLoading.delete(itemId)
+      setLoadingItems(newLoading)
+    }
+  }, [findItem, loadChildrenFn, isLoading, transitionToState, loadingItems, onLoadingStart, onLoadingComplete, onLoadingError])
 
   // Actions
   const expand = useCallback(async (itemId: string): Promise<void> => {
@@ -399,42 +447,6 @@ export function useExpandableState<TData = unknown>(
     })
   }, [transitionToState, persistStateToStorage, expandedItems, findItem, onCollapse])
 
-  const loadChildren = useCallback(async (itemId: string): Promise<void> => {
-    const item = findItem(itemId)
-    if (!item || !loadChildrenFn || isLoading(itemId)) return
-
-    transitionToState({ type: 'loading', itemId, operation: 'load_children' }, 'load_children')
-    
-    const newLoading = new Set(loadingItems)
-    newLoading.add(itemId)
-    setLoadingItems(newLoading)
-    
-    if (onLoadingStart) onLoadingStart(itemId)
-
-    try {
-      const children = await loadChildrenFn(itemId)
-      
-      // Update items
-      setItems(prevItems => {
-        const updatedItems = [...prevItems]
-        const itemIndex = updatedItems.findIndex(i => i.id === itemId)
-        if (itemIndex !== -1) {
-          updatedItems[itemIndex] = { ...updatedItems[itemIndex], isLoaded: true }
-        }
-        return [...updatedItems, ...children]
-      })
-      
-      if (onLoadingComplete) onLoadingComplete(itemId, children)
-    } catch (error) {
-      transitionToState({ type: 'error', itemId, message: error instanceof Error ? error.message : 'Failed to load children' }, 'load_error')
-      
-      if (onLoadingError) onLoadingError(itemId, error instanceof Error ? error : new Error('Unknown error'))
-    } finally {
-      const newLoading = new Set(loadingItems)
-      newLoading.delete(itemId)
-      setLoadingItems(newLoading)
-    }
-  }, [findItem, loadChildrenFn, isLoading, transitionToState, loadingItems, onLoadingStart, onLoadingComplete, onLoadingError])
 
   const addItems = useCallback((newItems: ExpandableItem<TData>[]): void => {
     setItems(prevItems => [...prevItems, ...newItems])

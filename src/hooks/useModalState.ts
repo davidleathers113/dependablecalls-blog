@@ -23,7 +23,7 @@ export interface ModalStateOptions<TContent = unknown> {
   onClose?: () => void
 }
 
-export interface ModalStateResult<TContent = unknown> {
+export interface ModalStateResult<TContent = unknown, TElement extends HTMLElement = HTMLElement> {
   /** Whether modal is currently open */
   isOpen: boolean
   /** Whether modal is in a loading state */
@@ -35,7 +35,7 @@ export interface ModalStateResult<TContent = unknown> {
   /** Error message if any */
   errorMessage: string | null
   /** Ref for modal DOM element */
-  modalRef: React.RefObject<HTMLElement>
+  modalRef: React.RefObject<TElement | null>
   
   // Actions
   /** Open the modal */
@@ -80,9 +80,9 @@ export interface ModalStateResult<TContent = unknown> {
  * )}
  * ```
  */
-export function useModalState<TContent = unknown>(
+export function useModalState<TContent = unknown, TElement extends HTMLElement = HTMLElement>(
   options: ModalStateOptions<TContent> = {}
-): ModalStateResult<TContent> {
+): ModalStateResult<TContent, TElement> {
   const {
     closeOnEscape = true,
     closeOnClickOutside = true,
@@ -102,7 +102,7 @@ export function useModalState<TContent = unknown>(
   const [content, setContent] = useState<TContent | undefined>(initialContent)
   
   // Refs for DOM manipulation
-  const modalRef = useRef<HTMLElement>(null)
+  const modalRef = useRef<TElement>(null)
   const previousFocusRef = useRef<Element | null>(null)
 
   // Actions

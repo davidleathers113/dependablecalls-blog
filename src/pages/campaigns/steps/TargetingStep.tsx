@@ -1,6 +1,5 @@
 // Targeting step component for the campaign wizard
-import React from 'react'
-import { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import { GlobeAltIcon, ClockIcon } from '@heroicons/react/24/outline'
 import { Card, CardContent, CardHeader } from '../../../components/common/Card'
 import { Input } from '../../../components/common/Input'

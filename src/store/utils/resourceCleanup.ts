@@ -5,7 +5,31 @@
  * resources to prevent memory leaks and improve performance.
  */
 
+import * as React from 'react'
 import type { StateCreator } from 'zustand'
+
+// Type imports for centralized StoreMutators declaration
+type WithImmer<S> = S extends { getState: () => infer T; setState: infer SetState }
+  ? S & {
+      setState: SetState extends (...a: unknown[]) => infer Sr
+        ? (
+            partial: T | Partial<T> | ((draft: T) => void),
+            replace?: boolean | undefined
+          ) => Sr
+        : never
+    }
+  : never
+
+type Write<T, U> = Omit<T, keyof U> & U
+type StoreErrorHandling<S> = S extends { getState: () => infer T }
+  ? S & {
+      setState: (
+        partial: T | Partial<T> | ((state: T) => T | Partial<T>),
+        replace?: boolean | undefined,
+        action?: string | { type: unknown }
+      ) => void
+    }
+  : never
 
 export interface CleanupResource {
   id: string
@@ -20,9 +44,12 @@ export interface ResourceCleanupState {
   __cleanup_enabled: boolean
 }
 
+// Centralized StoreMutators declaration to avoid conflicts
 declare module 'zustand/vanilla' {
-  interface StoreMutators<S> {
+  interface StoreMutators<S, A> {
     'zustand/resource-cleanup': WithResourceCleanup<S>
+    'zustand/immer': WithImmer<S>
+    errorHandling: Write<S, StoreErrorHandling<S>>
   }
 }
 
@@ -220,14 +247,8 @@ export const resourceCleanup = <T>(
       // Initialize base state
       const initialState = initializer(set, get, store)
       
-      // Clean up when store is destroyed (if possible)
-      if (typeof store.destroy === 'function') {
-        const originalDestroy = store.destroy
-        store.destroy = () => {
-          cleanupAll()
-          originalDestroy()
-        }
-      }
+      // Note: Zustand StoreApi doesn't have a destroy method
+      // Cleanup should be handled by the component lifecycle or manual cleanup
       
       return {
         ...initialState,
@@ -383,8 +404,5 @@ export const useResourceCleanup = () => {
     },
   }
 }
-
-// Import React for useEffect
-import * as React from 'react'
 
 export type ResourceCleanupMiddleware = typeof resourceCleanup

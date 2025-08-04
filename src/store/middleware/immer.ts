@@ -18,11 +18,12 @@ export interface ImmerState {
   __immer_inverse_patches?: Patch[]
 }
 
-declare module 'zustand/vanilla' {
-  interface StoreMutators<S> {
-    'zustand/immer': WithImmer<S>
-  }
-}
+// StoreMutators declaration moved to resourceCleanup.ts to avoid conflicts
+// declare module 'zustand/vanilla' {
+//   interface StoreMutators<S, A, T, U> {
+//     'zustand/immer': WithImmer<S>
+//   }
+// }
 
 type WithImmer<S> = S extends { getState: () => infer T; setState: infer SetState }
   ? S & {

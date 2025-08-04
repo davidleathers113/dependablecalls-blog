@@ -18,13 +18,7 @@ type AuthStoreMutators = [
   ['zustand/subscribeWithSelector', never]
 ]
 
-// Define the StateCreator with proper middleware types
-type AuthStateCreator = StateCreator<
-  AuthState,
-  AuthStoreMutators,
-  [],
-  AuthState
->
+// StateCreator type with proper middleware mutators for authentication store
 
 export interface AuthState {
   user: User | null
@@ -55,22 +49,13 @@ export interface AuthState {
   initializeFromServer: (user: User | null, session: Session | null, userType: UserRole | null) => void
 }
 
-export const useAuthStore = create<AuthState>()(
-  devtools(
-    createMonitoringMiddleware({
-      name: 'auth-store',
-      enabled: true,
-      options: {
-        trackPerformance: true,
-        trackStateChanges: true,
-        trackSelectors: false,
-        enableTimeTravel: true,
-        maxHistorySize: 500,
-      },
-    })(
-      subscribeWithSelector(
-        persist(
-          ((set, get, api) => ({
+// Create auth store with proper StateCreator typing
+const createAuthStore: StateCreator<
+  AuthState,
+  AuthStoreMutators,
+  [],
+  AuthState
+> = (set: (partial: AuthState | Partial<AuthState> | ((state: AuthState) => AuthState | Partial<AuthState>), replace?: boolean) => void, get: () => AuthState, _api: any) => ({
       user: null,
       session: null,
       userType: null,
@@ -203,11 +188,28 @@ export const useAuthStore = create<AuthState>()(
         // Used by server-side rendering or when session is validated server-side
         set({ user, session, userType, loading: false })
       },
-          }),
+    })
+
+export const useAuthStore = create<AuthState>()(
+  devtools(
+    createMonitoringMiddleware({
+      name: 'auth-store',
+      enabled: true,
+      options: {
+        trackPerformance: true,
+        trackStateChanges: true,
+        trackSelectors: false,
+        enableTimeTravel: true,
+        maxHistorySize: 500,
+      },
+    })(
+      subscribeWithSelector(
+        persist(
+          createAuthStore,
           {
             name: 'dce-user-preferences',
             // SECURITY: Only persist non-sensitive user preferences - NO auth data
-            partialize: (state) => ({
+            partialize: (state: AuthState) => ({
               preferences: state.preferences,
             }),
             // Skip hydration to prevent sensitive data leakage on SSR
@@ -226,4 +228,4 @@ export const useAuthStore = create<AuthState>()(
       enabled: process.env.NODE_ENV === 'development',
     }
   )
-))
+)

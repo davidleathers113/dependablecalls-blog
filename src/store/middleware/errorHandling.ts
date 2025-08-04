@@ -128,11 +128,12 @@ type ErrorHandlingMiddlewareImpl = <
   name?: A
 ) => StateCreator<T, [], [], T & ErrorHandlingMiddleware, A>
 
-declare module 'zustand/vanilla' {
-  interface StoreMutators<S> {
-    errorHandling: Write<S, StoreErrorHandling<S>>
-  }
-}
+// StoreMutators declaration moved to resourceCleanup.ts to avoid conflicts
+// declare module 'zustand/vanilla' {
+//   interface StoreMutators<S, A, T, U> {
+//     errorHandling: Write<S, StoreErrorHandling<S>>
+//   }
+// }
 
 type Write<T, U> = Omit<T, keyof U> & U
 type StoreErrorHandling<S> = S extends { getState: () => infer T }

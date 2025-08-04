@@ -11,8 +11,7 @@ export interface GeoLocation {
 }
 
 export class GeoIPAnalyzer {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async analyze(ipAddress: string): Promise<GeoLocation> {
+  async analyze(_ipAddress: string): Promise<GeoLocation> {
     // Basic stub implementation - never block
     return {
       country: 'US',

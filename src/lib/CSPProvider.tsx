@@ -5,10 +5,9 @@
  * for secure inline content handling.
  */
 
-import React, { useMemo, useEffect } from 'react'
+import React, { useMemo, useEffect, useContext } from 'react'
 import { getCurrentNonces, refreshNonces } from './csp-nonce'
 import { CSPContext as CSPContextProvider } from './csp-context'
-import { useCSPNonce } from '../hooks/useCSPNonce'
 
 export interface CSPProviderProps {
   children: React.ReactNode
@@ -87,12 +86,16 @@ export interface SecureStyleProps {
 }
 
 export function SecureStyle({ children, id }: SecureStyleProps) {
-  const { styleNonce } = useCSPNonce()
+  const context = useContext(CSPContextProvider)
+  
+  if (!context) {
+    throw new Error('SecureStyle must be used within a CSPProvider')
+  }
   
   return (
     <style
       id={id}
-      nonce={styleNonce}
+      nonce={context.styleNonce}
       dangerouslySetInnerHTML={{ __html: children }}
     />
   )
@@ -108,13 +111,17 @@ export interface SecureScriptProps {
 }
 
 export function SecureScript({ children, type = 'text/javascript', id }: SecureScriptProps) {
-  const { scriptNonce } = useCSPNonce()
+  const context = useContext(CSPContextProvider)
+  
+  if (!context) {
+    throw new Error('SecureScript must be used within a CSPProvider')
+  }
   
   return (
     <script
       id={id}
       type={type}
-      nonce={scriptNonce}
+      nonce={context.scriptNonce}
       dangerouslySetInnerHTML={{ __html: children }}
     />
   )

@@ -1,6 +1,6 @@
 // Modern CreateCampaignPage using the wizard state machine
 // This demonstrates how to migrate from manual step management to the wizard state machine
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeftIcon,
@@ -64,6 +64,21 @@ function CreateCampaignPageModern() {
   const navigate = useNavigate()
   const wizard = useCampaignWizardIntegration()
 
+  // Create a wrapper function that matches the expected updateData signature
+  const createUpdateDataWrapper = () => {
+    return <K extends keyof typeof wizard.formData>(
+      field: K, 
+      value: typeof wizard.formData[K]
+    ) => {
+      // Use proper path typing for React Hook Form setValue
+      wizard.form.setValue(field as any, value, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      })
+    }
+  }
+
   // Step content renderer using the wizard state machine
   const renderStepContent = () => {
     if (!wizard.currentStepInfo) {
@@ -76,7 +91,7 @@ function CreateCampaignPageModern() {
           <BasicInfoStep
             form={wizard.form}
             formData={wizard.formData}
-            updateData={wizard.form.setValue}
+            updateData={createUpdateDataWrapper()}
             errors={wizard.getStepErrors()}
             verticals={CAMPAIGN_VERTICALS}
           />
@@ -87,7 +102,7 @@ function CreateCampaignPageModern() {
           <TargetingStep
             form={wizard.form}
             formData={wizard.formData}
-            updateData={wizard.form.setValue}
+            updateData={createUpdateDataWrapper()}
             errors={wizard.getStepErrors()}
           />
         )
@@ -97,7 +112,7 @@ function CreateCampaignPageModern() {
           <CallHandlingStep
             form={wizard.form}
             formData={wizard.formData}          
-            updateData={wizard.form.setValue}
+            updateData={createUpdateDataWrapper()}
             errors={wizard.getStepErrors()}
           />
         )
@@ -107,7 +122,7 @@ function CreateCampaignPageModern() {
           <BudgetScheduleStep
             form={wizard.form}
             formData={wizard.formData}
-            updateData={wizard.form.setValue}
+            updateData={createUpdateDataWrapper()}
             errors={wizard.getStepErrors()}
           />
         )
