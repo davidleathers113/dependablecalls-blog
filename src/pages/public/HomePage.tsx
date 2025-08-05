@@ -119,9 +119,9 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2">
+        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-5/12 xl:w-1/2 2xl:max-w-3xl 2xl:right-0">
           <img
-            className="h-56 w-full object-contain object-right sm:h-72 md:h-96 lg:w-full lg:h-full"
+            className="h-56 w-full object-contain object-center sm:h-72 md:h-96 lg:w-full lg:h-full"
             src="/images/hero-image-1.png"
             alt="Pay-per-call network platform dashboard"
           />
