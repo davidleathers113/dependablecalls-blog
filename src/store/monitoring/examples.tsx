@@ -39,7 +39,7 @@ interface MetricsSummary {
 
 // ==================== Performance Monitoring Example ====================
 
-export const PerformanceMonitoringExample: React.FC = () => {
+const PerformanceMonitoringExample: React.FC = () => {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null)
   const [report, setReport] = useState<PerformanceReport | null>(null)
   const performanceMonitor = usePerformanceMonitor()
@@ -127,7 +127,7 @@ export const PerformanceMonitoringExample: React.FC = () => {
 
 // ==================== State Debugging Example ====================
 
-export const StateDebuggingExample: React.FC = () => {
+const StateDebuggingExample: React.FC = () => {
   const [snapshots, setSnapshots] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
   const stateDebugger = useStateDebugger()
@@ -228,7 +228,7 @@ export const StateDebuggingExample: React.FC = () => {
 
 // ==================== Metrics Collection Example ====================
 
-export const MetricsCollectionExample: React.FC = () => {
+const MetricsCollectionExample: React.FC = () => {
   const [summary, setSummary] = useState<MetricsSummary | null>(null)
   const metricsCollector = useMetricsCollector()
   const monitoring = useMonitoringIntegration('metrics-example')
@@ -245,7 +245,7 @@ export const MetricsCollectionExample: React.FC = () => {
 
   const handleTrackInteraction = (type: string) => {
     if (monitoring) {
-      monitoring.recordInteraction(type, 'example-component')
+      monitoring.recordInteraction(type as 'click' | 'navigation', 'example-component')
     }
   }
 
@@ -321,7 +321,7 @@ export const MetricsCollectionExample: React.FC = () => {
 
 // ==================== Developer Tools Example ====================
 
-export const DeveloperToolsExample: React.FC = () => {
+const DeveloperToolsExample: React.FC = () => {
   const [commands, setCommands] = useState<DeveloperCommand[]>([])
   const [commandHistory, setCommandHistory] = useState<string[]>([])
   const [selectedCommand, setSelectedCommand] = useState('')
@@ -458,7 +458,7 @@ export const DeveloperToolsExample: React.FC = () => {
 
 // ==================== Combined Dashboard Example ====================
 
-export const MonitoringDashboard: React.FC = () => {
+const MonitoringDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('performance')
 
   const tabs = [
