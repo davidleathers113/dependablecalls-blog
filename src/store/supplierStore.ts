@@ -1242,14 +1242,59 @@ export const useSupplierStore = createStandardStore<SupplierState>({
   creator: createSupplierState,
   persist: {
     // SECURITY CRITICAL: Only persist business data, NO financial information
-    partialize: (state): Partial<SupplierState> => ({
+    partialize: (state): SupplierState => ({
+      // Persist data properties
       listings: state.listings || [],
+      inventory: [], // Reset inventory on rehydration (refresh from server)
       leadSources: state.leadSources,
       _supplierCompliance: state._supplierCompliance,
       _optimization: state._optimization,
-      // Return partial state with required properties for persistence
-      loading: false, // Reset loading state on rehydration
-      error: null, // Clear errors on rehydration
+      
+      // Reset transient properties on rehydration
+      metrics: null,
+      sales: [],
+      qualityScoring: [],
+      dashboardData: null,
+      loading: false,
+      error: null,
+      
+      // Include all actions (required by interface but not persisted)
+      setListings: state.setListings,
+      setInventory: state.setInventory,
+      setMetrics: state.setMetrics,
+      setSales: state.setSales,
+      setLeadSources: state.setLeadSources,
+      setQualityScoring: state.setQualityScoring,
+      setDashboardData: state.setDashboardData,
+      setLoading: state.setLoading,
+      setError: state.setError,
+      createListing: state.createListing,
+      updateListing: state.updateListing,
+      deleteListing: state.deleteListing,
+      bulkUpload: state.bulkUpload,
+      updatePricing: state.updatePricing,
+      fetchListings: state.fetchListings,
+      fetchInventory: state.fetchInventory,
+      updateListingAnalytics: state.updateListingAnalytics,
+      updateListingCompliance: state.updateListingCompliance,
+      runAIOptimization: state.runAIOptimization,
+      fetchMetrics: state.fetchMetrics,
+      fetchSales: state.fetchSales,
+      exportSalesData: state.exportSalesData,
+      createLeadSource: state.createLeadSource,
+      updateLeadSource: state.updateLeadSource,
+      deleteLeadSource: state.deleteLeadSource,
+      fetchLeadSources: state.fetchLeadSources,
+      analyzeLeadQuality: state.analyzeLeadQuality,
+      updateLeadSourceAttribution: state.updateLeadSourceAttribution,
+      updateFraudPrevention: state.updateFraudPrevention,
+      runPredictiveAnalysis: state.runPredictiveAnalysis,
+      fetchDashboardData: state.fetchDashboardData,
+      updateSupplierCompliance: state.updateSupplierCompliance,
+      updateOptimizationSettings: state.updateOptimizationSettings,
+      runComplianceAudit: state.runComplianceAudit,
+      clearError: state.clearError,
+      reset: state.reset,
     }),
     // Use encrypted storage for business data (INTERNAL classification)
     storage: createJSONStorage(() => StorageFactory.createZustandStorage(

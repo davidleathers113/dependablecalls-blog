@@ -69,8 +69,12 @@ export default function PayoutSettingsPage() {
   
   // Only suppliers have payout settings
   const isSupplier = userType === 'supplier'
-  const payoutSettings = isSupplier && roleSettings && 'payouts' in roleSettings 
-    ? roleSettings.payouts 
+  const payoutSettings = isSupplier && 
+    roleSettings && 
+    typeof roleSettings === 'object' && 
+    roleSettings !== null && 
+    'payouts' in roleSettings 
+    ? (roleSettings as { payouts: unknown }).payouts 
     : null
 
   const { 
@@ -109,14 +113,15 @@ export default function PayoutSettingsPage() {
   const confirmRoutingNumber = watch('confirmRoutingNumber')
 
   useEffect(() => {
-    if (payoutSettings) {
+    if (payoutSettings && typeof payoutSettings === 'object' && payoutSettings !== null) {
       Object.entries(payoutSettings).forEach(([key, value]) => {
         // Type-safe setValue calls with proper validation
-        if (key in payoutSettings) {
+        if (key in (payoutSettings as Record<string, unknown>)) {
           setValue(key as keyof PayoutFormData, value as never)
         }
       })
-      if (payoutSettings.bankDetails) {
+      const typedPayoutSettings = payoutSettings as Record<string, unknown>
+      if (typedPayoutSettings.bankDetails) {
         setShowBankDetails(true)
         setVerificationStatus('verified')
       }

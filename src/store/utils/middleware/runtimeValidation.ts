@@ -330,7 +330,7 @@ function isValidationError(result: unknown): result is { success: false; error: 
 function updateValidationMetrics(
   current: RuntimeValidationState['_validation'],
   validationTime: number
-): RuntimeValidationState['_validation']['performance'] {
+): NonNullable<RuntimeValidationState['_validation']>['performance'] {
   const count = (current?.performance?.validationCount || 0) + 1
   const currentAverage = current?.performance?.averageValidationTime || 0
   const newAverage = (currentAverage * (count - 1) + validationTime) / count
@@ -595,7 +595,8 @@ export const runtimeValidation = <
           schemaHash,
         },
       }
-      set(validationUpdate as Partial<T & RuntimeValidationState & RuntimeValidationApi>)
+      // Zustand v5 compatibility: explicit type assertion for overloaded signatures
+      ;(set as (partial: Partial<RuntimeValidationState>) => void)(validationUpdate)
       
       return result
       
@@ -694,7 +695,8 @@ export const runtimeValidation = <
           details: result.details,
         },
       }
-      set(piiScanUpdate as Partial<T & RuntimeValidationState & RuntimeValidationApi>)
+      // Zustand v5 compatibility: explicit type assertion for overloaded signatures
+      ;(set as (partial: Partial<RuntimeValidationState>) => void)(piiScanUpdate)
       
       return result
       
@@ -795,7 +797,8 @@ export const runtimeValidation = <
       _piiScan: undefined,
       _auditTrail: undefined,
     }
-    set(clearUpdate as Partial<T & RuntimeValidationState & RuntimeValidationApi>)
+    // Zustand v5 compatibility: explicit type assertion for overloaded signatures
+    ;(set as (partial: Partial<RuntimeValidationState>) => void)(clearUpdate)
   }
   
   // ZUSTAND v5 FIX: Properly typed intercepted set function with both overload signatures
@@ -905,7 +908,8 @@ export const runtimeValidation = <
           details: [],
         },
       }
-      set(resetUpdate as Partial<T & RuntimeValidationState & RuntimeValidationApi>)
+      // Zustand v5 compatibility: explicit type assertion for overloaded signatures
+      ;(set as (partial: Partial<RuntimeValidationState>) => void)(resetUpdate)
     },
     destroy,
   }

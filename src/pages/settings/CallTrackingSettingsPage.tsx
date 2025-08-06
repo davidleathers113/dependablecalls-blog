@@ -54,8 +54,12 @@ export default function CallTrackingSettingsPage() {
   
   // Only suppliers have call tracking settings
   const isSupplier = userType === 'supplier'
-  const callTrackingSettings = isSupplier && roleSettings && 'callTracking' in roleSettings 
-    ? roleSettings.callTracking 
+  const callTrackingSettings = isSupplier && 
+    roleSettings && 
+    typeof roleSettings === 'object' && 
+    roleSettings !== null && 
+    'callTracking' in roleSettings 
+    ? (roleSettings as { callTracking: unknown }).callTracking 
     : null
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<CallTrackingFormData>({
@@ -76,10 +80,10 @@ export default function CallTrackingSettingsPage() {
   const recordCalls = watch('recordCalls')
 
   useEffect(() => {
-    if (callTrackingSettings) {
+    if (callTrackingSettings && typeof callTrackingSettings === 'object' && callTrackingSettings !== null) {
       Object.entries(callTrackingSettings).forEach(([key, value]) => {
         // Type-safe setValue calls with proper validation
-        if (key in callTrackingSettings && key !== 'trackingNumbers') {
+        if (key !== 'trackingNumbers' && key in (callTrackingSettings as Record<string, unknown>)) {
           setValue(key as keyof CallTrackingFormData, value as never)
         }
       })

@@ -32,10 +32,10 @@ const BuyerPersistedV2Schema = z.object({
   
   // NEW: Metadata for encryption (Phase 3.1c)
   _encryptionMetadata: z.object({
-    version: z.number().default(1),
-    encryptedFields: z.array(z.string()).default([]),
-    lastUpdated: z.string().default(() => new Date().toISOString()),
-  }).optional(),
+    version: z.number(),
+    encryptedFields: z.array(z.string()),
+    lastUpdated: z.string(),
+  }),
 })
 
 type BuyerPersistedV1 = z.infer<typeof BuyerPersistedV1Schema>
@@ -100,20 +100,16 @@ const BuyerPersistedV3Schema = z.object({
       sharePerformanceData: z.boolean(),
       shareWithNetwork: z.boolean(),
       anonymizeInReports: z.boolean(),
-    }).optional().default({
-      sharePerformanceData: false,
-      shareWithNetwork: true,
-      anonymizeInReports: false,
     }),
     // Ensure priority is properly typed as number
     priority: z.number().min(0).int(),
   })),
   savedSearches: z.array(SavedSearchSchema),
   _encryptionMetadata: z.object({
-    version: z.number().default(1),
-    encryptedFields: z.array(z.string()).default([]),
-    lastUpdated: z.string().default(() => new Date().toISOString()),
-  }).optional(),
+    version: z.number(),
+    encryptedFields: z.array(z.string()),
+    lastUpdated: z.string(),
+  }),
 })
 
 type BuyerPersistedV3 = z.infer<typeof BuyerPersistedV3Schema>
@@ -173,10 +169,6 @@ const BuyerPersistedV4Schema = z.object({
       sharePerformanceData: z.boolean(),
       shareWithNetwork: z.boolean(),
       anonymizeInReports: z.boolean(),
-    }).optional().default({
-      sharePerformanceData: false,
-      shareWithNetwork: true,
-      anonymizeInReports: false,
     }),
     // Ensure priority is properly typed as number
     priority: z.number().min(0).int(),
@@ -184,29 +176,25 @@ const BuyerPersistedV4Schema = z.object({
   savedSearches: z.array(SavedSearchSchema.extend({
     // NEW: GDPR compliance for saved searches
     _gdpr: z.object({
-      consentGiven: z.boolean().default(false),
+      consentGiven: z.boolean(),
       consentDate: z.string().optional(),
-      dataRetentionDays: z.number().default(365),
-      purposeLimitation: z.array(z.string()).default(['campaign_management']),
+      dataRetentionDays: z.number(),
+      purposeLimitation: z.array(z.string()),
     }).optional(),
   })),
   _encryptionMetadata: z.object({
-    version: z.number().default(1),
-    encryptedFields: z.array(z.string()).default([]),
-    lastUpdated: z.string().default(() => new Date().toISOString()),
-  }).optional(),
+    version: z.number(),
+    encryptedFields: z.array(z.string()),
+    lastUpdated: z.string(),
+  }),
   
   // NEW: Overall GDPR compliance tracking
   _gdprCompliance: z.object({
-    consentVersion: z.string().default('1.0'),
+    consentVersion: z.string(),
     consentDate: z.string().optional(),
-    dataProcessingPurposes: z.array(z.string()).default([
-      'campaign_management', 
-      'performance_analytics',
-      'billing_processing'
-    ]),
-    retentionPeriod: z.number().default(2555), // 7 years default
-    rightToBeFororgotten: z.boolean().default(false),
+    dataProcessingPurposes: z.array(z.string()),
+    retentionPeriod: z.number(),
+    rightToBeFororgotten: z.boolean(),
   }).optional(),
 })
 

@@ -530,7 +530,10 @@ export class EncryptedStorage implements EncryptedStorageInterface {
   /**
    * DEPRECATED: This method had a critical security bug (plaintext storage)
    * Use AsyncEncryptedStorage for proper encryption
+   * @deprecated This method is intentionally unused - throws security error
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-expect-error: Intentionally unused deprecated method
   private encryptDataForStorage(_data: string): never {
     throw new Error(
       'SECURITY: Synchronous encryption not supported. ' +
@@ -542,7 +545,10 @@ export class EncryptedStorage implements EncryptedStorageInterface {
   /**
    * DEPRECATED: This method had a data loss bug
    * Use AsyncEncryptedStorage for proper decryption
+   * @deprecated This method is intentionally unused - throws security error
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-expect-error: Intentionally unused deprecated method
   private decryptStoredData(_storedValue: string): never {
     throw new Error(
       'SECURITY: Synchronous decryption not supported. ' +
