@@ -40,7 +40,7 @@ function getEnvVar(key: keyof EnvironmentVariables): string | undefined {
       return 'https://orrasduancqrevnqiiok.supabase.co'
     }
     if (key === 'VITE_SUPABASE_ANON_KEY') {
-      return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycmFzZHVhbmNxcmV2bnFpaW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5ODE5ODYsImV4cCI6MjA1MDU1Nzk4Nn0.fRmCO5oKdqmjhGMp1_VZOwMC5Qz6nqCQcOo_n6SZKyo'
+      return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycmFzZHVhbmNxcmV2bnFpaW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4MTU1MDEsImV4cCI6MjA2OTM5MTUwMX0.NTvBxvOexHrt_Yq6ylauAxlEEIdhUmVLVd766qMFB0Y'
     }
     
     return undefined
