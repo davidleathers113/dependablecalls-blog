@@ -24,8 +24,8 @@ const CampaignSchema = z.object({
   conversion_tracking: z.unknown().nullable(), // JSON field
   created_at: z.string(),
   updated_at: z.string().nullable(),
-  is_active: z.boolean().nullable().default(true),
-  priority: z.number().nullable().default(0),
+  is_active: z.boolean().nullable(),
+  priority: z.number().default(1),
 })
 
 // Saved search schema
@@ -112,14 +112,16 @@ const BuyerMetricsSchema = z.object({
 const BuyerDashboardDataSchema = z.object({
   metrics: BuyerMetricsSchema,
   recent_purchases: z.array(PurchaseSchema),
-  active_campaigns: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    status: z.string(),
-    calls_today: z.number(),
-    conversions_today: z.number(),
-    spend_today: z.number(),
-  })),
+  active_campaigns: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      status: z.string(),
+      calls_today: z.number(),
+      conversions_today: z.number(),
+      spend_today: z.number(),
+    })
+  ),
   budget_alerts: z.array(z.unknown()),
   market_opportunities: z.array(z.unknown()),
 })
@@ -129,23 +131,23 @@ const BuyerStateSchema = z.object({
   // Financial data
   currentBalance: z.number(),
   creditLimit: z.number(),
-  
+
   // Campaign data
   campaigns: z.array(CampaignSchema),
-  
+
   // Marketplace data
   listings: z.array(MarketplaceListingSchema),
   searchFilters: SearchFiltersSchema,
   savedSearches: z.array(SavedSearchSchema),
-  
+
   // Purchase data
   purchases: z.array(PurchaseSchema),
   activePurchases: z.array(PurchaseSchema),
-  
+
   // Analytics data
   metrics: BuyerMetricsSchema.nullable(),
   dashboardData: BuyerDashboardDataSchema.nullable(),
-  
+
   // UI state
   isLoading: z.boolean(),
   error: z.string().nullable(),
@@ -186,8 +188,10 @@ export {
   BuyerPersistedSchema,
 }
 
-// Export types
-export type Campaign = z.infer<typeof CampaignSchema>
+// Export types with proper required fields
+export type Campaign = z.infer<typeof CampaignSchema> & {
+  priority: number // Ensure priority is always a number, never undefined
+}
 export type SavedSearch = z.infer<typeof SavedSearchSchema>
 export type SearchFilters = z.infer<typeof SearchFiltersSchema>
 export type MarketplaceListing = z.infer<typeof MarketplaceListingSchema>

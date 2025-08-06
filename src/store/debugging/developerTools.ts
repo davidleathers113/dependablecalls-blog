@@ -13,6 +13,7 @@ import type {
   DeveloperCommand,
   PerformanceReport,
   PerformanceRecommendation,
+  StateSnapshot,
 } from '../monitoring/types'
 
 // ==================== Developer Tools State ====================
@@ -21,23 +22,23 @@ interface DeveloperToolsState {
   // Available commands
   commands: Map<string, DeveloperCommand>
   commandHistory: string[]
-  
+
   // Profiling
   isProfileActive: boolean
   profileData: ProfileData | null
-  
+
   // Automated reports
   autoReportEnabled: boolean
   reportInterval: number
   lastReportTime: number
-  
+
   // Warning system
   warnings: DeveloperWarning[]
   warningThresholds: WarningThresholds
-  
+
   // Console utilities
   logLevel: 'debug' | 'info' | 'warn' | 'error'
-  
+
   // Actions
   registerCommand: (command: DeveloperCommand) => void
   executeCommand: (commandName: string, args?: unknown[]) => Promise<unknown>
@@ -109,7 +110,7 @@ export const useDeveloperTools = create<DeveloperToolsState>()(
     logLevel: 'info',
 
     registerCommand: (command: DeveloperCommand) => {
-      set((state) => ({
+      set((state: DeveloperToolsState) => ({
         commands: new Map(state.commands).set(command.name, command),
       }))
     },
@@ -117,17 +118,18 @@ export const useDeveloperTools = create<DeveloperToolsState>()(
     executeCommand: async (commandName: string, args: unknown[] = []): Promise<unknown> => {
       const state = get()
       const command = state.commands.get(commandName)
-      
+
       if (!command) {
         throw new Error(`Command '${commandName}' not found`)
       }
 
       // Add to history
-      const historyEntry = args.length > 0 
-        ? `${commandName}(${args.map(arg => JSON.stringify(arg)).join(', ')})`
-        : `${commandName}()`
-      
-      set((state) => ({
+      const historyEntry =
+        args.length > 0
+          ? `${commandName}(${args.map((arg) => JSON.stringify(arg)).join(', ')})`
+          : `${commandName}()`
+
+      set((state: DeveloperToolsState) => ({
         commandHistory: [...state.commandHistory, historyEntry].slice(-100),
       }))
 
@@ -154,7 +156,7 @@ export const useDeveloperTools = create<DeveloperToolsState>()(
           jsHeapSizeLimit: number
         }
       }
-      
+
       const perfWithMemory = performance as PerformanceWithMemory
       const startMemory = perfWithMemory.memory?.usedJSHeapSize ?? 0
 
@@ -193,7 +195,7 @@ export const useDeveloperTools = create<DeveloperToolsState>()(
       }
 
       const endTime = performance.now()
-      
+
       interface PerformanceWithMemory extends Performance {
         memory?: {
           usedJSHeapSize: number
@@ -201,7 +203,7 @@ export const useDeveloperTools = create<DeveloperToolsState>()(
           jsHeapSizeLimit: number
         }
       }
-      
+
       const perfWithMemory = performance as PerformanceWithMemory
       const endMemory = perfWithMemory.memory?.usedJSHeapSize ?? 0
 
@@ -235,35 +237,38 @@ export const useDeveloperTools = create<DeveloperToolsState>()(
     generateAutomatedReport: async (): Promise<PerformanceReport> => {
       const perfMonitor = usePerformanceMonitor.getState()
       const metricsCollector = useMetricsCollector.getState()
-      
+
       // Generate comprehensive report
       const report = await perfMonitor.generateReport()
-      
+
       // Add additional insights from metrics
       const metrics = metricsCollector.getMetricsSummary()
-      
+
       // Enhance recommendations with developer-specific advice
       const enhancedRecommendations = enhanceRecommendations(report.recommendations, metrics)
-      
+
       const enhancedReport: PerformanceReport = {
         ...report,
         recommendations: enhancedRecommendations,
       }
 
       set({ lastReportTime: Date.now() })
-      
+
       return enhancedReport
     },
 
     addWarning: (warning: DeveloperWarning) => {
-      set((state) => ({
+      set((state: DeveloperToolsState) => ({
         warnings: [...state.warnings, warning].slice(-100), // Keep last 100 warnings
       }))
 
       // Log warning to console based on severity
-      const logFn = warning.severity === 'high' ? console.error : 
-                   warning.severity === 'medium' ? console.warn : 
-                   console.info
+      const logFn =
+        warning.severity === 'high'
+          ? console.error
+          : warning.severity === 'medium'
+            ? console.warn
+            : console.info
 
       logFn(`⚠️ ${warning.type.toUpperCase()}: ${warning.message}`)
       if (warning.details) {
@@ -279,7 +284,7 @@ export const useDeveloperTools = create<DeveloperToolsState>()(
     },
 
     updateThresholds: (thresholds: Partial<WarningThresholds>) => {
-      set((state) => ({
+      set((state: DeveloperToolsState) => ({
         warningThresholds: { ...state.warningThresholds, ...thresholds },
       }))
     },
@@ -296,46 +301,50 @@ const builtInCommands: DeveloperCommand[] = [
     execute: () => {
       const state = useDeveloperTools.getState()
       const commands = Array.from(state.commands.values())
-      console.table(commands.map(cmd => ({
-        name: cmd.name,
-        category: cmd.category,
-        description: cmd.description,
-      })))
+      console.table(
+        (commands as DeveloperCommand[]).map((cmd) => ({
+          name: cmd.name,
+          category: cmd.category,
+          description: cmd.description,
+        }))
+      )
       return commands
     },
     examples: ['help'],
   },
-  
+
   {
     name: 'state',
     description: 'Inspect current state of all stores',
     category: 'state',
     execute: (args) => {
       const [storeName] = args as [string?]
-      
+
       if (storeName) {
         // Get specific store state (would need store registry)
         console.log(`State for ${storeName}:`, 'Not implemented - need store registry')
         return null
       }
-      
+
       // Show all store states
       const stateDebugger = useStateDebugger.getState()
       const snapshots = Array.from(stateDebugger.snapshots.values())
       const latestByStore = new Map()
-      
-      snapshots.forEach(snapshot => {
-        if (!latestByStore.has(snapshot.storeName) || 
-            snapshot.timestamp > latestByStore.get(snapshot.storeName).timestamp) {
+
+      snapshots.forEach((snapshot: StateSnapshot) => {
+        if (
+          !latestByStore.has(snapshot.storeName) ||
+          snapshot.timestamp > latestByStore.get(snapshot.storeName)!.timestamp
+        ) {
           latestByStore.set(snapshot.storeName, snapshot)
         }
       })
-      
+
       console.log('Current state snapshots:')
       latestByStore.forEach((snapshot, storeName) => {
         console.log(`${storeName}:`, snapshot.state)
       })
-      
+
       return Object.fromEntries(latestByStore)
     },
     examples: ['state', 'state("authStore")'],
@@ -348,7 +357,7 @@ const builtInCommands: DeveloperCommand[] = [
     execute: () => {
       const perfMonitor = usePerformanceMonitor.getState()
       const metrics = perfMonitor.metrics
-      
+
       console.log('Performance Metrics:', {
         'Store Update Frequency': `${metrics.storeUpdateFrequency.toFixed(2)} updates/sec`,
         'Selector Computation Time': `${metrics.selectorComputationTime.toFixed(2)}ms`,
@@ -357,7 +366,7 @@ const builtInCommands: DeveloperCommand[] = [
         'State Size': `${formatBytes(metrics.stateSize)}`,
         'Query Cache Size': metrics.queryCacheSize,
       })
-      
+
       return metrics
     },
     examples: ['performance'],
@@ -383,12 +392,15 @@ const builtInCommands: DeveloperCommand[] = [
     execute: async () => {
       const devTools = useDeveloperTools.getState()
       const report = await devTools.generateAutomatedReport()
-      
+
       console.log('Performance Report Generated:')
       console.log(`Overall Score: ${report.summary.overallScore}/100`)
       console.log('Bottlenecks:', report.summary.bottlenecks)
-      console.log('Recommendations:', report.recommendations.map(r => r.description))
-      
+      console.log(
+        'Recommendations:',
+        report.recommendations.map((r: PerformanceRecommendation) => r.description)
+      )
+
       return report
     },
     examples: ['report'],
@@ -400,7 +412,7 @@ const builtInCommands: DeveloperCommand[] = [
     category: 'debugging',
     execute: (args) => {
       const [type] = args as [string?]
-      
+
       switch (type) {
         case 'state': {
           useStateDebugger.getState().clearHistory()
@@ -425,7 +437,7 @@ const builtInCommands: DeveloperCommand[] = [
           console.log('All debugging data cleared')
         }
       }
-      
+
       return `Cleared: ${type || 'all'}`
     },
     examples: ['clear', 'clear("state")', 'clear("warnings")', 'clear("metrics")'],
@@ -437,7 +449,7 @@ const builtInCommands: DeveloperCommand[] = [
     category: 'debugging',
     execute: (args) => {
       const [type] = args as [string?]
-      
+
       let data: string
       switch (type) {
         case 'state': {
@@ -454,14 +466,18 @@ const builtInCommands: DeveloperCommand[] = [
         }
         default: {
           // Export all as combined
-          data = JSON.stringify({
-            state: JSON.parse(useStateDebugger.getState().exportHistory()),
-            metrics: JSON.parse(useMetricsCollector.getState().exportMetrics()),
-            devtools: JSON.parse(useDevToolsExtension.getState().exportData()),
-          }, null, 2)
+          data = JSON.stringify(
+            {
+              state: JSON.parse(useStateDebugger.getState().exportHistory()),
+              metrics: JSON.parse(useMetricsCollector.getState().exportMetrics()),
+              devtools: JSON.parse(useDevToolsExtension.getState().exportData()),
+            },
+            null,
+            2
+          )
         }
       }
-      
+
       // Create download link
       const blob = new Blob([data], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -470,7 +486,7 @@ const builtInCommands: DeveloperCommand[] = [
       a.download = `dce-debug-${type || 'all'}-${Date.now()}.json`
       a.click()
       URL.revokeObjectURL(url)
-      
+
       console.log(`Exported ${type || 'all'} data`)
       return data
     },
@@ -485,11 +501,11 @@ const builtInCommands: DeveloperCommand[] = [
       const stateDebugger = useStateDebugger.getState()
       const leaks = stateDebugger.findStateLeaks()
       const growth = stateDebugger.analyzeStateGrowth()
-      
+
       console.log('Memory Analysis:')
       console.log('Potential leaks:', leaks)
       console.log('State growth analysis:', growth)
-      
+
       interface PerformanceWithMemory extends Performance {
         memory?: {
           usedJSHeapSize: number
@@ -497,7 +513,7 @@ const builtInCommands: DeveloperCommand[] = [
           jsHeapSizeLimit: number
         }
       }
-      
+
       const perfWithMemory = performance as PerformanceWithMemory
       if (perfWithMemory.memory) {
         const memInfo = perfWithMemory.memory
@@ -507,7 +523,7 @@ const builtInCommands: DeveloperCommand[] = [
           limit: formatBytes(memInfo.jsHeapSizeLimit),
         })
       }
-      
+
       return { leaks, growth }
     },
     examples: ['memory'],
@@ -538,9 +554,10 @@ function enhanceRecommendations(
   metrics: MetricsSummary
 ): PerformanceRecommendation[] {
   const enhanced = [...recommendations]
-  
+
   // Add developer-specific recommendations based on metrics
-  if (metrics.apiPerformance?.errorRate && metrics.apiPerformance.errorRate > 0.05) { // 5% error rate
+  if (metrics.apiPerformance?.errorRate && metrics.apiPerformance.errorRate > 0.05) {
+    // 5% error rate
     enhanced.push({
       type: 'warning',
       category: 'api',
@@ -550,8 +567,9 @@ function enhanceRecommendations(
       effort: 'medium',
     })
   }
-  
-  if (metrics.userInteractions?.bounceRate && metrics.userInteractions.bounceRate > 0.7) { // 70% bounce rate
+
+  if (metrics.userInteractions?.bounceRate && metrics.userInteractions.bounceRate > 0.7) {
+    // 70% bounce rate
     enhanced.push({
       type: 'suggestion',
       category: 'ux',
@@ -561,7 +579,7 @@ function enhanceRecommendations(
       effort: 'high',
     })
   }
-  
+
   return enhanced
 }
 
@@ -617,15 +635,15 @@ function checkForWarnings() {
 
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   const devTools = useDeveloperTools.getState()
-  
+
   // Register built-in commands
-  builtInCommands.forEach(command => {
+  builtInCommands.forEach((command) => {
     devTools.registerCommand(command)
   })
-  
+
   // Set up automated warning checks
   setInterval(checkForWarnings, 5000) // Check every 5 seconds
-  
+
   // Expose dev tools to global
   interface WindowWithDevTools extends Window {
     __devTools?: typeof devTools
@@ -640,7 +658,7 @@ if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
       help: () => Promise<unknown>
     }
   }
-  
+
   const windowWithDevTools = window as WindowWithDevTools
   windowWithDevTools.__devTools = devTools
   windowWithDevTools.__dce = {
@@ -654,7 +672,7 @@ if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
     memory: () => devTools.executeCommand('memory'),
     help: () => devTools.executeCommand('help'),
   }
-  
+
   console.log(`
 🔧 DCE Developer Tools loaded!
 
