@@ -6,7 +6,7 @@
  */
 
 import { storageManager } from './storageManager'
-import { keyMigrationManager } from './keyMigration'
+import { keyMigrationManager, type MigrationResult } from './keyMigration'
 import { namespaceIsolation } from './namespaceIsolation'
 import { getRegisteredStores } from '../utils/schemas'
 
@@ -190,7 +190,7 @@ export class StorageCleanupManager {
     for (const key of legacyKeys) {
       // Only remove if migration was successful
       const migrationHistory = keyMigrationManager.getMigrationHistory()
-      const wasMigrated = migrationHistory.some(h => h.legacyKey === key && h.success)
+      const wasMigrated = migrationHistory.some((h: MigrationResult) => h.legacyKey === key && h.success)
 
       if (wasMigrated) {
         const dataSize = this.getKeySize(key)

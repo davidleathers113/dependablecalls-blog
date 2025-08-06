@@ -137,6 +137,11 @@ $RECYCLE.BIN/
 *.credentials
 *.secrets
 **/*secret*
+
+# Allow specific TypeScript files for key management (code, not secrets)
+!src/store/storage/keyMigration.ts
+!src/store/utils/storage/keyRotation.ts
+
 **/*key*
 **/*keys*
 **/auth-config*
