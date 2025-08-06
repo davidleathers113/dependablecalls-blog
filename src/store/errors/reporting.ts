@@ -9,8 +9,9 @@
  * - User impact assessment
  */
 
-import { DCEError, MonitoringError, ErrorContext, ErrorSeverity } from './errorTypes'
-import { ErrorHandlingContext, ErrorHandlingConfig } from '../middleware/errorHandling'
+import { DCEError } from './errorTypes'
+import type { MonitoringError, ErrorContext, ErrorSeverity } from './errorTypes'
+import type { ErrorHandlingContext, ErrorHandlingConfig } from '../middleware/errorHandling'
 import { RecoveryManager } from './recovery'
 
 // Sentry Integration Types
@@ -71,12 +72,17 @@ export interface ErrorReportingConfig {
 
 export interface ErrorFilter {
   name: string
-  predicate: (error: DCEError, context: ErrorContext) => boolean
+  predicate: (error: DCEError, context: ExtendedErrorContext) => boolean
 }
 
 export interface ErrorTransformer {
   name: string
-  transform: (error: DCEError, context: ErrorContext) => Partial<MonitoringError>
+  transform: (error: DCEError, context: ExtendedErrorContext) => Partial<MonitoringError>
+}
+
+// Extended ErrorContext that matches ErrorHandlingContext signature
+interface ExtendedErrorContext extends ErrorContext {
+  [key: string]: unknown
 }
 
 export interface ErrorReport {
@@ -153,7 +159,7 @@ export class ErrorReporter {
   private errorCache = new Map<string, CachedErrorInfo>()
   private metricsCollector?: MetricsCollector
 
-  constructor(private errorHandlingConfig: ErrorHandlingConfig) {
+  constructor(errorHandlingConfig: ErrorHandlingConfig) {
     this.config = {
       ...DEFAULT_REPORTING_CONFIG,
       ...this.extractReportingConfig(errorHandlingConfig),
@@ -172,13 +178,20 @@ export class ErrorReporter {
 
     const monitoringError = error.toMonitoringError()
     
+    // Convert context to extended context for interface compatibility
+    const extendedContext: ExtendedErrorContext = {
+      ...context,
+      storeName: context.storeName,
+      actionType: context.actionName,
+    }
+    
     // Apply filters
-    if (!this.shouldReport(error, context)) {
+    if (!this.shouldReport(error, extendedContext)) {
       return
     }
 
     // Apply transformers
-    const transformedError = this.applyTransformers(error, monitoringError, context)
+    const transformedError = this.applyTransformers(error, monitoringError, extendedContext)
 
     // Add to cache for deduplication
     const errorKey = this.generateErrorKey(transformedError)
@@ -245,7 +258,7 @@ export class ErrorReporter {
     }
   }
 
-  private shouldReport(error: DCEError, context: ErrorHandlingContext): boolean {
+  private shouldReport(error: DCEError, context: ExtendedErrorContext): boolean {
     // Sample rate check
     if (Math.random() > this.config.sampleRate) return false
 
@@ -260,7 +273,7 @@ export class ErrorReporter {
   private applyTransformers(
     originalError: DCEError, 
     monitoringError: MonitoringError, 
-    context: ErrorHandlingContext
+    context: ExtendedErrorContext
   ): MonitoringError {
     let transformedError = { ...monitoringError }
 
@@ -277,8 +290,8 @@ export class ErrorReporter {
     const keyComponents = [
       error.type,
       error.message,
-      error.context.storeName,
-      error.context.actionType,
+      error.context.storeName || '',
+      error.context.actionType || '',
       error.stack?.split('\n')[0] || '',
     ]
     
@@ -324,7 +337,7 @@ export class ErrorReporter {
       for (const error of errors) {
         windowWithSentry.Sentry.captureException(new Error(error.message), {
           tags: {
-            storeName: error.context.storeName,
+            storeName: error.context.storeName || '',
             errorType: error.type,
             severity: error.severity,
           },
@@ -363,8 +376,8 @@ export class ErrorReporter {
       properties: {
         error_type: error.type,
         error_severity: error.severity,
-        store_name: error.context.storeName,
-        action_type: error.context.actionType,
+        store_name: error.context.storeName || '',
+        action_type: error.context.actionType || '',
         timestamp: error.timestamp,
       },
     }))
@@ -623,8 +636,11 @@ export async function reportError(
       actionName: context.actionType,
       attempt: 0,
       recoveryManager: new RecoveryManager({
-        maxAttempts: 3,
-        baseDelay: 1000,
+        storeName: context.storeName || 'global',
+        maxRecoveryAttempts: 3,
+        development: {
+          logErrors: true,
+        }
       }),
       reporter,
     }
@@ -649,7 +665,7 @@ export function getGlobalErrorReporter(): ErrorReporter | null {
 export const DEFAULT_ERROR_FILTERS: ErrorFilter[] = [
   {
     name: 'excludeValidationErrors',
-    predicate: (error) => !error.message.includes('validation'),
+    predicate: (_error) => true, // Keep all errors for now
   },
   {
     name: 'excludeNetworkTimeouts',
@@ -660,7 +676,7 @@ export const DEFAULT_ERROR_FILTERS: ErrorFilter[] = [
 export const DEFAULT_ERROR_TRANSFORMERS: ErrorTransformer[] = [
   {
     name: 'addUserAgent',
-    transform: (error, context) => ({
+    transform: (_error, context) => ({
       context: {
         ...context,
         userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
@@ -674,15 +690,3 @@ export const DEFAULT_ERROR_TRANSFORMERS: ErrorTransformer[] = [
     }),
   },
 ]
-
-// Export types
-export type {
-  ErrorReportingConfig,
-  ErrorFilter,
-  ErrorTransformer,
-  ErrorReport,
-  ErrorSummary,
-  ErrorTrends,
-  UserImpactAnalysis,
-  PerformanceImpactAnalysis,
-}

@@ -8,28 +8,7 @@
 import * as React from 'react'
 import type { StateCreator } from 'zustand'
 
-// Type imports for centralized StoreMutators declaration
-type WithImmer<S> = S extends { getState: () => infer T; setState: infer SetState }
-  ? S & {
-      setState: SetState extends (...a: unknown[]) => infer Sr
-        ? (
-            partial: T | Partial<T> | ((draft: T) => void),
-            replace?: boolean | undefined
-          ) => Sr
-        : never
-    }
-  : never
-
-type Write<T, U> = Omit<T, keyof U> & U
-type StoreErrorHandling<S> = S extends { getState: () => infer T }
-  ? S & {
-      setState: (
-        partial: T | Partial<T> | ((state: T) => T | Partial<T>),
-        replace?: boolean | undefined,
-        action?: string | { type: unknown }
-      ) => void
-    }
-  : never
+// Resource cleanup types - no StoreMutators declaration to avoid conflicts
 
 export interface CleanupResource {
   id: string
@@ -44,16 +23,10 @@ export interface ResourceCleanupState {
   __cleanup_enabled: boolean
 }
 
-// Centralized StoreMutators declaration to avoid conflicts
-declare module 'zustand/vanilla' {
-  interface StoreMutators<S, _A> {
-    'zustand/resource-cleanup': WithResourceCleanup<S>
-    'zustand/immer': WithImmer<S>
-    errorHandling: Write<S, StoreErrorHandling<S>>
-  }
-}
+// Resource cleanup types exported for direct use
+// Note: StoreMutators declaration removed to avoid conflicts with other middleware
 
-type WithResourceCleanup<S> = S extends { getState: () => unknown }
+export type WithResourceCleanup<S> = S extends { getState: () => unknown }
   ? S & {
       addResource: (resource: CleanupResource) => void
       removeResource: (id: string) => void
@@ -72,9 +45,9 @@ export interface ResourceStats {
 }
 
 /**
- * Enhanced resource cleanup middleware
+ * Enhanced resource cleanup middleware with proper type constraints
  */
-export const resourceCleanup = <T>(
+export const resourceCleanup = <T extends Record<string, unknown>>(
   config: {
     enableAutoCleanup?: boolean
     maxAge?: number

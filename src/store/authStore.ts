@@ -66,14 +66,14 @@ export interface AuthState {
   initializeFromServer: (user: User | null, session: Session | null, userType: UserRole | null) => void
 }
 
-// Initial state
-const initialState = {
-  user: null,
-  session: null,
-  userType: null,
+// Initial state with explicit types
+const initialState: Pick<AuthState, 'user' | 'session' | 'userType' | 'loading' | '_hasHydrated' | 'preferences'> = {
+  user: null as User | null,
+  session: null as Session | null,
+  userType: null as UserRole | null,
   loading: true,
   _hasHydrated: false,
-  preferences: {},
+  preferences: {} as AuthState['preferences'],
 }
 
 // Create auth store using StandardStateCreator with proper typing
@@ -85,27 +85,27 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
 
   // State setters with immer support
   setUser: (user: User | null) => {
-    set((state) => {
+    set((state: AuthState) => {
       state.user = user
       state.isAuthenticated = !!user && !!state.session
     })
   },
 
   setSession: (session: Session | null) => {
-    set((state) => {
+    set((state: AuthState) => {
       state.session = session
       state.isAuthenticated = !!state.user && !!session
     })
   },
 
   setUserType: (userType: UserRole | null) => {
-    set((state) => {
+    set((state: AuthState) => {
       state.userType = userType
     })
   },
 
   setPreferences: (preferences: Partial<AuthState['preferences']>) => {
-    set((state) => {
+    set((state: AuthState) => {
       state.preferences = { ...state.preferences, ...preferences }
     })
   },
@@ -133,7 +133,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
     // Server has set httpOnly cookies, we just store non-sensitive data
     if (data.user) {
       const extendedUser = createExtendedUser(data.user)
-      set((state) => {
+      set((state: AuthState) => {
         state.user = extendedUser
         state.session = data.session // Store session metadata only
         state.userType = data.user.userType
@@ -170,7 +170,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
       // SECURITY: Don't trust client-sent userType - server will validate via RLS
       const extendedUser = createExtendedUser(data.user)
       // Remove client-side role assignment - rely on server validation
-      set((state) => {
+      set((state: AuthState) => {
         state.user = extendedUser
         state.session = data.session
         state.userType = null
@@ -191,7 +191,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
     }
     
     // Clear local state
-    set((state) => {
+    set((state: AuthState) => {
       state.user = null
       state.session = null
       state.userType = null
@@ -200,7 +200,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
   },
 
   checkSession: async () => {
-    set((state) => {
+    set((state: AuthState) => {
       state.loading = true
     })
 
@@ -217,7 +217,7 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
         
         if (data.user && data.session) {
           const extendedUser = createExtendedUser(data.user)
-          set((state) => {
+          set((state: AuthState) => {
             state.user = extendedUser
             state.session = data.session
             // SECURITY: Get userType from server-validated JWT claims only
@@ -225,14 +225,14 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
             state.isAuthenticated = true
           })
         } else {
-          set((state) => {
+          set((state: AuthState) => {
             state.user = null
             state.session = null
             state.userType = null
           })
         }
       } else {
-        set((state) => {
+        set((state: AuthState) => {
           state.user = null
           state.session = null
           state.userType = null
@@ -240,21 +240,21 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
       }
     } catch (error) {
       console.error('Session check error:', error)
-      set((state) => {
+      set((state: AuthState) => {
         state.user = null
         state.session = null
         state.userType = null
       })
     }
 
-    set((state) => {
+    set((state: AuthState) => {
       state.loading = false
     })
   },
   
   initializeFromServer: (user: User | null, session: Session | null, userType: UserRole | null) => {
     // Used by server-side rendering or when session is validated server-side
-    set((state) => {
+    set((state: AuthState) => {
       state.user = user
       state.session = session
       state.userType = userType
@@ -270,7 +270,8 @@ export const useAuthStore = createAuthStore<AuthState>(
   createAuthStoreState,
   {
     // SECURITY: Only persist non-sensitive user preferences - NO auth data
-    partialize: (state: AuthState): Partial<AuthState> => ({
+    partialize: (state: AuthState) => ({
+      ...state,
       preferences: state.preferences,
       _hasHydrated: state._hasHydrated,
     }),
@@ -283,9 +284,14 @@ export const useAuthStore = createAuthStore<AuthState>(
     },
     // Use localStorage for preferences (could be upgraded to encrypted storage later)
     storage: {
-      getItem: (name: string): string | null => {
+      getItem: (name: string) => {
         const item = localStorage.getItem(name)
-        return item ? JSON.parse(item) : null
+        if (!item) return null
+        try {
+          return JSON.parse(item)
+        } catch {
+          return null
+        }
       },
       setItem: (name: string, value: unknown): void => {
         localStorage.setItem(name, JSON.stringify(value))
@@ -298,16 +304,16 @@ export const useAuthStore = createAuthStore<AuthState>(
 )
 
 // Selectors for common access patterns
-export const useAuthUser = () => useAuthStore((state) => state.user)
-export const useAuthSession = () => useAuthStore((state) => state.session)
-export const useAuthUserType = () => useAuthStore((state) => state.userType)
-export const useAuthLoading = () => useAuthStore((state) => state.loading)
+export const useAuthUser = () => useAuthStore((state: AuthState) => state.user)
+export const useAuthSession = () => useAuthStore((state: AuthState) => state.session)
+export const useAuthUserType = () => useAuthStore((state: AuthState) => state.userType)
+export const useAuthLoading = () => useAuthStore((state: AuthState) => state.loading)
 // Derived selector for isAuthenticated instead of stored value
-export const useIsAuthenticated = () => useAuthStore((state) => !!state.user && !!state.session)
-export const useAuthPreferences = () => useAuthStore((state) => state.preferences)
+export const useIsAuthenticated = () => useAuthStore((state: AuthState) => !!state.user && !!state.session)
+export const useAuthPreferences = () => useAuthStore((state: AuthState) => state.preferences)
 
 // Auth actions
-export const useAuthActions = () => useAuthStore((state) => ({
+export const useAuthActions = () => useAuthStore((state: AuthState) => ({
   setUser: state.setUser,
   setSession: state.setSession,
   setUserType: state.setUserType,

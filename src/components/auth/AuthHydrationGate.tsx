@@ -1,5 +1,5 @@
 import React from 'react'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore, type AuthState } from '../../store/authStore'
 import Loading from '../common/Loading'
 
 interface AuthHydrationGateProps {
@@ -61,7 +61,7 @@ export function AuthHydrationGate({
 }: AuthHydrationGateProps) {
   const { _hasHydrated, loading } = useAuthStore(
     // Use composed selector to prevent over-rendering
-    (state) => ({
+    (state: AuthState) => ({
       _hasHydrated: state._hasHydrated,
       loading: state.loading,
     })

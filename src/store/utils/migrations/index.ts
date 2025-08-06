@@ -46,14 +46,14 @@ export interface MigrationHistory {
 }
 
 /**
- * Global migration registry
+ * Global migration registry with proper generic type handling
  */
 class MigrationRegistry {
-  private migrations = new Map<string, Migration[]>();
+  private migrations = new Map<string, Migration<unknown, unknown>[]>();
   private history = new Map<string, MigrationHistory>();
 
   /**
-   * Register a migration for a specific store
+   * Register a migration for a specific store with proper type handling
    */
   register<TFrom, TTo>(migration: Migration<TFrom, TTo>): void {
     const key = migration.storeName;
@@ -82,14 +82,15 @@ class MigrationRegistry {
       }
     }
     
-    storeMigrations.push(migration);
+    // Cast the migration to the stored type (safe since we handle types properly in migrate())
+    storeMigrations.push(migration as Migration<unknown, unknown>);
     storeMigrations.sort((a, b) => a.version - b.version);
   }
 
   /**
    * Get all migrations for a store
    */
-  getMigrations(storeName: string): Migration[] {
+  getMigrations(storeName: string): Migration<unknown, unknown>[] {
     return this.migrations.get(storeName) || [];
   }
 
@@ -100,7 +101,7 @@ class MigrationRegistry {
     storeName: string, 
     fromVersion: number, 
     toVersion: number
-  ): Migration[] {
+  ): Migration<unknown, unknown>[] {
     const allMigrations = this.getMigrations(storeName);
     
     if (fromVersion === toVersion) {
@@ -138,7 +139,7 @@ class MigrationRegistry {
   }
 
   /**
-   * Execute migrations from one version to another
+   * Execute migrations from one version to another with proper type safety
    */
   async migrate<T>(
     storeName: string,
@@ -158,7 +159,7 @@ class MigrationRegistry {
         };
       }
 
-      let currentData = data;
+      let currentData: unknown = data;
       const appliedMigrations: number[] = [];
       
       for (const migration of path) {
@@ -168,7 +169,7 @@ class MigrationRegistry {
             migration.fromSchema.parse(currentData);
           }
           
-          // Apply migration
+          // Apply migration with proper type handling
           if (fromVersion < toVersion) {
             currentData = migration.up(currentData);
           } else {
@@ -197,7 +198,7 @@ class MigrationRegistry {
 
       return {
         success: true,
-        data: currentData,
+        data: currentData as T, // Safe cast after successful migration chain
         migrationsApplied: appliedMigrations,
         version: toVersion
       };
@@ -274,11 +275,11 @@ class MigrationRegistry {
   /**
    * Development utility: inspect registry
    */
-  inspect(): Record<string, Migration[]> {
-    const result: Record<string, Migration[]> = {};
-    for (const [storeName, migrations] of this.migrations.entries()) {
+  inspect(): Record<string, Migration<unknown, unknown>[]> {
+    const result: Record<string, Migration<unknown, unknown>[]> = {};
+    this.migrations.forEach((migrations, storeName) => {
       result[storeName] = migrations;
-    }
+    });
     return result;
   }
 
@@ -299,7 +300,7 @@ export function registerMigration<TFrom, TTo>(migration: Migration<TFrom, TTo>):
   globalMigrationRegistry.register(migration);
 }
 
-export function getMigrations(storeName: string): Migration[] {
+export function getMigrations(storeName: string): Migration<unknown, unknown>[] {
   return globalMigrationRegistry.getMigrations(storeName);
 }
 
@@ -324,13 +325,13 @@ export function getMigrationHistory(storeName: string): MigrationHistory | undef
   return globalMigrationRegistry.getHistory(storeName);
 }
 
-export function inspectMigrationRegistry(): Record<string, Migration[]> {
+export function inspectMigrationRegistry(): Record<string, Migration<unknown, unknown>[]> {
   return globalMigrationRegistry.inspect();
 }
 
 // Development utilities interface
 interface DCEMigrationDevTools {
-  inspect: () => Record<string, Migration[]>;
+  inspect: () => Record<string, Migration<unknown, unknown>[]>;
   getHistory: (storeName: string) => MigrationHistory | undefined;
   canMigrate: (storeName: string, fromVersion: number, toVersion: number) => boolean;
   getLatestVersion: (storeName: string) => number;

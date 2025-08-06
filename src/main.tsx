@@ -7,6 +7,10 @@ import { apm } from './lib/apm'
 import { AppErrorFallback } from './components/ui/AppErrorFallback'
 import { initializeTrustedTypes } from './lib/trusted-types'
 import { initializeCSRFProtection } from './lib/csrf-protection'
+import { initializeImmer } from './lib/immer-bootstrap'
+
+// Initialize Immer features (must be done early)
+initializeImmer()
 
 // Initialize CSP v3 Trusted Types (must be done early)
 initializeTrustedTypes()

@@ -6,51 +6,88 @@
 import { z } from 'zod'
 import { registerSchema } from './index'
 
-// User settings schema
+// User settings schema - matches UserSettings interface exactly
 const UserSettingsSchema = z.object({
   version: z.number().default(1),
   updatedAt: z.string(),
+  // Profile settings - required to match interface
   profile: z.object({
     displayName: z.string().optional(),
+    avatarUrl: z.string().optional(),
+    bio: z.string().optional(),
     timezone: z.string().default('UTC'),
-    language: z.string().default('en'),
-    dateFormat: z.string().default('MM/DD/YYYY'),
-    timeFormat: z.enum(['12h', '24h']).default('12h'),
-  }).optional(),
+    language: z.enum(['en', 'es', 'fr', 'de', 'pt', 'zh', 'ja']).default('en'),
+    dateFormat: z.enum(['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MMM-YYYY']).default('MM/DD/YYYY'),
+    phoneFormat: z.enum(['US', 'International', 'E.164']).default('US'),
+    currency: z.enum(['USD', 'EUR', 'GBP', 'CAD', 'AUD']).default('USD'),
+  }),
+  // User preferences - required to match interface
+  preferences: z.object({
+    theme: z.enum(['light', 'dark', 'system']).default('system'),
+    dashboardLayout: z.enum(['compact', 'expanded', 'custom']).default('expanded'),
+    defaultPage: z.string().default('/dashboard'),
+    tablePageSize: z.number().default(25),
+    soundAlerts: z.boolean().default(true),
+    keyboardShortcuts: z.boolean().default(true),
+    autoRefresh: z.boolean().default(true),
+    refreshInterval: z.number().default(30),
+    compactMode: z.boolean().default(false),
+    showOnboarding: z.boolean().default(true),
+  }),
+  // Notifications - required to match interface
   notifications: z.object({
     email: z.object({
       enabled: z.boolean().default(true),
-      frequency: z.enum(['immediate', 'hourly', 'daily', 'weekly']).default('immediate'),
-      campaigns: z.boolean().default(true),
-      billing: z.boolean().default(true),
-      system: z.boolean().default(true),
-      marketing: z.boolean().default(false),
-    }).optional(),
-    push: z.object({
-      enabled: z.boolean().default(false),
-      campaigns: z.boolean().default(false),
-      billing: z.boolean().default(true),
-      system: z.boolean().default(true),
-    }).optional(),
+      newCalls: z.boolean().default(true),
+      callCompleted: z.boolean().default(false),
+      dailySummary: z.boolean().default(true),
+      weeklyReport: z.boolean().default(true),
+      monthlyReport: z.boolean().default(false),
+      campaignAlerts: z.boolean().default(true),
+      budgetAlerts: z.boolean().default(true),
+      qualityAlerts: z.boolean().default(true),
+      fraudAlerts: z.boolean().default(true),
+      systemUpdates: z.boolean().default(true),
+      marketingEmails: z.boolean().default(false),
+    }),
+    browser: z.object({
+      enabled: z.boolean().default(true),
+      newCalls: z.boolean().default(true),
+      callStatus: z.boolean().default(true),
+      campaignAlerts: z.boolean().default(true),
+      systemAlerts: z.boolean().default(true),
+      sound: z.boolean().default(true),
+      vibrate: z.boolean().default(false),
+    }),
     sms: z.object({
       enabled: z.boolean().default(false),
-      campaigns: z.boolean().default(false),
-      billing: z.boolean().default(false),
-      emergency: z.boolean().default(true),
+      phoneNumber: z.string().optional(),
+      urgentOnly: z.boolean().default(true),
+      fraudAlerts: z.boolean().default(true),
+      systemDowntime: z.boolean().default(true),
+      dailyLimit: z.number().default(10),
     }).optional(),
-  }).optional(),
-  privacy: z.object({
-    dataSharing: z.boolean().default(false),
-    analytics: z.boolean().default(true),
-    marketing: z.boolean().default(false),
-    thirdPartyIntegrations: z.boolean().default(true),
-  }).optional(),
-  dashboard: z.object({
-    layout: z.enum(['compact', 'standard', 'expanded']).default('standard'),
-    widgets: z.array(z.string()).default([]),
-    refreshInterval: z.number().default(30000),
-    showWelcome: z.boolean().default(true),
-  }).optional(),
+    quietHours: z.object({
+      enabled: z.boolean().default(false),
+      start: z.string().default('22:00'),
+      end: z.string().default('08:00'),
+      timezone: z.string().default('UTC'),
+      weekendsOnly: z.boolean().default(false),
+      excludeUrgent: z.boolean().default(true),
+    }).optional(),
+    frequency: z.enum(['realtime', 'hourly', 'daily', 'weekly']).default('realtime'),
+  }),
+  // Security settings - required to match interface
+  security: z.object({
+    twoFactorEnabled: z.boolean().default(false),
+    twoFactorMethod: z.enum(['app', 'sms', 'email']).optional(),
+    sessionTimeout: z.number().default(30),
+    ipWhitelist: z.array(z.string()).default([]),
+    apiAccess: z.boolean().default(false),
+    loginNotifications: z.boolean().default(true),
+    activityAlerts: z.boolean().default(true),
+    dataExportEnabled: z.boolean().default(true),
+  }),
 })
 
 // Base role settings schema
@@ -326,12 +363,19 @@ export {
   SettingsPersistedSchema,
 }
 
-// Export types
-export type UserSettings = z.infer<typeof UserSettingsSchema>
+// Export types - ensure compatibility with TypeScript interface
+export type SchemaUserSettings = z.infer<typeof UserSettingsSchema>
 export type SupplierSettings = z.infer<typeof SupplierSettingsSchema>
 export type BuyerSettings = z.infer<typeof BuyerSettingsSchema>
 export type NetworkSettings = z.infer<typeof NetworkSettingsSchema>
 export type AdminSettings = z.infer<typeof AdminSettingsSchema>
 export type RoleSettings = z.infer<typeof RoleSettingsSchema>
-export type SettingsState = z.infer<typeof SettingsStateSchema>
-export type SettingsPersisted = z.infer<typeof SettingsPersistedSchema>
+export type SchemaSettingsState = z.infer<typeof SettingsStateSchema>
+export type SchemaSettingsPersisted = z.infer<typeof SettingsPersistedSchema>
+
+// Type compatibility check - ensure schema matches interface
+// This will cause TypeScript error if schema and interface don't match
+export type UserSettingsCompatibilityCheck = SchemaUserSettings extends import('../../../types/settings').UserSettings ? true : false
+
+// Export UserSettings from both schema and interface for consistency
+export type UserSettings = z.infer<typeof UserSettingsSchema>

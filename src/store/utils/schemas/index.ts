@@ -84,6 +84,17 @@ export function getLatestSchema<T = unknown>(storeName: string): StoreSchema<T> 
 }
 
 /**
+ * Get schema by specific version (alias for getSchema for clarity)
+ * Used by runtime validation middleware
+ */
+export function getSchemaByVersion<T = unknown>(
+  storeName: string,
+  version: number
+): StoreSchema<T> | null {
+  return getSchema<T>(storeName, version)
+}
+
+/**
  * Get all versions for a store
  */
 export function getSchemaVersions(storeName: string): SchemaVersion[] {

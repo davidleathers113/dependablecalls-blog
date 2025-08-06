@@ -65,7 +65,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
   // Load settings from database
   loadSettings: async () => {
-    set((state) => {
+    set((state: SettingsState) => {
       state.isLoading = true
       state.error = null
     })
@@ -74,7 +74,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       const { user, userType } = useAuthStore.getState()
       if (!user) throw new Error('User not authenticated')
 
-      // Load user settings from metadata
+      // Load user settings from metadata with proper typing
       const { data: userData, error: userError } = await supabase!
         .from('users')
         .select('metadata')
@@ -83,13 +83,18 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
       if (userError) throw userError
 
-      const userSettings = validateUserSettings(
-        typeof userData.metadata === 'object' &&
-          userData.metadata !== null &&
-          typeof (userData.metadata as Record<string, unknown>).settings === 'object'
-          ? ((userData.metadata as Record<string, unknown>).settings as Partial<UserSettings>)
+      // Type-safe metadata extraction - no implicit 'any'
+      const metadataRecord: Record<string, unknown> = 
+        typeof userData.metadata === 'object' && userData.metadata !== null 
+          ? userData.metadata as Record<string, unknown>
           : {}
-      )
+      
+      const settingsData: Partial<UserSettings> = 
+        typeof metadataRecord.settings === 'object' && metadataRecord.settings !== null
+          ? metadataRecord.settings as Partial<UserSettings>
+          : {}
+      
+      const userSettings = validateUserSettings(settingsData)
 
       // Load role-specific settings
       let roleSettings = null
@@ -103,7 +108,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
         if (error) throw error
         if (data?.settings && isSupplierSettings(data.settings)) {
-          roleSettings = data.settings
+          roleSettings = data.settings as SupplierSettings
         }
       } else if (userType === 'buyer') {
         const { data, error } = await supabase!
@@ -114,7 +119,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
         if (error) throw error
         if (data?.settings && isBuyerSettings(data.settings)) {
-          roleSettings = data.settings
+          roleSettings = data.settings as BuyerSettings
         }
       } else if (userType === 'network' && 'networkId' in user && user.networkId) {
         const { data, error } = await supabase!
@@ -125,7 +130,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
         if (error) throw error
         if (data?.settings && isNetworkSettings(data.settings)) {
-          roleSettings = data.settings
+          roleSettings = data.settings as NetworkSettings
         }
       } else if (userType === 'admin' && 'adminId' in user && user.adminId) {
         const { error } = await supabase!
@@ -141,14 +146,14 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
         }
       }
 
-      set((state) => {
+      set((state: SettingsState) => {
         state.userSettings = userSettings
         state.roleSettings = roleSettings
         state.isLoading = false
         state.isDirty = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SettingsState) => {
         state.error = error instanceof Error ? error.message : 'Failed to load settings'
         state.isLoading = false
       })
@@ -160,7 +165,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
     const state = get()
     if (!state.isDirty || state.isSaving) return
 
-    set((state) => {
+    set((state: SettingsState) => {
       state.isSaving = true
       state.error = null
     })
@@ -189,14 +194,16 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
             ? (currentMetadata as Record<string, unknown>)
             : {}
 
-        // Then update with new settings
+        // Then update with new settings - explicit typing
+        const newMetadata: Record<string, unknown> = {
+          ...metadataObject,
+          settings: updatedSettings,
+        }
+        
         const { error } = await supabase!
           .from('users')
           .update({
-            metadata: settingsToJson({
-              ...metadataObject,
-              settings: updatedSettings,
-            }),
+            metadata: settingsToJson(newMetadata) as Record<string, unknown>,
           })
           .eq('id', user.id)
 
@@ -246,25 +253,27 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
         }
       }
 
-      // Log settings change to audit log
+      // Log settings change to audit log with proper typing
+      const auditLogValue: Record<string, unknown> = {
+        user: state.userSettings,
+        role: state.roleSettings,
+      }
+      
       await supabase!.from('settings_audit_log').insert({
         user_id: user.id,
         setting_type: userType as 'user' | 'supplier' | 'buyer' | 'network' | 'admin',
         setting_key: 'all',
         action: 'update',
-        new_value: settingsToJson({
-          user: state.userSettings,
-          role: state.roleSettings,
-        }),
+        new_value: settingsToJson(auditLogValue) as Record<string, unknown>,
       })
 
-      set((state) => {
+      set((state: SettingsState) => {
         state.isSaving = false
         state.isDirty = false
         state.lastSaved = new Date().toISOString()
       })
     } catch (error) {
-      set((state) => {
+      set((state: SettingsState) => {
         state.error = error instanceof Error ? error.message : 'Failed to save settings'
         state.isSaving = false
       })
@@ -273,7 +282,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
   // Update user setting
   updateUserSetting: <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
-    set((state) => {
+    set((state: SettingsState) => {
       if (state.userSettings) {
         state.userSettings[key] = value
       }
@@ -281,32 +290,34 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
     })
   },
 
-  // Update role-specific setting with Immer
+  // Update role-specific setting with Immer - proper typing to avoid implicit 'any'
   updateRoleSetting: (path: string, value: unknown) => {
-    set((state) => {
+    set((state: SettingsState) => {
       if (!state.roleSettings) return
       
-      // Use Immer's built-in support for path updates
+      // Type-safe path updates using explicit typing
       const keys = path.split('.')
-      let current: Record<string, unknown> = state.roleSettings as Record<string, unknown>
+      let current = state.roleSettings as Record<string, unknown>
       
-      // Navigate to the parent object
+      // Navigate to the parent object with type safety
       for (let i = 0; i < keys.length - 1; i++) {
-        if (!(keys[i] in current)) {
-          current[keys[i]] = {}
+        const key = keys[i]
+        if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+          current[key] = {} as Record<string, unknown>
         }
-        current = current[keys[i]] as Record<string, unknown>
+        current = current[key] as Record<string, unknown>
       }
       
-      // Set the value
-      current[keys[keys.length - 1]] = value
+      // Set the value with explicit typing
+      const finalKey = keys[keys.length - 1]
+      current[finalKey] = value
       state.isDirty = true
     })
   },
 
   // Reset settings to defaults
   resetSettings: async () => {
-    set((state) => {
+    set((state: SettingsState) => {
       state.isLoading = true
     })
 
@@ -333,7 +344,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       }
       // Similar for other user types...
 
-      set((state) => {
+      set((state: SettingsState) => {
         state.userSettings = defaultUserSettings
         state.roleSettings = defaultRoleSettings
         state.isDirty = true
@@ -343,7 +354,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       // Auto-save after reset
       await get().saveSettings()
     } catch (error) {
-      set((state) => {
+      set((state: SettingsState) => {
         state.error = error instanceof Error ? error.message : 'Failed to reset settings'
         state.isLoading = false
       })
@@ -379,7 +390,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       // Validate imported settings
       const userSettings = validateUserSettings(data.userSettings || {})
 
-      set((state) => {
+      set((state: SettingsState) => {
         state.userSettings = userSettings
         state.roleSettings = data.roleSettings
         state.isDirty = true
@@ -388,7 +399,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       // Auto-save after import
       await get().saveSettings()
     } catch (error) {
-      set((state) => {
+      set((state: SettingsState) => {
         state.error = error instanceof Error ? error.message : 'Failed to import settings'
       })
     }
@@ -396,13 +407,13 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
   // Utility actions
   setDirty: (dirty: boolean) => {
-    set((state) => {
+    set((state: SettingsState) => {
       state.isDirty = dirty
     })
   },
   
   clearError: () => {
-    set((state) => {
+    set((state: SettingsState) => {
       state.error = null
     })
   },

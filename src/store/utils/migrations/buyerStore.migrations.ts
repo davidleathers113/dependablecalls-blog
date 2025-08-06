@@ -57,7 +57,10 @@ const buyerV1ToV2Migration: Migration<BuyerPersistedV1, BuyerPersistedV2> = {
     console.warn('🚨 Buyer Store Migration V1->V2: Financial data removed from persistence for security')
     
     return {
-      campaigns: state.campaigns,
+      campaigns: state.campaigns.map(campaign => ({
+        ...campaign,
+        priority: campaign.priority ?? 1, // Ensure priority is always a number
+      })),
       savedSearches: state.savedSearches,
       _encryptionMetadata: {
         version: 1,
@@ -82,7 +85,7 @@ const buyerV1ToV2Migration: Migration<BuyerPersistedV1, BuyerPersistedV2> = {
   
   // Validation schemas
   fromSchema: BuyerPersistedV1Schema,
-  toSchema: BuyerPersistedV2Schema as z.ZodType<BuyerPersistedV2>,
+  toSchema: BuyerPersistedV2Schema,
 }
 
 // ======================
@@ -98,6 +101,8 @@ const BuyerPersistedV3Schema = z.object({
       shareWithNetwork: z.boolean().default(true),
       anonymizeInReports: z.boolean().default(false),
     }).optional(),
+    // Ensure priority is properly typed as number
+    priority: z.number().min(0).int(),
   })),
   savedSearches: z.array(SavedSearchSchema),
   _encryptionMetadata: z.object({
@@ -123,6 +128,7 @@ const buyerV2ToV3Migration: Migration<BuyerPersistedV2, BuyerPersistedV3> = {
     return {
       campaigns: state.campaigns.map(campaign => ({
         ...campaign,
+        priority: campaign.priority ?? 1, // Ensure priority is always a number
         _privacy: {
           sharePerformanceData: false,    // Conservative default
           shareWithNetwork: true,         // Required for platform functionality
@@ -148,8 +154,8 @@ const buyerV2ToV3Migration: Migration<BuyerPersistedV2, BuyerPersistedV3> = {
   },
   
   // Validation schemas
-  fromSchema: BuyerPersistedV2Schema as z.ZodType<BuyerPersistedV2>,
-  toSchema: BuyerPersistedV3Schema as z.ZodType<BuyerPersistedV3>,
+  fromSchema: BuyerPersistedV2Schema,
+  toSchema: BuyerPersistedV3Schema,
 }
 
 // ======================
@@ -164,6 +170,8 @@ const BuyerPersistedV4Schema = z.object({
       shareWithNetwork: z.boolean().default(true),
       anonymizeInReports: z.boolean().default(false),
     }).optional(),
+    // Ensure priority is properly typed as number
+    priority: z.number().min(0).int(),
   })),
   savedSearches: z.array(SavedSearchSchema.extend({
     // NEW: GDPR compliance for saved searches
@@ -208,7 +216,10 @@ const buyerV3ToV4Migration: Migration<BuyerPersistedV3, BuyerPersistedV4> = {
   // Forward migration: V3 -> V4
   up: (state: BuyerPersistedV3): BuyerPersistedV4 => {
     return {
-      campaigns: state.campaigns,
+      campaigns: state.campaigns.map(campaign => ({
+        ...campaign,
+        priority: campaign.priority ?? 1, // Ensure priority is always a number
+      })),
       savedSearches: state.savedSearches.map(search => ({
         ...search,
         _gdpr: {
@@ -247,8 +258,8 @@ const buyerV3ToV4Migration: Migration<BuyerPersistedV3, BuyerPersistedV4> = {
   },
   
   // Validation schemas
-  fromSchema: BuyerPersistedV3Schema as z.ZodType<BuyerPersistedV3>,
-  toSchema: BuyerPersistedV4Schema as z.ZodType<BuyerPersistedV4>,
+  fromSchema: BuyerPersistedV3Schema,
+  toSchema: BuyerPersistedV4Schema,
 }
 
 // Register all migrations

@@ -12,7 +12,7 @@
  * - Feature flag compatibility for gradual rollout
  */
 
-import { createDataStore } from './factories/createStandardStore'
+import { createStandardStore } from './factories/createStandardStore'
 import type { StandardStateCreator } from './types/mutators'
 import type {
   Network,
@@ -70,20 +70,20 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
 
   // Basic setters
   setNetwork: (network) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.network = network
     })
   },
 
   setSelectedMode: (mode) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.selectedMode = mode
     })
   },
 
   // Async actions with proper Immer usage
   fetchNetworkData: async (networkId: string) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
@@ -135,12 +135,12 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         updated_at: new Date().toISOString(),
       }
 
-      set((state) => {
+      set((state: NetworkState) => {
         state.network = mockNetwork
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch network data'
         state.isLoading = false
       })
@@ -148,7 +148,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   fetchCampaigns: async () => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
@@ -171,12 +171,12 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         }
       ]
 
-      set((state) => {
+      set((state: NetworkState) => {
         state.campaigns = mockCampaigns
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch campaigns'
         state.isLoading = false
       })
@@ -184,7 +184,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   fetchRelationships: async () => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
@@ -204,12 +204,12 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         }
       ]
 
-      set((state) => {
+      set((state: NetworkState) => {
         state.relationships = mockRelationships
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch relationships'
         state.isLoading = false
       })
@@ -217,7 +217,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   fetchMetrics: async () => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
@@ -239,12 +239,12 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         quality_score: 85.0
       }
 
-      set((state) => {
+      set((state: NetworkState) => {
         state.metrics = mockMetrics
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch metrics'
         state.isLoading = false
       })
@@ -252,7 +252,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   createCampaign: async (campaignData: Partial<NetworkCampaign>) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
@@ -274,12 +274,12 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         ...campaignData
       }
       
-      set((state) => {
+      set((state: NetworkState) => {
         state.campaigns.push(newCampaign)
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to create campaign'
         state.isLoading = false
       })
@@ -287,14 +287,14 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   updateCampaign: async (id: string, updates: Partial<NetworkCampaign>) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
 
     try {
       // Mock update campaign - replace with actual API call
-      set((state) => {
+      set((state: NetworkState) => {
         const campaignIndex = state.campaigns.findIndex((campaign) => campaign.id === id)
         if (campaignIndex !== -1) {
           Object.assign(state.campaigns[campaignIndex], updates)
@@ -302,7 +302,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to update campaign'
         state.isLoading = false
       })
@@ -310,19 +310,19 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   deleteCampaign: async (id: string) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
 
     try {
       // Mock delete campaign - replace with actual API call
-      set((state) => {
+      set((state: NetworkState) => {
         state.campaigns = state.campaigns.filter((campaign) => campaign.id !== id)
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to delete campaign'
         state.isLoading = false
       })
@@ -330,7 +330,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   addRelationship: async (relationshipData: Partial<NetworkRelationship>) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
@@ -349,12 +349,12 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         ...relationshipData
       }
       
-      set((state) => {
+      set((state: NetworkState) => {
         state.relationships.push(newRelationship)
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to add relationship'
         state.isLoading = false
       })
@@ -362,14 +362,14 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   updateRelationship: async (id: string, updates: Partial<NetworkRelationship>) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
 
     try {
       // Mock update relationship - replace with actual API call
-      set((state) => {
+      set((state: NetworkState) => {
         const relationshipIndex = state.relationships.findIndex((rel) => rel.id === id)
         if (relationshipIndex !== -1) {
           state.relationships[relationshipIndex] = {
@@ -381,7 +381,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to update relationship'
         state.isLoading = false
       })
@@ -389,19 +389,19 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   removeRelationship: async (id: string) => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.isLoading = true
       state.error = null
     })
 
     try {
       // Mock remove relationship - replace with actual API call
-      set((state) => {
+      set((state: NetworkState) => {
         state.relationships = state.relationships.filter((rel) => rel.id !== id)
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: NetworkState) => {
         state.error = error instanceof Error ? error.message : 'Failed to remove relationship'
         state.isLoading = false
       })
@@ -409,7 +409,7 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 
   clearError: () => {
-    set((state) => {
+    set((state: NetworkState) => {
       state.error = null
     })
   },
@@ -419,25 +419,47 @@ const createNetworkStoreState: StandardStateCreator<NetworkState> = (set, _get) 
   },
 })
 
-// Create the store using the data store factory (includes monitoring and performance tracking)
-export const useNetworkStore = createDataStore<NetworkState>(
-  'network-store',
-  createNetworkStoreState
+// Create the store using the standard factory with monitoring and performance tracking
+export const useNetworkStore = createStandardStore<NetworkState>({
+  name: 'network-store',
+  creator: createNetworkStoreState,
   // No persistence needed for network store - session only
-)
+  monitoring: {
+    enabled: true,
+    trackPerformance: true,
+    trackStateChanges: true,
+  },
+  devtools: {
+    trace: true, // Enable action tracing for debugging
+  },
+})
 
-// Selectors for common access patterns
-export const useNetworkData = () => useNetworkStore((state) => state.network)
-export const useNetworkCampaigns = () => useNetworkStore((state) => state.campaigns)
-export const useNetworkRelationships = () => useNetworkStore((state) => state.relationships)
-export const useNetworkMetrics = () => useNetworkStore((state) => state.metrics)
-export const useNetworkLoading = () => useNetworkStore((state) => ({
-  isLoading: state.isLoading,
-  error: state.error,
-}))
-export const useNetworkSelectedMode = () => useNetworkStore((state) => state.selectedMode)
+// Selectors for common access patterns with explicit type annotations
+export const useNetworkData = (): Network | null => 
+  useNetworkStore((state: NetworkState) => state.network)
 
-// Development helpers
+export const useNetworkCampaigns = (): NetworkCampaign[] => 
+  useNetworkStore((state: NetworkState) => state.campaigns)
+
+export const useNetworkRelationships = (): NetworkRelationship[] => 
+  useNetworkStore((state: NetworkState) => state.relationships)
+
+export const useNetworkMetrics = (): NetworkMetrics | null => 
+  useNetworkStore((state: NetworkState) => state.metrics)
+
+export const useNetworkLoading = (): { isLoading: boolean; error: string | null } => 
+  useNetworkStore((state: NetworkState) => ({
+    isLoading: state.isLoading,
+    error: state.error,
+  }))
+
+export const useNetworkSelectedMode = (): 'network' | 'supplier' | 'buyer' => 
+  useNetworkStore((state: NetworkState) => state.selectedMode)
+
+// Development helpers with proper type casting
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  ;(window as unknown as Record<string, unknown>).__networkStore = useNetworkStore
+  interface WindowWithDebugStore extends Window {
+    __networkStore?: typeof useNetworkStore
+  }
+  ;(window as WindowWithDebugStore).__networkStore = useNetworkStore
 }

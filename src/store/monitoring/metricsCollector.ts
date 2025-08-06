@@ -213,7 +213,7 @@ export const useMetricsCollector = create<MetricsCollectorState>()(
         },
       }
 
-      set((state) => {
+      set((state: MetricsCollectorState) => {
         const newInteractions = [...state.userInteractions, fullInteraction]
         // Efficient trimming: only remove first element if over limit
         if (newInteractions.length > state.maxStorageSize) {

@@ -129,7 +129,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
 
       // Start Web Vitals collection
       onCLS((metric) => {
-        set((state) => ({
+        set((state: PerformanceMonitorState) => ({
           webVitals: {
             ...state.webVitals,
             cls: metric.value,
@@ -139,7 +139,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       })
 
       onFCP((metric) => {
-        set((state) => ({
+        set((state: PerformanceMonitorState) => ({
           webVitals: {
             ...state.webVitals,
             fcp: metric.value,
@@ -149,7 +149,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       })
 
       onINP((metric) => {
-        set((state) => ({
+        set((state: PerformanceMonitorState) => ({
           webVitals: {
             ...state.webVitals,
             fid: metric.value,
@@ -159,7 +159,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       })
 
       onLCP((metric) => {
-        set((state) => ({
+        set((state: PerformanceMonitorState) => ({
           webVitals: {
             ...state.webVitals,
             lcp: metric.value,
@@ -169,7 +169,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       })
 
       onTTFB((metric) => {
-        set((state) => ({
+        set((state: PerformanceMonitorState) => ({
           webVitals: {
             ...state.webVitals,
             ttfb: metric.value,
@@ -190,7 +190,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
         const extendedPerformance = performance as ExtendedPerformance
         if (extendedPerformance.memory) {
           const memInfo = extendedPerformance.memory
-          set((state) => ({
+          set((state: PerformanceMonitorState) => ({
             metrics: {
               ...state.metrics,
               memoryUsage: memInfo.usedJSHeapSize,
@@ -199,7 +199,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
         }
 
         // Update metrics history
-        set((state) => {
+        set((state: PerformanceMonitorState) => {
           const newHistory = [...state.metricsHistory, state.metrics].slice(-state.maxHistorySize)
           return { metricsHistory: newHistory }
         })
@@ -226,7 +226,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       const state = get()
       if (!state.isEnabled || Math.random() > state.samplingRate) return
 
-      set((state) => {
+      set((state: PerformanceMonitorState) => {
         const newHistory = [...state.stateChangeHistory, metric].slice(-state.maxHistorySize)
         
         // Update store-specific metrics
@@ -277,7 +277,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       const state = get()
       if (!state.isEnabled) return
 
-      set((state) => ({
+      set((state: PerformanceMonitorState) => ({
         metrics: {
           ...state.metrics,
           queryCacheSize: queryMetrics.cacheSize,
@@ -289,7 +289,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
       const state = get()
       if (!state.isEnabled) return
 
-      set((state) => {
+      set((state: PerformanceMonitorState) => {
         const storeMetrics = new Map(state.storeMetrics)
         const existing = storeMetrics.get(storeName) || {
           name: storeName,
@@ -345,7 +345,7 @@ export const usePerformanceMonitor = create<PerformanceMonitorState>()(
     },
 
     updateConfig: (config: Partial<PerformanceMonitorConfig>) => {
-      set((state) => ({
+      set((state: PerformanceMonitorState) => ({
         isEnabled: config.isEnabled ?? state.isEnabled,
         samplingRate: config.samplingRate ?? state.samplingRate,
         maxHistorySize: config.maxHistorySize ?? state.maxHistorySize,

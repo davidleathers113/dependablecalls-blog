@@ -329,7 +329,7 @@ const initialState = {
   },
   _optimization: {
     autoOptimizationEnabled: false,
-    optimizationGoals: ['quality'],
+    optimizationGoals: ['quality'] as Array<'volume' | 'quality' | 'revenue' | 'compliance'>,
     lastOptimizationRun: undefined,
     optimizationHistory: [],
   },
@@ -396,64 +396,64 @@ const enhanceLeadSource = (source: LeadSource): EnhancedLeadSource => ({
 const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => ({
   ...initialState,
 
-  // Simple setters
-  setListings: (listings) => {
-    set((state) => {
+  // Simple setters with explicit parameter types
+  setListings: (listings: EnhancedCallListing[]) => {
+    set((state: SupplierState) => {
       state.listings = listings
     })
   },
 
-  setInventory: (inventory) => {
-    set((state) => {
+  setInventory: (inventory: InventoryItem[]) => {
+    set((state: SupplierState) => {
       state.inventory = inventory
     })
   },
 
-  setMetrics: (metrics) => {
-    set((state) => {
+  setMetrics: (metrics: SalesMetrics) => {
+    set((state: SupplierState) => {
       state.metrics = metrics
     })
   },
 
-  setSales: (sales) => {
-    set((state) => {
+  setSales: (sales: Sale[]) => {
+    set((state: SupplierState) => {
       state.sales = sales
     })
   },
 
-  setLeadSources: (leadSources) => {
-    set((state) => {
+  setLeadSources: (leadSources: EnhancedLeadSource[]) => {
+    set((state: SupplierState) => {
       state.leadSources = leadSources
     })
   },
 
-  setQualityScoring: (qualityScoring) => {
-    set((state) => {
+  setQualityScoring: (qualityScoring: QualityScoring[]) => {
+    set((state: SupplierState) => {
       state.qualityScoring = qualityScoring
     })
   },
 
-  setDashboardData: (dashboardData) => {
-    set((state) => {
+  setDashboardData: (dashboardData: SupplierDashboardData) => {
+    set((state: SupplierState) => {
       state.dashboardData = dashboardData
     })
   },
 
-  setLoading: (loading) => {
-    set((state) => {
+  setLoading: (loading: boolean) => {
+    set((state: SupplierState) => {
       state.loading = loading
     })
   },
 
-  setError: (error) => {
-    set((state) => {
+  setError: (error: string | null) => {
+    set((state: SupplierState) => {
       state.error = error
     })
   },
 
   // Create listing
   createListing: async (listing: CallListingForm): Promise<CallListing> => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -515,7 +515,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
       const enhancedListing = enhanceListing(newListing)
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.listings = [...state.listings, enhancedListing]
         state.loading = false
       })
@@ -523,7 +523,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
       return newListing
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create listing'
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = errorMessage
         state.loading = false
       })
@@ -533,7 +533,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Update listing
   updateListing: async (id: string, updates: Partial<CallListingForm>) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -558,14 +558,14 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
       await SupplierDataService.updateCampaign(id, campaignUpdates)
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.listings = state.listings.map(listing =>
           listing.id === id ? { ...listing, ...updates } : listing
         )
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to update listing'
         state.loading = false
       })
@@ -574,7 +574,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Delete listing
   deleteListing: async (id: string) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -582,12 +582,12 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
     try {
       await SupplierDataService.deleteCampaign(id)
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.listings = state.listings.filter(listing => listing.id !== id)
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to delete listing'
         state.loading = false
       })
@@ -596,7 +596,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Bulk upload
   bulkUpload: async (_file: File): Promise<BulkUploadResult> => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -620,14 +620,14 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
       // Refresh listings after bulk upload
       await get().fetchListings()
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.loading = false
       })
 
       return mockResult
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to bulk upload'
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = errorMessage
         state.loading = false
       })
@@ -637,7 +637,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Update pricing strategy
   updatePricing: async (listingId: string, strategy: PricingStrategyForm) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -647,11 +647,11 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         await get().updateListing(listingId, { price_per_call: strategy.base_price })
       }
       
-      set((state) => {
+      set((state: SupplierState) => {
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to update pricing'
         state.loading = false
       })
@@ -660,7 +660,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Fetch listings
   fetchListings: async () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -706,12 +706,12 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         return enhanceListing(baseListing)
       })
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.listings = listings
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch listings'
         state.loading = false
       })
@@ -720,19 +720,19 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Fetch inventory
   fetchInventory: async () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
 
     try {
       // Mock implementation
-      set((state) => {
+      set((state: SupplierState) => {
         state.inventory = []
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch inventory'
         state.loading = false
       })
@@ -741,7 +741,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Enhanced listing management
   updateListingAnalytics: (listingId: string, analytics: EnhancedCallListing['_analytics']) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.listings = state.listings.map(listing =>
         listing.id === listingId ? { ...listing, _analytics: analytics } : listing
       )
@@ -749,7 +749,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
   },
 
   updateListingCompliance: (listingId: string, compliance: EnhancedCallListing['_compliance']) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.listings = state.listings.map(listing =>
         listing.id === listingId ? { ...listing, _compliance: compliance } : listing
       )
@@ -757,7 +757,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
   },
 
   runAIOptimization: async (listingId: string) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -781,14 +781,14 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         lastAnalysis: new Date().toISOString(),
       }
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.listings = state.listings.map(listing =>
           listing.id === listingId ? { ...listing, _aiInsights: mockInsights } : listing
         )
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to run AI optimization'
         state.loading = false
       })
@@ -797,7 +797,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Fetch sales metrics - NEVER PERSISTED
   fetchMetrics: async () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -808,12 +808,12 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
       const metrics = await SupplierDataService.generateMockMetrics()
       
-      set((state) => {
+      set((state: SupplierState) => {
         state.metrics = metrics
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch metrics'
         state.loading = false
       })
@@ -822,7 +822,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Fetch sales - NEVER PERSISTED
   fetchSales: async () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -862,12 +862,12 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         }
       })
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.sales = sales
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch sales'
         state.loading = false
       })
@@ -876,7 +876,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Export sales data - FINANCIAL DATA NOT PERSISTED
   exportSalesData: async (format: 'csv' | 'pdf', timeframe: string) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -922,11 +922,11 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         URL.revokeObjectURL(url)
       }
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to export data'
         state.loading = false
       })
@@ -935,7 +935,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Create lead source
   createLeadSource: async (source: LeadSourceForm): Promise<LeadSource> => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -965,7 +965,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
       const enhancedSource = enhanceLeadSource(newSource)
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.leadSources = [...state.leadSources, enhancedSource]
         state.loading = false
       })
@@ -973,7 +973,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
       return newSource
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create lead source'
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = errorMessage
         state.loading = false
       })
@@ -983,20 +983,20 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Update lead source
   updateLeadSource: async (id: string, updates: Partial<LeadSourceForm>) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
 
     try {
-      set((state) => {
+      set((state: SupplierState) => {
         state.leadSources = state.leadSources.map(source =>
           source.id === id ? { ...source, ...updates } : source
         )
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to update lead source'
         state.loading = false
       })
@@ -1005,18 +1005,18 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Delete lead source
   deleteLeadSource: async (id: string) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
 
     try {
-      set((state) => {
+      set((state: SupplierState) => {
         state.leadSources = state.leadSources.filter(source => source.id !== id)
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to delete lead source'
         state.loading = false
       })
@@ -1025,19 +1025,19 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Fetch lead sources
   fetchLeadSources: async () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
 
     try {
       // Mock implementation
-      set((state) => {
+      set((state: SupplierState) => {
         state.leadSources = []
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch lead sources'
         state.loading = false
       })
@@ -1046,7 +1046,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Analyze lead quality
   analyzeLeadQuality: async (leadId: string): Promise<QualityScoring> => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -1075,7 +1075,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         created_at: new Date().toISOString()
       }
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.qualityScoring = [...state.qualityScoring, mockQualityScoring]
         state.loading = false
       })
@@ -1083,7 +1083,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
       return mockQualityScoring
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to analyze lead quality'
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = errorMessage
         state.loading = false
       })
@@ -1093,7 +1093,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Enhanced lead source management
   updateLeadSourceAttribution: (sourceId: string, attribution: EnhancedLeadSource['_attribution']) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.leadSources = state.leadSources.map(source =>
         source.id === sourceId ? { ...source, _attribution: attribution } : source
       )
@@ -1101,7 +1101,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
   },
 
   updateFraudPrevention: (sourceId: string, fraudData: EnhancedLeadSource['_fraudPrevention']) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.leadSources = state.leadSources.map(source =>
         source.id === sourceId ? { ...source, _fraudPrevention: fraudData } : source
       )
@@ -1109,7 +1109,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
   },
 
   runPredictiveAnalysis: async (sourceId: string) => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -1126,14 +1126,14 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         lastPrediction: new Date().toISOString(),
       }
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.leadSources = state.leadSources.map(source =>
           source.id === sourceId ? { ...source, _predictiveAnalytics: mockAnalytics } : source
         )
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to run predictive analysis'
         state.loading = false
       })
@@ -1142,7 +1142,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Fetch dashboard data - NEVER PERSISTED
   fetchDashboardData: async () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
@@ -1165,12 +1165,12 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
         }
       }
 
-      set((state) => {
+      set((state: SupplierState) => {
         state.dashboardData = mockDashboardData
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch dashboard data'
         state.loading = false
       })
@@ -1179,7 +1179,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Compliance and optimization actions
   updateSupplierCompliance: (compliance: Partial<SupplierCompliance>) => {
-    set((state) => {
+    set((state: SupplierState) => {
       if (state._supplierCompliance) {
         Object.assign(state._supplierCompliance, compliance)
       }
@@ -1187,7 +1187,7 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
   },
 
   updateOptimizationSettings: (settings: Partial<OptimizationSettings>) => {
-    set((state) => {
+    set((state: SupplierState) => {
       if (state._optimization) {
         Object.assign(state._optimization, settings)
       }
@@ -1195,21 +1195,21 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
   },
 
   runComplianceAudit: async () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.loading = true
       state.error = null
     })
 
     try {
       // Mock compliance audit
-      set((state) => {
+      set((state: SupplierState) => {
         if (state._supplierCompliance) {
           state._supplierCompliance.lastAuditDate = new Date().toISOString()
         }
         state.loading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: SupplierState) => {
         state.error = error instanceof Error ? error.message : 'Failed to run compliance audit'
         state.loading = false
       })
@@ -1218,13 +1218,13 @@ const createSupplierState: StandardStateCreator<SupplierState> = (set, get) => (
 
   // Utility actions
   clearError: () => {
-    set((state) => {
+    set((state: SupplierState) => {
       state.error = null
     })
   },
 
   reset: () => {
-    set((state) => {
+    set((state: SupplierState) => {
       // Reset to initial state but preserve compliance and optimization settings
       const compliance = state._supplierCompliance
       const optimization = state._optimization
@@ -1241,7 +1241,7 @@ export const useSupplierStore = createStandardStore<SupplierState>({
   creator: createSupplierState,
   persist: {
     // SECURITY CRITICAL: Only persist business data, NO financial information
-    partialize: (state): Partial<SupplierState> => ({
+    partialize: (state: SupplierState) => ({
       listings: state.listings,
       leadSources: state.leadSources,
       _supplierCompliance: state._supplierCompliance,

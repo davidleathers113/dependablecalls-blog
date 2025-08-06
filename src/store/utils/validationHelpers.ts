@@ -1,6 +1,9 @@
 /**
  * Validation Helper Utilities
  * Provides utilities for runtime validation middleware
+ * 
+ * PERFORMANCE: Uses native APIs when available
+ * SECURITY: No regex patterns, proper data sanitization
  */
 
 /**
@@ -47,26 +50,36 @@ export function deepMerge<T extends object>(
 /**
  * Mask sensitive PII data for safe logging
  * Replaces values with asterisks while preserving structure
+ * SECURITY: Always masks regardless of environment
  */
 export function maskPIIValue(value: unknown, path: string): string {
-  // Sensitive field patterns
-  const sensitivePatterns = [
-    /password/i,
-    /secret/i,
-    /token/i,
-    /key/i,
-    /ssn/i,
-    /social.*security/i,
-    /credit.*card/i,
-    /phone/i,
-    /email/i,
-    /address/i,
-    /dob|birth.*date/i,
-    /name/i,
+  // Sensitive field keywords (NO REGEX - uses simple string matching)
+  const sensitiveKeywords = [
+    'password',
+    'secret',
+    'token',
+    'key',
+    'ssn',
+    'social',
+    'security',
+    'credit',
+    'card',
+    'phone',
+    'email',
+    'address',
+    'dob',
+    'birth',
+    'date',
+    'name',
+    'api',
+    'auth',
+    'bearer',
+    'private'
   ]
   
-  // Check if field name matches sensitive patterns
-  const isSensitive = sensitivePatterns.some(pattern => pattern.test(path))
+  // Check if field name contains sensitive keywords (case-insensitive)
+  const pathLower = path.toLowerCase()
+  const isSensitive = sensitiveKeywords.some(keyword => pathLower.includes(keyword))
   
   if (!isSensitive) {
     return String(value)
@@ -189,6 +202,11 @@ export class RateLimiter {
  * Create a memoized debounce function
  * Prevents recreation on each instantiation
  */
+/**
+ * Create a memoized debounce function
+ * Prevents recreation on each instantiation
+ * @deprecated Use lodash.debounce instead for better edge case handling
+ */
 export function createDebouncedFunction<T extends (...args: readonly unknown[]) => unknown>(
   fn: T,
   delay: number
@@ -205,4 +223,64 @@ export function createDebouncedFunction<T extends (...args: readonly unknown[]) 
   }
   
   return { debounced, cancel }
+}
+
+/**
+ * Create a structured clone of an object
+ * Uses native structuredClone when available, falls back to JSON parse/stringify
+ * PERFORMANCE: Native API is much faster than deep merge
+ */
+export function createStructuredClone<T>(obj: T): T | undefined {
+  try {
+    // Use native structuredClone if available (Node 17+, modern browsers)
+    if (typeof globalThis !== 'undefined' && 'structuredClone' in globalThis) {
+      return globalThis.structuredClone(obj)
+    }
+    
+    // Fallback to JSON parse/stringify for simple objects
+    // Note: This won't preserve functions, undefined, symbols, dates as Date objects, etc.
+    return JSON.parse(JSON.stringify(obj))
+  } catch (_error) {
+    // If cloning fails, return undefined to trigger fallback to deepMerge
+    return undefined
+  }
+}
+
+/**
+ * PIIScanQueue - Specialized queue for PII scanning operations
+ * Extends ValidationQueue with PII-specific functionality
+ */
+export class PIIScanQueue extends ValidationQueue {
+  private scanCount = 0
+  private readonly maxScansPerMinute = 60
+  private lastResetTime = Date.now()
+  
+  /**
+   * Add a PII scan task to the queue with rate limiting
+   */
+  async enqueue<T>(task: () => Promise<T>): Promise<T> {
+    // Reset counter every minute
+    const now = Date.now()
+    if (now - this.lastResetTime > 60000) {
+      this.scanCount = 0
+      this.lastResetTime = now
+    }
+    
+    // Enforce rate limit
+    if (this.scanCount >= this.maxScansPerMinute) {
+      throw new Error('PII scan rate limit exceeded')
+    }
+    
+    this.scanCount++
+    return super.enqueue(task)
+  }
+  
+  /**
+   * Get current scan statistics
+   */
+  getStats(): { scanCount: number; timeUntilReset: number } {
+    const now = Date.now()
+    const timeUntilReset = Math.max(0, 60000 - (now - this.lastResetTime))
+    return { scanCount: this.scanCount, timeUntilReset }
+  }
 }

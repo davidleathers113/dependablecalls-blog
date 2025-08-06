@@ -1,14 +1,14 @@
 /**
  * Auth-related hooks extracted from AuthHydrationGate for React Refresh compatibility
  */
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore, type AuthState } from '../../store/authStore'
 
 /**
  * Hook to check if auth store has fully hydrated
  * Useful for conditional rendering based on hydration state
  */
 export function useAuthHydrated(): boolean {
-  return useAuthStore((state) => state._hasHydrated)
+  return useAuthStore((state: AuthState) => state._hasHydrated)
 }
 
 /**
@@ -16,5 +16,5 @@ export function useAuthHydrated(): boolean {
  * Combines hydration status with loading state
  */
 export function useAuthReady(): boolean {
-  return useAuthStore((state) => state._hasHydrated && !state.loading)
+  return useAuthStore((state: AuthState) => state._hasHydrated && !state.loading)
 }

@@ -140,18 +140,14 @@ export const useStateDebugger = create<StateDebuggerState>()(
 
       const snapshotId = state.createSnapshot(storeName, newState, action)
       
-      set((state) => {
-        const newHistory = {
+      set((state: StateDebuggerState) => ({
+        history: {
           ...state.history,
           snapshots: [...state.history.snapshots, snapshotId].slice(-state.history.maxHistory),
           currentIndex: state.history.snapshots.length,
-        }
-
-        return {
-          history: newHistory,
-          currentSnapshot: snapshotId,
-        }
-      })
+        },
+        currentSnapshot: snapshotId,
+      }))
     },
 
     createSnapshot: (storeName: string, state: unknown, action?: StateAction): string => {
@@ -164,12 +160,15 @@ export const useStateDebugger = create<StateDebuggerState>()(
       // Generate diff if we have a previous snapshot
       let diff: StateDiff | undefined
       const currentState = get()
-      const previousSnapshots = [...currentState.snapshots.values()]
-        .filter(s => s.storeName === storeName)
+      const previousSnapshots = (Array.from(currentState.snapshots.values()) as StateSnapshot[])
+        .filter((s) => s.storeName === storeName)
         .sort((a, b) => b.timestamp - a.timestamp)
       
       if (previousSnapshots.length > 0) {
-        diff = generateDiff(previousSnapshots[0].state, state)
+        const previousSnapshot = previousSnapshots[0]
+        if (previousSnapshot) {
+          diff = generateDiff(previousSnapshot.state, state)
+        }
       }
 
       const snapshot: StateSnapshot = {
@@ -190,7 +189,7 @@ export const useStateDebugger = create<StateDebuggerState>()(
         },
       }
 
-      set((state) => ({
+      set((state: StateDebuggerState) => ({
         snapshots: new Map(state.snapshots).set(snapshotId, snapshot),
       }))
 
@@ -268,7 +267,7 @@ export const useStateDebugger = create<StateDebuggerState>()(
     },
 
     addHistoryFilter: (filter: HistoryFilter) => {
-      set((state) => ({
+      set((state: StateDebuggerState) => ({
         history: {
           ...state.history,
           filters: [...state.history.filters, filter],
@@ -277,10 +276,10 @@ export const useStateDebugger = create<StateDebuggerState>()(
     },
 
     removeHistoryFilter: (filterIndex: number) => {
-      set((state) => ({
+      set((state: StateDebuggerState) => ({
         history: {
           ...state.history,
-          filters: state.history.filters.filter((_, i) => i !== filterIndex),
+          filters: state.history.filters.filter((_: HistoryFilter, i: number) => i !== filterIndex),
         },
       }))
     },
@@ -329,7 +328,7 @@ export const useStateDebugger = create<StateDebuggerState>()(
       const state = get()
       if (!state.isRecording) return
 
-      set((state) => {
+      set((state: StateDebuggerState) => {
         const transitions = state.stateMachineTransitions.get(transition.id) || []
         const updatedTransitions = [...transitions, transition].slice(-100) // Keep last 100 transitions
 
@@ -360,7 +359,7 @@ export const useStateDebugger = create<StateDebuggerState>()(
       const state = get()
       if (!state.isRecording) return
 
-      set((state) => {
+      set((state: StateDebuggerState) => {
         const existing = state.selectorDependencies.get(selectorName) || {
           selectorName,
           dependencies: [],
@@ -387,9 +386,9 @@ export const useStateDebugger = create<StateDebuggerState>()(
 
     buildSelectorGraph: () => {
       const state = get()
-      const dependencies = Array.from(state.selectorDependencies.values())
+      const dependencies = Array.from(state.selectorDependencies.values()) as SelectorDependency[]
       
-      const nodes = dependencies.map(dep => ({
+      const nodes = dependencies.map((dep) => ({
         id: dep.selectorName,
         name: dep.selectorName,
         type: 'selector' as const,
@@ -398,8 +397,8 @@ export const useStateDebugger = create<StateDebuggerState>()(
         cacheEfficiency: dep.cacheHits / (dep.cacheHits + dep.cacheMisses),
       }))
 
-      const edges = dependencies.flatMap(dep =>
-        dep.dependencies.map(depName => ({
+      const edges = dependencies.flatMap((dep) =>
+        dep.dependencies.map((depName) => ({
           from: depName,
           to: dep.selectorName,
           weight: 1,
@@ -439,13 +438,15 @@ export const useStateDebugger = create<StateDebuggerState>()(
       
       // Group snapshots by store
       const storeSnapshots = new Map<string, StateSnapshot[]>()
-      for (const snapshot of state.snapshots.values()) {
-        const existing = storeSnapshots.get(snapshot.storeName) || []
-        storeSnapshots.set(snapshot.storeName, [...existing, snapshot])
+      for (const snapshot of Array.from(state.snapshots.values())) {
+        if (isStateSnapshot(snapshot)) {
+          const existing = storeSnapshots.get(snapshot.storeName) || []
+          storeSnapshots.set(snapshot.storeName, [...existing, snapshot])
+        }
       }
 
       // Check for continuously growing state
-      for (const [storeName, snapshots] of storeSnapshots) {
+      for (const [storeName, snapshots] of Array.from(storeSnapshots.entries())) {
         if (snapshots.length < 5) continue
 
         const recentSnapshots = snapshots.slice(-5)
@@ -472,12 +473,14 @@ export const useStateDebugger = create<StateDebuggerState>()(
 
       // Group snapshots by store
       const storeSnapshots = new Map<string, StateSnapshot[]>()
-      for (const snapshot of state.snapshots.values()) {
-        const existing = storeSnapshots.get(snapshot.storeName) || []
-        storeSnapshots.set(snapshot.storeName, [...existing, snapshot])
+      for (const snapshot of Array.from(state.snapshots.values())) {
+        if (isStateSnapshot(snapshot)) {
+          const existing = storeSnapshots.get(snapshot.storeName) || []
+          storeSnapshots.set(snapshot.storeName, [...existing, snapshot])
+        }
       }
 
-      for (const [storeName, snapshots] of storeSnapshots) {
+      for (const [storeName, snapshots] of Array.from(storeSnapshots.entries())) {
         if (snapshots.length < 3) {
           stable.push(storeName)
           continue
@@ -500,6 +503,24 @@ export const useStateDebugger = create<StateDebuggerState>()(
     },
   }))
 )
+
+// ==================== Type Guards ====================
+
+function isStateSnapshot(obj: unknown): obj is StateSnapshot {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'id' in obj &&
+    'timestamp' in obj &&
+    'storeName' in obj &&
+    'state' in obj &&
+    'metadata' in obj &&
+    typeof (obj as StateSnapshot).id === 'string' &&
+    typeof (obj as StateSnapshot).timestamp === 'number' &&
+    typeof (obj as StateSnapshot).storeName === 'string' &&
+    typeof (obj as StateSnapshot).metadata === 'object'
+  )
+}
 
 // ==================== Utility Functions ====================
 

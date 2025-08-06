@@ -17,6 +17,7 @@ import type { StandardStateCreator } from './types/mutators'
 import { from, getSession } from '../lib/supabase-optimized'
 import { StorageFactory } from './utils/storage/encryptedStorage'
 import { DataClassification, StorageType } from './utils/dataClassification'
+import { createJSONStorage } from 'zustand/middleware'
 import type { Database } from '../types/database-extended'
 import type {
   MarketplaceListing,
@@ -273,7 +274,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
 
   // Financial data actions - NEVER PERSISTED for security
   fetchBalance: async (buyerId: string) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -281,13 +282,13 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
     try {
       const { currentBalance, creditLimit } = await BuyerDataService.fetchBalance(buyerId)
       
-      set((state) => {
+      set((state: BuyerState) => {
         state.currentBalance = currentBalance
         state.creditLimit = creditLimit
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch balance'
         state.isLoading = false
       })
@@ -295,14 +296,14 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   updateBalance: (newBalance: number) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.currentBalance = newBalance
     })
   },
 
   // Campaign management actions
   fetchCampaigns: async (buyerId: string) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -320,12 +321,12 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
         }
       }))
 
-      set((state) => {
+      set((state: BuyerState) => {
         state.campaigns = enhancedCampaigns
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch campaigns'
         state.isLoading = false
       })
@@ -333,7 +334,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   updateCampaign: (campaignId: string, updates: Partial<Campaign>) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.campaigns = state.campaigns.map((campaign) =>
         campaign.id === campaignId ? { ...campaign, ...updates } : campaign
       )
@@ -341,57 +342,57 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   updateCampaignPrivacy: (campaignId: string, privacy: PrivacyControls) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.campaigns = state.campaigns.map((campaign) =>
         campaign.id === campaignId ? { ...campaign, _privacy: privacy } : campaign
       )
     })
   },
 
-  // Simple setters
-  setListings: (listings) => {
-    set((state) => {
+  // Simple setters with explicit parameter types
+  setListings: (listings: MarketplaceListing[]) => {
+    set((state: BuyerState) => {
       state.listings = listings
     })
   },
 
-  setSearchFilters: (searchFilters) => {
-    set((state) => {
+  setSearchFilters: (searchFilters: SearchFilters) => {
+    set((state: BuyerState) => {
       state.searchFilters = searchFilters
     })
   },
 
-  setSavedSearches: (savedSearches) => {
-    set((state) => {
+  setSavedSearches: (savedSearches: EnhancedSavedSearch[]) => {
+    set((state: BuyerState) => {
       state.savedSearches = savedSearches
     })
   },
 
-  setPurchases: (purchases) => {
+  setPurchases: (purchases: Purchase[]) => {
     const activePurchases = purchases.filter(p => 
       ['approved', 'active'].includes(p.status)
     )
-    set((state) => {
+    set((state: BuyerState) => {
       state.purchases = purchases
       state.activePurchases = activePurchases
     })
   },
 
-  setMetrics: (metrics) => {
-    set((state) => {
+  setMetrics: (metrics: BuyerMetrics) => {
+    set((state: BuyerState) => {
       state.metrics = metrics
     })
   },
 
-  setDashboardData: (dashboardData) => {
-    set((state) => {
+  setDashboardData: (dashboardData: BuyerDashboardData) => {
+    set((state: BuyerState) => {
       state.dashboardData = dashboardData
     })
   },
 
   // Async marketplace actions
   searchMarketplace: async (filters: SearchFilters) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -399,13 +400,13 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
     try {
       const listings = await BuyerDataService.generateMockListings(filters)
       
-      set((state) => {
+      set((state: BuyerState) => {
         state.listings = listings
         state.searchFilters = filters
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to search marketplace'
         state.isLoading = false
       })
@@ -413,7 +414,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   saveSearch: async (name: string, filters: SearchFilters, alertEnabled: boolean) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -439,12 +440,12 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
         }
       }
 
-      set((state) => {
+      set((state: BuyerState) => {
         state.savedSearches = [...state.savedSearches, newSearch]
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to save search'
         state.isLoading = false
       })
@@ -452,7 +453,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   createPurchase: async (request: PurchaseRequest): Promise<Purchase> => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -463,7 +464,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
 
       const newPurchase = await BuyerDataService.createMockPurchase(request, session.session.user.id)
       
-      set((state) => {
+      set((state: BuyerState) => {
         state.purchases = [...state.purchases, newPurchase]
         state.isLoading = false
       })
@@ -471,7 +472,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
       return newPurchase
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create purchase'
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = errorMessage
         state.isLoading = false
       })
@@ -480,7 +481,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   fetchPurchases: async () => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -490,12 +491,12 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
       if (!session.session?.user) throw new Error('Not authenticated')
 
       // Mock implementation - would be replaced with real service
-      set((state) => {
+      set((state: BuyerState) => {
         state.purchases = []
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch purchases'
         state.isLoading = false
       })
@@ -503,7 +504,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   fetchMetrics: async () => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -514,12 +515,12 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
 
       const metrics = await BuyerDataService.generateMockMetrics()
       
-      set((state) => {
+      set((state: BuyerState) => {
         state.metrics = metrics
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch metrics'
         state.isLoading = false
       })
@@ -527,7 +528,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   fetchDashboardData: async () => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -551,12 +552,12 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
         market_opportunities: []
       }
 
-      set((state) => {
+      set((state: BuyerState) => {
         state.dashboardData = mockDashboardData
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch dashboard data'
         state.isLoading = false
       })
@@ -565,20 +566,20 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
 
   // Purchase management actions
   cancelPurchase: async (purchaseId: string) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
 
     try {
-      set((state) => {
+      set((state: BuyerState) => {
         state.purchases = state.purchases.map(p =>
           p.id === purchaseId ? { ...p, status: 'cancelled' as const } : p
         )
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to cancel purchase'
         state.isLoading = false
       })
@@ -586,20 +587,20 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   pausePurchase: async (purchaseId: string) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
 
     try {
-      set((state) => {
+      set((state: BuyerState) => {
         state.purchases = state.purchases.map(p =>
           p.id === purchaseId ? { ...p, status: 'paused' as const } : p
         )
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to pause purchase'
         state.isLoading = false
       })
@@ -607,20 +608,20 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   resumePurchase: async (purchaseId: string) => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
 
     try {
-      set((state) => {
+      set((state: BuyerState) => {
         state.purchases = state.purchases.map(p =>
           p.id === purchaseId ? { ...p, status: 'active' as const } : p
         )
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to resume purchase'
         state.isLoading = false
       })
@@ -629,7 +630,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
 
   // GDPR compliance actions
   updateGDPRConsent: (consent: boolean, purposes: string[]) => {
-    set((state) => {
+    set((state: BuyerState) => {
       if (state._gdprCompliance) {
         state._gdprCompliance.consentDate = consent ? new Date().toISOString() : undefined
         state._gdprCompliance.dataProcessingPurposes = purposes
@@ -638,7 +639,7 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
   },
 
   requestDataDeletion: async () => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.isLoading = true
       state.error = null
     })
@@ -650,14 +651,14 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
       // Mock implementation - would trigger actual data deletion process
       console.log('Data deletion requested for user:', session.session.user.id)
       
-      set((state) => {
+      set((state: BuyerState) => {
         if (state._gdprCompliance) {
           state._gdprCompliance.rightToBeFororgotten = true
         }
         state.isLoading = false
       })
     } catch (error) {
-      set((state) => {
+      set((state: BuyerState) => {
         state.error = error instanceof Error ? error.message : 'Failed to request data deletion'
         state.isLoading = false
       })
@@ -683,13 +684,13 @@ const createBuyerState: StandardStateCreator<BuyerState> = (set, get) => ({
 
   // Utility actions
   clearError: () => {
-    set((state) => {
+    set((state: BuyerState) => {
       state.error = null
     })
   },
 
   reset: () => {
-    set((state) => {
+    set((state: BuyerState) => {
       // Reset to initial state but preserve GDPR compliance
       const gdprCompliance = state._gdprCompliance
       Object.assign(state, initialState)
@@ -705,7 +706,8 @@ export const useBuyerStore = createStandardStore<BuyerState>({
   persist: {
     // SECURITY CRITICAL: Only persist non-sensitive business data
     // Financial data (currentBalance, creditLimit) is NEVER persisted
-    partialize: (state): Partial<BuyerState> => ({
+    partialize: (state: BuyerState) => ({
+      ...state,
       campaigns: state.campaigns,
       savedSearches: state.savedSearches,
       _gdprCompliance: state._gdprCompliance,
@@ -717,10 +719,10 @@ export const useBuyerStore = createStandardStore<BuyerState>({
       // - purchases: may contain financial data
     }),
     // Use encrypted storage for business data (INTERNAL classification)
-    storage: StorageFactory.createZustandStorage(
+    storage: createJSONStorage(() => StorageFactory.createZustandStorage(
       DataClassification.INTERNAL,
       StorageType.LOCAL
-    ),
+    )),
   },
   monitoring: {
     enabled: true,

@@ -34,7 +34,7 @@ function getPerformanceNow(): number {
 
 // Store mutator types for Zustand v5 compatibility
 declare module 'zustand/vanilla' {
-  interface StoreMutators<S, _> {
+  interface StoreMutators<S, _A> {
     'zustand/immer': WithImmer<S>
   }
 }

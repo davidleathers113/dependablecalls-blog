@@ -5,8 +5,9 @@
  * and intelligent failure handling for the DCE platform.
  */
 
-import { DCEError, RecoveryStrategy, ErrorContext } from './errorTypes'
-import { ErrorHandlingConfig, ErrorHandlingContext } from '../middleware/errorHandling'
+import { DCEError } from './errorTypes'
+import type { RecoveryStrategy, ErrorContext } from './errorTypes'
+import type { ErrorHandlingConfig, ErrorHandlingContext } from '../middleware/errorHandling'
 
 // Recovery Configuration
 // =====================
@@ -49,7 +50,7 @@ export interface RetryableOperation<T = unknown> {
 // Circuit Breaker State
 // ====================
 
-interface CircuitBreakerState {
+export interface CircuitBreakerState {
   failures: number
   lastFailureTime: number
   state: 'closed' | 'open' | 'half-open'
@@ -65,7 +66,7 @@ export class RecoveryManager {
   private config: RecoveryConfig
   private recoveryStrategies: Map<string, RecoveryStrategyHandler>
 
-  constructor(private errorConfig: ErrorHandlingConfig) {
+  constructor(errorConfig: ErrorHandlingConfig) {
     this.config = {
       maxAttempts: errorConfig.maxRecoveryAttempts || 3,
       baseDelay: 1000,
@@ -274,7 +275,11 @@ export class RecoveryManager {
 // =========================
 
 abstract class RecoveryStrategyHandler {
-  constructor(protected config: RecoveryConfig) {}
+  public config: RecoveryConfig
+  
+  constructor(config: RecoveryConfig) {
+    this.config = config
+  }
   
   abstract execute(
     error: DCEError, 
@@ -285,7 +290,7 @@ abstract class RecoveryStrategyHandler {
 
 class RetryRecoveryStrategy extends RecoveryStrategyHandler {
   async execute(
-    error: DCEError, 
+    _error: DCEError, 
     strategy: RecoveryStrategy, 
     context: ErrorHandlingContext
   ): Promise<boolean> {
@@ -306,9 +311,9 @@ class RetryRecoveryStrategy extends RecoveryStrategyHandler {
 
 class FallbackRecoveryStrategy extends RecoveryStrategyHandler {
   async execute(
-    error: DCEError, 
+    _error: DCEError, 
     strategy: RecoveryStrategy, 
-    context: ErrorHandlingContext
+    _context: ErrorHandlingContext
   ): Promise<boolean> {
     switch (strategy.action) {
       case 'showErrorMessage':
@@ -320,7 +325,7 @@ class FallbackRecoveryStrategy extends RecoveryStrategyHandler {
         return true
 
       case 'loadFallbackData':
-        await this.loadFallbackData(context)
+        await this.loadFallbackData(_context)
         return true
 
       default:
@@ -359,7 +364,7 @@ class FallbackRecoveryStrategy extends RecoveryStrategyHandler {
 
 class RedirectRecoveryStrategy extends RecoveryStrategyHandler {
   async execute(
-    error: DCEError, 
+    _error: DCEError, 
     strategy: RecoveryStrategy, 
     _context: ErrorHandlingContext  
   ): Promise<boolean> {
@@ -411,7 +416,7 @@ class RedirectRecoveryStrategy extends RecoveryStrategyHandler {
 
 class ValidationRecoveryStrategy extends RecoveryStrategyHandler {
   async execute(
-    error: DCEError, 
+    _error: DCEError, 
     strategy: RecoveryStrategy, 
     context: ErrorHandlingContext
   ): Promise<boolean> {
@@ -461,7 +466,7 @@ class ValidationRecoveryStrategy extends RecoveryStrategyHandler {
 
 class StateRecoveryStrategy extends RecoveryStrategyHandler {
   async execute(
-    error: DCEError, 
+    _error: DCEError, 
     strategy: RecoveryStrategy, 
     context: ErrorHandlingContext
   ): Promise<boolean> {
@@ -531,16 +536,21 @@ export function createRetryableOperation<T>(
 }
 
 export function isRetryableError(error: Error): boolean {
+  const errorMessage = error.message.toLowerCase()
+  
+  // Check for retryable error patterns using string methods
   const retryablePatterns = [
-    /timeout/i,
-    /network/i,
-    /server.*error/i,
-    /5\d\d/,
-    /rate.*limit/i,
-    /connection/i,
+    'timeout',
+    'network',
+    'connection',
+    'rate limit',
+    '500',
+    '502',
+    '503',
+    '504',
   ]
-
-  return retryablePatterns.some(pattern => pattern.test(error.message))
+  
+  return retryablePatterns.some(pattern => errorMessage.includes(pattern))
 }
 
 export function calculateNextRetryDelay(
@@ -559,11 +569,4 @@ export function calculateNextRetryDelay(
   }
 
   return Math.floor(delay)
-}
-
-// Export types
-export type {
-  RecoveryConfig,
-  RetryableOperation,
-  CircuitBreakerState,
 }

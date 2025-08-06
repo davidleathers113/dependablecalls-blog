@@ -220,7 +220,7 @@ export function getMostRestrictive(
  * Validate if data can be stored in a specific storage type
  */
 export function validateStorage(
-  data: unknown,
+  _data: unknown,
   classification: DataClassification,
   targetStorage: StorageType
 ): { valid: boolean; reason?: string } {
@@ -437,5 +437,4 @@ export class ClassificationValidator {
  */
 export const classificationValidator = new ClassificationValidator()
 
-// Export for use in store implementations
-export type { StoragePolicy, FieldClassification, StoreClassification }
+// Types already exported above, no need to re-export

@@ -5,7 +5,7 @@
 
 import { create } from 'zustand'
 import { devtools, subscribeWithSelector } from 'zustand/middleware'
-import type { StateCreator } from 'zustand'
+import type { StateCreator, StoreApi } from 'zustand'
 import type {
   DevToolsMessage,
   DevToolsState,
@@ -242,13 +242,13 @@ export const useDevToolsExtension = create<DevToolsExtensionState>()(
       connection.send(fullMessage.payload, fullMessage)
 
       // Store message locally
-      set((state) => ({
+      set((state: DevToolsExtensionState) => ({
         messages: [...state.messages, fullMessage].slice(-1000), // Keep last 1000 messages
       }))
     },
 
     updateConfig: (configUpdate: Partial<EnhancedDevToolsConfig>) => {
-      set((state) => ({
+      set((state: DevToolsExtensionState) => ({
         config: { ...state.config, ...configUpdate },
       }))
 
@@ -263,14 +263,14 @@ export const useDevToolsExtension = create<DevToolsExtensionState>()(
     },
 
     addFilter: (filter: DevToolsFilter) => {
-      set((state) => ({
+      set((state: DevToolsExtensionState) => ({
         filters: [...state.filters, filter],
       }))
     },
 
     removeFilter: (filterId: string) => {
-      set((state) => ({
-        filters: state.filters.filter((f) => {
+      set((state: DevToolsExtensionState) => ({
+        filters: state.filters.filter((f: DevToolsFilter) => {
           const filterWithId = f as DevToolsFilter & { id?: string }
           return filterWithId.id !== filterId
         }),
@@ -280,7 +280,7 @@ export const useDevToolsExtension = create<DevToolsExtensionState>()(
     recordStateSnapshot: (snapshot: StateSnapshot) => {
       if (!get().config.features.stateInspection) return
 
-      set((state) => ({
+      set((state: DevToolsExtensionState) => ({
         stateSnapshots: [...state.stateSnapshots, snapshot].slice(-500), // Keep last 500 snapshots
       }))
 
@@ -304,7 +304,7 @@ export const useDevToolsExtension = create<DevToolsExtensionState>()(
     recordStateMachineTransition: (transition: StateMachineTransition) => {
       if (!get().config.features.stateMachineDebugging) return
 
-      set((state) => {
+      set((state: DevToolsExtensionState) => {
         const existing = state.stateMachineData.get(transition.id) || []
         const updated = [...existing, transition].slice(-100) // Keep last 100 transitions per machine
         
@@ -475,8 +475,8 @@ function handleDispatchMessage(
       break
     case 'JUMP_TO_STATE':
       // Jump to specific state snapshot
-      if (payload?.actionId) {
-        set({ selectedSnapshot: payload.actionId })
+      if (payload?.actionId && typeof payload.actionId === 'string') {
+        set((state) => ({ ...state, selectedSnapshot: payload.actionId }))
       }
       break
   }
@@ -569,9 +569,9 @@ export function createEnhancedDevToolsMiddleware<T>(
 ) {
   const finalConfig = { ...defaultConfig, ...config }
   
-  return (f: StateCreator<T, [], [], T>, name?: string): StateCreator<T, [], [], T> => {
+  return (f: StateCreator<T, [], [], T>, name?: string): StateCreator<T, [['zustand/devtools', never], ['zustand/subscribeWithSelector', never]], [['zustand/devtools', never], ['zustand/subscribeWithSelector', never]], T> => {
     if (!finalConfig.enabled || process.env.NODE_ENV !== 'development') {
-      return f
+      return f as unknown as StateCreator<T, [['zustand/devtools', never], ['zustand/subscribeWithSelector', never]], [['zustand/devtools', never], ['zustand/subscribeWithSelector', never]], T>
     }
 
     return devtools(
@@ -587,7 +587,14 @@ export function createEnhancedDevToolsMiddleware<T>(
           (partial, replace) => {
             // Record performance metrics
             const startTime = performance.now()
-            set(partial, replace)
+            
+            // Fix set() overload issue with proper conditional typing
+            if (replace === true) {
+              const args = [partial, replace] as Parameters<typeof set>
+              set(...args)
+            } else {
+              set(partial)
+            }
             const endTime = performance.now()
             
             const newState = get()
@@ -613,7 +620,7 @@ export function createEnhancedDevToolsMiddleware<T>(
             devToolsExt.recordStateSnapshot(snapshot)
           },
           get,
-          api
+          api as StoreApi<T>
         )
 
         return store

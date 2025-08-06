@@ -4,6 +4,10 @@
  * Centralized exports for the complete error management system
  */
 
+import { createErrorHandlingMiddleware, createSafeAsync } from '../middleware/errorHandling'
+import { ErrorReporter } from './reporting'
+import { RecoveryManager } from './recovery'
+
 // Core Error Types
 export {
   DCEError,
@@ -101,7 +105,6 @@ export function createErrorManagementSystem(config: {
       breakOnErrors: false,
     },
   }
-
 
   return {
     middleware: createErrorHandlingMiddleware(errorHandlingConfig),

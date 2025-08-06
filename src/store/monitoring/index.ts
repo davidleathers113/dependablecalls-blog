@@ -81,6 +81,9 @@ export type {
   WindowWithMonitoring,
 } from './types'
 
+// Import WindowWithMonitoring for runtime use
+import type { WindowWithMonitoring } from './types'
+
 // ==================== Developer Console Setup ====================
 
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {

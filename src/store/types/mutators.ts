@@ -21,11 +21,12 @@ import type { DevtoolsOptions } from 'zustand/middleware'
 import type { PersistOptions } from 'zustand/middleware'
 
 // Define the standard mutator chain for all stores
+// Order: devtools (outermost) → persist → subscribeWithSelector → immer (innermost)
 export type StandardMutators = [
-  ['zustand/immer', never],
+  ['zustand/devtools', never],
+  ['zustand/persist', unknown], 
   ['zustand/subscribeWithSelector', never],
-  ['zustand/persist', unknown],
-  ['zustand/devtools', never]
+  ['zustand/immer', never]
 ]
 
 // Lightweight mutator chain for simple UI stores
@@ -34,6 +35,7 @@ export type LightweightMutators = [
 ]
 
 // Type helper for creating stores with standard middleware
+// This represents the innermost function signature that works with immer
 export type StandardStateCreator<T> = StateCreator<
   T,
   StandardMutators,
@@ -126,15 +128,21 @@ export function recordStoreUpdate(storeName: string, duration: number): void {
   }
 }
 
-// Export monitoring utilities for development
+// Export monitoring utilities for development with proper type casting
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as unknown as Record<string, unknown>).__dceStoreMetrics = {
-    getMetrics: (storeName?: string) => {
+  interface WindowWithStoreMetrics extends Window {
+    __dceStoreMetrics?: {
+      getMetrics: (storeName?: string) => PerformanceMetrics | Record<string, PerformanceMetrics> | undefined
+      clearMetrics: () => void
+    }
+  }
+  ;(window as WindowWithStoreMetrics).__dceStoreMetrics = {
+    getMetrics: (storeName?: string): PerformanceMetrics | Record<string, PerformanceMetrics> | undefined => {
       if (storeName) {
         return storeMetrics.get(storeName)
       }
       return Object.fromEntries(storeMetrics)
     },
-    clearMetrics: () => storeMetrics.clear(),
+    clearMetrics: (): void => storeMetrics.clear(),
   }
 }

@@ -120,7 +120,7 @@ class OptimizationCache<TState, TResult> {
     }
   }
 
-  private isDependencyValid(depKey: string, state: TState, cacheTimestamp: number): boolean {
+  private isDependencyValid(_depKey: string, _state: TState, cacheTimestamp: number): boolean {
     // Simple implementation - could be enhanced with deep comparison
     return Date.now() - cacheTimestamp < 5000 // 5 second TTL
   }

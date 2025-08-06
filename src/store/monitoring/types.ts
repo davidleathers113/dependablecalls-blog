@@ -82,7 +82,7 @@ export interface StateDiff {
 }
 
 export interface StateChangeHistory {
-  snapshots: StateSnapshot[]
+  snapshots: string[] // Array of snapshot IDs
   maxHistory: number
   currentIndex: number
   filters: HistoryFilter[]
@@ -298,6 +298,7 @@ export interface MonitoringError {
     queryKey?: string
     userAgent?: string
     url?: string
+    sizeKB?: number  // For performance monitoring of store size
   }
   resolved: boolean
 }

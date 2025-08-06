@@ -250,10 +250,11 @@ export const versionedPersistence = <
       if (schema) {
         const validation = validateWithSchema(storeName, currentVersion, persistedData)
         if (!validation.success) {
+          const errorMessage = validation.error.message
           if (opts.validation?.strict) {
-            throw new Error(`Validation failed for ${storeName}: ${validation.error.message}`)
+            throw new Error(`Validation failed for ${storeName}: ${errorMessage}`)
           } else {
-            console.warn(`⚠️ [${storeName}] Validation warning:`, validation.error.message)
+            console.warn(`⚠️ [${storeName}] Validation warning:`, errorMessage)
           }
         }
       }
@@ -285,7 +286,7 @@ export const versionedPersistence = <
       }
       
       // Update state with persistence timestamp
-      set((state: T & VersionedPersistenceState) => {
+      ;(set as (updater: (state: T & VersionedPersistenceState) => void) => void)((state: T & VersionedPersistenceState) => {
         state._lastPersisted = new Date().toISOString()
         return state
       })
@@ -351,7 +352,7 @@ export const versionedPersistence = <
             },
           ]
           
-          set((state: T & VersionedPersistenceState) => {
+          ;(set as (updater: (state: T & VersionedPersistenceState) => void) => void)((state: T & VersionedPersistenceState) => {
             state._migrationHistory = migrationHistory
             return state
           })
@@ -381,7 +382,7 @@ export const versionedPersistence = <
             },
           ]
           
-          set((state: T & VersionedPersistenceState) => {
+          ;(set as (updater: (state: T & VersionedPersistenceState) => void) => void)((state: T & VersionedPersistenceState) => {
             state._migrationHistory = migrationHistory
             return state
           })
@@ -395,10 +396,11 @@ export const versionedPersistence = <
         const targetVersion = Math.min(storedVersion, latestVersion)
         const validation = validateWithSchema(storeName, targetVersion, data)
         if (!validation.success) {
+          const errorMessage = validation.error.message
           if (opts.validation?.strict) {
-            throw new Error(`Validation failed for ${storeName}: ${validation.error.message}`)
+            throw new Error(`Validation failed for ${storeName}: ${errorMessage}`)
           } else {
-            console.warn(`⚠️ [${storeName}] Validation warning:`, validation.error.message)
+            console.warn(`⚠️ [${storeName}] Validation warning:`, errorMessage)
           }
         }
       }
@@ -406,7 +408,7 @@ export const versionedPersistence = <
       // Apply rehydrated data to state
       // Ensure data is an object type before spreading
       const rehydratedData = (typeof data === 'object' && data !== null) ? data as Record<string, unknown> : {}
-      set((state: T & VersionedPersistenceState) => {
+      ;(set as (updater: (state: T & VersionedPersistenceState) => void) => void)((state: T & VersionedPersistenceState) => {
         Object.assign(state, rehydratedData)
         state._version = latestVersion
         state._lastPersisted = new Date().toISOString()
@@ -464,7 +466,7 @@ export const versionedPersistence = <
     if (result.success) {
       // Ensure result.data is an object type before spreading
       const migrationData = (typeof result.data === 'object' && result.data !== null) ? result.data as Record<string, unknown> : {}
-      set((state: T & VersionedPersistenceState) => {
+      ;(set as (updater: (state: T & VersionedPersistenceState) => void) => void)((state: T & VersionedPersistenceState) => {
         Object.assign(state, migrationData)
         state._version = targetVersion
         return state

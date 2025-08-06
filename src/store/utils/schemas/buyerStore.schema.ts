@@ -25,7 +25,7 @@ const CampaignSchema = z.object({
   created_at: z.string(),
   updated_at: z.string().nullable(),
   is_active: z.boolean().nullable(),
-  priority: z.number().default(1),
+  priority: z.number().min(0).int(),
 })
 
 // Saved search schema
@@ -189,9 +189,7 @@ export {
 }
 
 // Export types with proper required fields
-export type Campaign = z.infer<typeof CampaignSchema> & {
-  priority: number // Ensure priority is always a number, never undefined
-}
+export type Campaign = z.infer<typeof CampaignSchema>
 export type SavedSearch = z.infer<typeof SavedSearchSchema>
 export type SearchFilters = z.infer<typeof SearchFiltersSchema>
 export type MarketplaceListing = z.infer<typeof MarketplaceListingSchema>
