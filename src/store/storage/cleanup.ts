@@ -516,13 +516,29 @@ export class StorageCleanupManager {
   }
 
   /**
-   * Validate data with schema (basic implementation)
+   * Validate data with schema using store name and version
    */
   private validateDataWithSchema(storeName: string, version: number, data: unknown): boolean {
     try {
-      // This would use the actual schema validation from the schema system
-      // For now, just check if data is a valid object
-      return typeof data === 'object' && data !== null
+      // Basic validation - data must be object with required structure
+      if (typeof data !== 'object' || data === null) {
+        return false
+      }
+
+      const dataObj = data as Record<string, unknown>
+      
+      // Store-specific validation based on name and version
+      switch (storeName) {
+        case 'auth-store':
+          return 'user' in dataObj && 'isAuthenticated' in dataObj
+        case 'settings-store':
+          return version >= 1 && ('userSettings' in dataObj || 'preferences' in dataObj)
+        case 'navigation':
+          return 'preferences' in dataObj && 'desktopSidebar' in dataObj
+        default:
+          // Generic validation - check for common store properties
+          return 'state' in dataObj || 'version' in dataObj || Object.keys(dataObj).length > 0
+      }
     } catch {
       return false
     }

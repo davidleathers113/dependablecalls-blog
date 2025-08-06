@@ -18,7 +18,7 @@ export interface StateMachine<TState> {
   state: TState
   previousState: TState | null
   transitions: StateTransition[]
-  canTransitionTo: (newType: string) => boolean
+  canTransitionTo: (newType: EnhancedNavigationState["type"]) => boolean
   transition: (newState: TState, reason?: string, metadata?: Record<string, unknown>) => void
   rollback: () => boolean
 }
@@ -299,7 +299,7 @@ const initialUserDropdown: NavigationElement = {
 
 // Initial state
 const initialState = {
-  loadingState: { status: 'idle' } as LoadingState,
+  loading: { isLoading: false, error: null } as LoadingState,
   
   // Navigation elements
   mobileMenu: initialMobileMenu,
@@ -351,7 +351,7 @@ const initialState = {
 export const useNavigationStore = create<NavigationSliceState>()(
   devtools(
     persist(
-      (set, get) => {
+      (set, get): NavigationSliceState => {
     
     // Helper function to update element state and state machine
     const updateElementState = (
@@ -430,7 +430,7 @@ export const useNavigationStore = create<NavigationSliceState>()(
 
     return {
       ...initialState,
-      ...createBaseActions(set),
+      ...createBaseActions(),
 
       // =======================================================================
       // Mobile Menu Actions
@@ -598,33 +598,217 @@ export const useNavigationStore = create<NavigationSliceState>()(
         updateElementState('user_dropdown', state, 'set_user_dropdown_state')
       },
 
-      // Stub implementations for other methods (shortened for brevity)
-      setFocusTrap: () => {},
-      restoreFocus: () => {},
-      setActiveElement: () => {},
-      updateTabSequence: () => {},
-      startAnimation: () => {},
-      stopAnimation: () => {},
-      updateAnimationProgress: () => {},
-      updatePreferences: () => {},
-      persistSidebarState: () => {},
-      enableReducedMotion: () => {},
-      openMenu: () => {},
-      closeMenu: () => {},
-      closeAllMenus: () => {},
-      toggleDropdown: () => {},
-      closeAllDropdowns: () => {},
-      setBreadcrumbs: () => {},
-      addBreadcrumb: () => {},
-      removeBreadcrumb: () => {},
-      clearBreadcrumbs: () => {},
-      getTransitionHistory: () => [],
-      rollbackState: () => false,
-      canTransitionTo: () => true,
-      debugStateMachines: () => {},
-      announceStateChange: () => {},
-      updateAriaStates: () => {},
-      batchStateUpdate: () => {},
+      // Focus management implementations
+      setFocusTrap: (enabled: boolean, elementId?: string) => {
+        set(state => ({ 
+          focusState: { 
+            ...state.focusState, 
+            focusTrapActive: enabled,
+            focusedElementId: elementId || null
+          } 
+        }))
+      },
+      restoreFocus: () => {
+        const { focusState } = get()
+        if (focusState.restoreFocusTo) {
+          const element = document.getElementById(focusState.restoreFocusTo)
+          element?.focus()
+        }
+      },
+      setActiveElement: (elementId: string | null) => {
+        set(state => ({ 
+          focusState: { ...state.focusState, activeElement: elementId } 
+        }))
+      },
+      updateTabSequence: (sequence: string[]) => {
+        set(state => ({ 
+          focusState: { ...state.focusState, tabSequence: sequence } 
+        }))
+      },
+      
+      // Animation implementations
+      startAnimation: (type: 'opening' | 'closing', duration = 300, easing = 'ease-in-out' as const) => {
+        set({ 
+          animationState: { 
+            isAnimating: true, 
+            animationType: type, 
+            startTime: Date.now(), 
+            duration, 
+            easing 
+          } 
+        })
+      },
+      stopAnimation: () => {
+        set({ 
+          animationState: { 
+            isAnimating: false, 
+            animationType: 'idle' as const, 
+            startTime: 0, 
+            duration: 0, 
+            easing: 'ease-in-out' as const 
+          } 
+        })
+      },
+      updateAnimationProgress: (progress: number) => {
+        set(state => ({ 
+          animationState: { ...state.animationState, startTime: Date.now() - (progress * state.animationState.duration) } 
+        }))
+      },
+      
+      // Preferences implementations
+      updatePreferences: (prefs: Partial<NavigationPreferences>) => {
+        set(state => ({ 
+          preferences: { ...state.preferences, ...prefs } 
+        }))
+      },
+      persistSidebarState: (collapsed: boolean) => {
+        set(state => ({ 
+          preferences: { ...state.preferences, sidebarCollapsed: collapsed } 
+        }))
+      },
+      enableReducedMotion: (enabled: boolean) => {
+        set(state => ({ 
+          preferences: { ...state.preferences, reducedMotion: enabled } 
+        }))
+      },
+      
+      // Menu management implementations
+      openMenu: (menuId: string) => {
+        set(state => {
+          const newMenus = new Set(state.activeMenus)
+          newMenus.add(menuId)
+          return { activeMenus: newMenus }
+        })
+      },
+      closeMenu: (menuId: string) => {
+        set(state => {
+          const newMenus = new Set(state.activeMenus)
+          newMenus.delete(menuId)
+          return { activeMenus: newMenus }
+        })
+      },
+      closeAllMenus: () => {
+        set({ activeMenus: new Set() })
+      },
+      toggleDropdown: (dropdownId: string) => {
+        set(state => {
+          const newDropdowns = new Set(state.openedDropdowns)
+          if (newDropdowns.has(dropdownId)) {
+            newDropdowns.delete(dropdownId)
+          } else {
+            newDropdowns.add(dropdownId)
+          }
+          return { openedDropdowns: newDropdowns }
+        })
+      },
+      closeAllDropdowns: () => {
+        set({ openedDropdowns: new Set() })
+      },
+      
+      // Breadcrumb implementations
+      setBreadcrumbs: (breadcrumbs: Array<{ label: string; path: string; active: boolean }>) => {
+        set({ breadcrumbs })
+      },
+      addBreadcrumb: (label: string, path: string, makeActive = false) => {
+        set(state => {
+          const breadcrumbs = makeActive 
+            ? state.breadcrumbs.map(b => ({ ...b, active: false }))
+            : state.breadcrumbs
+          return { breadcrumbs: [...breadcrumbs, { label, path, active: makeActive }] }
+        })
+      },
+      removeBreadcrumb: (path: string) => {
+        set(state => ({ 
+          breadcrumbs: state.breadcrumbs.filter(b => b.path !== path) 
+        }))
+      },
+      clearBreadcrumbs: () => {
+        set({ breadcrumbs: [] })
+      },
+      
+      // State machine utilities
+      getTransitionHistory: (element: 'mobile_menu' | 'desktop_sidebar' | 'user_dropdown') => {
+        const stateMachine = element === 'mobile_menu' ? get().mobileMenuStateMachine :
+                           element === 'desktop_sidebar' ? get().sidebarStateMachine :
+                           get().userDropdownStateMachine
+        return stateMachine.transitions
+      },
+      rollbackState: (element: 'mobile_menu' | 'desktop_sidebar' | 'user_dropdown') => {
+        const stateMachine = element === 'mobile_menu' ? get().mobileMenuStateMachine :
+                           element === 'desktop_sidebar' ? get().sidebarStateMachine :
+                           get().userDropdownStateMachine
+        return stateMachine.rollback()
+      },
+      canTransitionTo: (element: 'mobile_menu' | 'desktop_sidebar' | 'user_dropdown', newState: EnhancedNavigationState['type']) => {
+        const stateMachine = element === 'mobile_menu' ? get().mobileMenuStateMachine :
+                           element === 'desktop_sidebar' ? get().sidebarStateMachine :
+                           get().userDropdownStateMachine
+        return stateMachine.canTransitionTo(newState)
+      },
+      debugStateMachines: () => {
+        console.log('Navigation State Machines:', {
+          mobileMenu: get().mobileMenuStateMachine,
+          sidebar: get().sidebarStateMachine,
+          userDropdown: get().userDropdownStateMachine
+        })
+      },
+      
+      // Accessibility implementations
+      announceStateChange: (_element: 'mobile_menu' | 'desktop_sidebar' | 'user_dropdown', message: string) => {
+        // Create or update aria-live region for screen readers
+        const announcement = document.getElementById('navigation-announcements') || 
+                           (() => {
+                             const el = document.createElement('div')
+                             el.id = 'navigation-announcements'
+                             el.className = 'sr-only'
+                             el.setAttribute('aria-live', 'polite')
+                             el.setAttribute('aria-atomic', 'true')
+                             document.body.appendChild(el)
+                             return el
+                           })()
+        announcement.textContent = message
+      },
+      updateAriaStates: () => {
+        // Update ARIA attributes based on current state
+        const state = get()
+        const mobileMenuEl = document.getElementById(state.mobileMenu.id)
+        const sidebarEl = document.getElementById(state.desktopSidebar.id)
+        const dropdownEl = document.getElementById(state.userDropdown.id)
+        
+        if (mobileMenuEl) {
+          mobileMenuEl.setAttribute('aria-expanded', 
+            (state.mobileMenu.state.type === 'expanded' || state.mobileMenu.state.type === 'overlay').toString())
+        }
+        if (sidebarEl) {
+          sidebarEl.setAttribute('aria-expanded', 
+            (state.desktopSidebar.state.type === 'expanded').toString())
+        }
+        if (dropdownEl) {
+          dropdownEl.setAttribute('aria-expanded', 
+            (state.userDropdown.state.type === 'expanded').toString())
+        }
+      },
+      
+      // Batch update implementation
+      batchStateUpdate: (updates: { 
+        mobileMenu?: Partial<NavigationElement>
+        desktopSidebar?: Partial<NavigationElement>
+        userDropdown?: Partial<NavigationElement>
+      }) => {
+        set(state => {
+          const newState: Partial<NavigationSliceState> = {}
+          if (updates.mobileMenu) {
+            newState.mobileMenu = { ...state.mobileMenu, ...updates.mobileMenu }
+          }
+          if (updates.desktopSidebar) {
+            newState.desktopSidebar = { ...state.desktopSidebar, ...updates.desktopSidebar }
+          }
+          if (updates.userDropdown) {
+            newState.userDropdown = { ...state.userDropdown, ...updates.userDropdown }
+          }
+          return newState
+        })
+      },
 
       // Reset functionality
       reset: () => set(initialState),
@@ -708,11 +892,50 @@ export const useNavigation = () => {
     preferences: store.preferences,
     
     // Loading state
-    isLoading: store.loadingState.status === 'loading',
-    error: store.loadingState.status === 'failed' ? store.loadingState.error : null,
+    isLoading: store.loading.isLoading,
+    error: store.loading.error,
     
-    // All actions from the store
-    ...store,
+    // Actions (explicitly list to avoid duplicates)
+    openMobileMenu: store.openMobileMenu,
+    closeMobileMenu: store.closeMobileMenu,
+    toggleMobileMenu: store.toggleMobileMenu,
+    setMobileMenuState: store.setMobileMenuState,
+    expandSidebar: store.expandSidebar,
+    collapseSidebar: store.collapseSidebar,
+    toggleSidebar: store.toggleSidebar,
+    setSidebarMini: store.setSidebarMini,
+    setSidebarState: store.setSidebarState,
+    openUserDropdown: store.openUserDropdown,
+    closeUserDropdown: store.closeUserDropdown,
+    toggleUserDropdown: store.toggleUserDropdown,
+    setUserDropdownState: store.setUserDropdownState,
+    setFocusTrap: store.setFocusTrap,
+    restoreFocus: store.restoreFocus,
+    setActiveElement: store.setActiveElement,
+    updateTabSequence: store.updateTabSequence,
+    startAnimation: store.startAnimation,
+    stopAnimation: store.stopAnimation,
+    updateAnimationProgress: store.updateAnimationProgress,
+    updatePreferences: store.updatePreferences,
+    persistSidebarState: store.persistSidebarState,
+    enableReducedMotion: store.enableReducedMotion,
+    openMenu: store.openMenu,
+    closeMenu: store.closeMenu,
+    closeAllMenus: store.closeAllMenus,
+    toggleDropdown: store.toggleDropdown,
+    closeAllDropdowns: store.closeAllDropdowns,
+    setBreadcrumbs: store.setBreadcrumbs,
+    addBreadcrumb: store.addBreadcrumb,
+    removeBreadcrumb: store.removeBreadcrumb,
+    clearBreadcrumbs: store.clearBreadcrumbs,
+    getTransitionHistory: store.getTransitionHistory,
+    rollbackState: store.rollbackState,
+    canTransitionTo: store.canTransitionTo,
+    debugStateMachines: store.debugStateMachines,
+    announceStateChange: store.announceStateChange,
+    updateAriaStates: store.updateAriaStates,
+    batchStateUpdate: store.batchStateUpdate,
+    reset: store.reset,
   }
 }
 
@@ -720,11 +943,5 @@ export const useNavigation = () => {
 // Export Types for Component Usage
 // =============================================================================
 
-export type { 
-  EnhancedNavigationState, 
-  NavigationElement, 
-  FocusState, 
-  AnimationState, 
-  NavigationPreferences,
-  NavigationSliceState 
-}
+// Note: All types are already exported at their definition points above
+// NavigationSliceState is exported as part of the interface definition

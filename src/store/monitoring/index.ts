@@ -154,8 +154,8 @@ export const DEFAULT_CONFIG = {
 /**
  * Initialize all monitoring systems with default configuration
  */
-export function initializeMonitoring(config: Partial<typeof DEFAULT_CONFIG> = {}) {
-  const finalConfig = { ...DEFAULT_CONFIG, ...config }
+export function initializeMonitoring(config?: unknown) {
+  const finalConfig = { ...DEFAULT_CONFIG, ...(config as Partial<typeof DEFAULT_CONFIG> || {}) }
   
   if (typeof window === 'undefined') return
   

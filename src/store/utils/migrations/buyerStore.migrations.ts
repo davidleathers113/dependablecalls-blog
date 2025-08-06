@@ -97,10 +97,14 @@ const BuyerPersistedV3Schema = z.object({
   campaigns: z.array(CampaignSchema.extend({
     // NEW: Privacy controls for campaign data
     _privacy: z.object({
-      sharePerformanceData: z.boolean().default(false),
-      shareWithNetwork: z.boolean().default(true),
-      anonymizeInReports: z.boolean().default(false),
-    }).optional(),
+      sharePerformanceData: z.boolean(),
+      shareWithNetwork: z.boolean(),
+      anonymizeInReports: z.boolean(),
+    }).optional().default({
+      sharePerformanceData: false,
+      shareWithNetwork: true,
+      anonymizeInReports: false,
+    }),
     // Ensure priority is properly typed as number
     priority: z.number().min(0).int(),
   })),
@@ -166,10 +170,14 @@ const buyerV2ToV3Migration: Migration<BuyerPersistedV2, BuyerPersistedV3> = {
 const BuyerPersistedV4Schema = z.object({
   campaigns: z.array(CampaignSchema.extend({
     _privacy: z.object({
-      sharePerformanceData: z.boolean().default(false),
-      shareWithNetwork: z.boolean().default(true),
-      anonymizeInReports: z.boolean().default(false),
-    }).optional(),
+      sharePerformanceData: z.boolean(),
+      shareWithNetwork: z.boolean(),
+      anonymizeInReports: z.boolean(),
+    }).optional().default({
+      sharePerformanceData: false,
+      shareWithNetwork: true,
+      anonymizeInReports: false,
+    }),
     // Ensure priority is properly typed as number
     priority: z.number().min(0).int(),
   })),

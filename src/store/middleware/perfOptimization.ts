@@ -230,11 +230,13 @@ export const perfOptimization = <T>(
       let optimizationEnabled = true
       let updateTimes: number[] = []
 
-      // Enhanced setState with metrics tracking
-      const enhancedSetState = (
+      // Enhanced setState with metrics tracking and proper overloads
+      function enhancedSetState(partial: T | Partial<T> | ((state: T) => T | Partial<T>), replace?: false): void
+      function enhancedSetState(state: T | ((state: T) => T), replace: true): void
+      function enhancedSetState(
         partial: T | Partial<T> | ((state: T) => T | Partial<T>),
-        replace?: boolean | undefined
-      ) => {
+        replace?: boolean
+      ): void {
         const startTime = performance.now()
 
         // Direct update using standard Zustand pattern

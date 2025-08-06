@@ -60,7 +60,7 @@ const PerformanceMonitoringExample: React.FC = () => {
   }
 
   const handleStartProfiling = () => {
-    performanceMonitor.startProfiling(10000) // 10 second profile
+    performanceMonitor.startMonitoring() // Start monitoring
   }
 
   if (!metrics) return <div>Loading performance metrics...</div>

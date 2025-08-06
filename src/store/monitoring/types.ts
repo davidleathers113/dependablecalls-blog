@@ -7,6 +7,15 @@ import type { StateCreator } from 'zustand'
 
 // ==================== Performance Metrics ====================
 
+export interface PerformanceMonitorConfig {
+  isEnabled: boolean
+  samplingRate: number
+  maxHistorySize: number
+  webVitalsEnabled: boolean
+  storeTrackingEnabled: boolean
+  queryTrackingEnabled: boolean
+}
+
 export interface PerformanceMetrics {
   storeUpdateFrequency: number
   selectorComputationTime: number
@@ -299,6 +308,11 @@ export interface MonitoringError {
     userAgent?: string
     url?: string
     sizeKB?: number  // For performance monitoring of store size
+    duration?: string
+    method?: string
+    status?: string
+    error?: string
+    [key: string]: unknown  // Allow additional properties
   }
   resolved: boolean
 }
@@ -328,7 +342,7 @@ export interface WindowWithMonitoring extends Window {
       generateReport: () => Promise<PerformanceReport>
       startMonitoring: () => void
       stopMonitoring: () => void
-      updateConfig: (config: unknown) => void
+      updateConfig: (config: Partial<PerformanceMonitorConfig>) => void
     }
   }
   __stateDebugger?: {

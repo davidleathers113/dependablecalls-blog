@@ -8,6 +8,7 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import { onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals'
 import type {
   PerformanceMetrics,
+  PerformanceMonitorConfig,
   StateChangeMetric,
   QueryCacheMetrics,
   EntityAdapterMetrics,
@@ -15,10 +16,10 @@ import type {
   PerformanceSummary,
   PerformanceRecommendation,
   PerformanceTrend,
-  PERFORMANCE_THRESHOLDS,
   WindowWithMonitoring,
   ExtendedPerformance,
 } from './types'
+import { PERFORMANCE_THRESHOLDS } from './types'
 
 // ==================== Core Performance Monitor ====================
 
@@ -71,14 +72,6 @@ interface StorePerformance {
   lastActivity: number
 }
 
-interface PerformanceMonitorConfig {
-  isEnabled: boolean
-  samplingRate: number
-  maxHistorySize: number
-  webVitalsEnabled: boolean
-  storeTrackingEnabled: boolean
-  queryTrackingEnabled: boolean
-}
 
 const initialMetrics: PerformanceMetrics = {
   storeUpdateFrequency: 0,
@@ -478,6 +471,11 @@ function calculateOverallScore(
 
   // Deduct for warnings
   score -= warnings.length * 5
+
+  // Performance metrics scoring
+  if (metrics.selectorComputationTime > 50) score -= 10
+  if (metrics.reRenderCount > 16) score -= 15
+  if (metrics.memoryUsage > 100 * 1024 * 1024) score -= 10 // 100MB threshold
 
   // Web Vitals scoring
   if (webVitals.lcp) {

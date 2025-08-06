@@ -11,6 +11,7 @@ import type {
   PerformanceMetrics,
   StateChangeMetric,
 } from '../monitoring/types'
+import { getPerformanceMemory } from '../../types/performance'
 
 export interface BenchmarkResult {
   name: string
@@ -153,7 +154,7 @@ export const usePerformanceBenchmark = create<PerformanceBenchmarkState>()(
       if (!get().isEnabled) return ''
       
       const id = `${name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      const startMemory = performance.memory?.usedJSHeapSize || 0
+      const startMemory = getPerformanceMemory()?.usedJSHeapSize || 0
       
       const context: BenchmarkContext = {
         id,
@@ -188,7 +189,7 @@ export const usePerformanceBenchmark = create<PerformanceBenchmarkState>()(
       if (!context) return null
       
       const endTime = performance.now()
-      const endMemory = performance.memory?.usedJSHeapSize || 0
+      const endMemory = getPerformanceMemory()?.usedJSHeapSize || 0
       const executionTime = endTime - context.startTime
       const memoryDelta = endMemory - context.startMemory
       
@@ -421,12 +422,12 @@ export const usePerformanceBenchmark = create<PerformanceBenchmarkState>()(
         globalMetrics: {
           ...state.globalMetrics,
           storeUpdateFrequency: state.globalMetrics.storeUpdateFrequency + 1,
-          stateSize: metric.newStateSize || state.globalMetrics.stateSize,
+          stateSize: metric.stateSize || state.globalMetrics.stateSize,
         }
       }))
     },
 
-    trackSelectorUsage: (selectorName: string, executionTime: number) => {
+    trackSelectorUsage: (_selectorName: string, executionTime: number) => {
       if (!get().isEnabled) return
       
       set(state => ({
@@ -440,7 +441,7 @@ export const usePerformanceBenchmark = create<PerformanceBenchmarkState>()(
     trackMemoryUsage: () => {
       if (!get().isEnabled) return
       
-      const memoryUsage = performance.memory?.usedJSHeapSize || 0
+      const memoryUsage = getPerformanceMemory()?.usedJSHeapSize || 0
       set(state => ({
         globalMetrics: {
           ...state.globalMetrics,

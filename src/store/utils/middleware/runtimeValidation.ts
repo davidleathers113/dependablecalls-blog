@@ -802,34 +802,26 @@ export const runtimeValidation = <
   const originalSet = set
   
   // Type-safe overload signatures matching Zustand v5
-  type SetState = {
-    (
-      partial: T & RuntimeValidationState & RuntimeValidationApi | Partial<T & RuntimeValidationState & RuntimeValidationApi>
-    ): void
-    (
-      partial: (
-        state: T & RuntimeValidationState & RuntimeValidationApi
-      ) => T & RuntimeValidationState & RuntimeValidationApi | Partial<T & RuntimeValidationState & RuntimeValidationApi>
-    ): void
-    (
-      partial: T & RuntimeValidationState & RuntimeValidationApi | Partial<T & RuntimeValidationState & RuntimeValidationApi> | ((
-        state: T & RuntimeValidationState & RuntimeValidationApi
-      ) => T & RuntimeValidationState & RuntimeValidationApi | Partial<T & RuntimeValidationState & RuntimeValidationApi>),
-      replace?: boolean
-    ): void
+  type StateType = T & RuntimeValidationState & RuntimeValidationApi
+  
+  interface SetState {
+    (partial: StateType | Partial<StateType> | ((state: StateType) => StateType | Partial<StateType>), replace?: false): void
+    (state: StateType | ((state: StateType) => StateType), replace: true): void
   }
   
-  const interceptedSet: SetState = (
-    partial: 
-      | (T & RuntimeValidationState & RuntimeValidationApi)
-      | Partial<T & RuntimeValidationState & RuntimeValidationApi>
-      | ((state: T & RuntimeValidationState & RuntimeValidationApi) => 
-          | (T & RuntimeValidationState & RuntimeValidationApi)
-          | Partial<T & RuntimeValidationState & RuntimeValidationApi>),
+  // Create intercepted set with proper overloads
+  function interceptedSet(partial: StateType | Partial<StateType> | ((state: StateType) => StateType | Partial<StateType>), replace?: false): void
+  function interceptedSet(state: StateType | ((state: StateType) => StateType), replace: true): void
+  function interceptedSet(
+    partial: StateType | Partial<StateType> | ((state: StateType) => StateType | Partial<StateType>),
     replace?: boolean
-  ): void => {
-    // Call original set with proper type casting
-    (originalSet as SetState)(partial, replace)
+  ): void {
+    // Call original set with proper type casting based on replace value
+    if (replace === true) {
+      (originalSet as SetState)(partial as StateType | ((state: StateType) => StateType), true)
+    } else {
+      (originalSet as SetState)(partial, false)
+    }
     
     // Trigger validation on change if enabled
     if (opts.triggers?.onChange) {

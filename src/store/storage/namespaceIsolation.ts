@@ -412,15 +412,6 @@ export class NamespaceIsolationManager {
     return cleanedCount
   }
 
-  /**
-   * Add timestamp to data for TTL tracking
-   */
-  private addTimestamp<T>(data: T): T & { _timestamp: number } {
-    return {
-      ...data as object,
-      _timestamp: Date.now()
-    } as T & { _timestamp: number }
-  }
 }
 
 // Export singleton instance

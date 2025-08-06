@@ -17,6 +17,7 @@ import {
   createStoreTestWrapper, 
   mockDataGenerators 
 } from './storeTestUtils'
+import { getPerformanceMemory, hasPerformanceMemory } from '../../types/performance'
 
 // Import stores used in benchmarks
 import { useAuthStore } from '../authStore'
@@ -189,8 +190,8 @@ class BenchmarkRunner {
   }
 
   private getMemoryUsage(): number {
-    if (typeof performance !== 'undefined' && performance.memory) {
-      return performance.memory.usedJSHeapSize
+    if (hasPerformanceMemory()) {
+      return getPerformanceMemory()?.usedJSHeapSize || 0
     }
     return 0
   }
@@ -579,9 +580,13 @@ describe('DCE Store Performance Benchmarks', () => {
               new Promise<void>(resolve => {
                 setTimeout(() => {
                   act(() => {
-                    const elements = ['mobile_menu', 'desktop_sidebar', 'user_dropdown'] as const
-                    const randomElement = elements[i % elements.length]
-                    navigationWrapper.store.getState().toggleElement(randomElement)
+                    const actions = [
+                      () => navigationWrapper.store.getState().toggleMobileMenu(),
+                      () => navigationWrapper.store.getState().toggleSidebar(),
+                      () => navigationWrapper.store.getState().toggleUserDropdown()
+                    ] as const
+                    const randomAction = actions[i % actions.length]
+                    randomAction()
                   })
                   resolve()
                 }, Math.random() * 10) // Random delay up to 10ms
@@ -602,9 +607,9 @@ describe('DCE Store Performance Benchmarks', () => {
           fn: () => {
             // Rapid fire state machine transitions
             const transitions = [
-              () => navigationWrapper.store.getState().expandElement('mobile_menu'),
-              () => navigationWrapper.store.getState().collapseElement('mobile_menu'),
-              () => navigationWrapper.store.getState().toggleElement('desktop_sidebar'),
+              () => navigationWrapper.store.getState().openMobileMenu(),
+              () => navigationWrapper.store.getState().closeMobileMenu(),
+              () => navigationWrapper.store.getState().toggleSidebar(),
               () => navigationWrapper.store.getState().updateAriaStates()
             ]
             

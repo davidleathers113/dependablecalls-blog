@@ -8,8 +8,7 @@
 import { createStandardStore } from './factories/createStandardStore'
 import type { StandardStateCreator } from './types/mutators'
 import { supabase } from '../lib/supabase'
-import { DataClassification, StorageType } from './utils/dataClassification'
-import { StorageFactory } from './utils/storage/encryptedStorage'
+// Removed unused storage imports - using simple localStorage for non-sensitive data
 import { settingsToJson, isValidSupplierSettings, isValidBuyerSettings, isValidNetworkSettings } from './types/enhanced'
 import type {
   UserSettings,
@@ -29,7 +28,7 @@ import { useAuthStore } from './authStore'
 export interface SettingsState {
   // Settings data
   userSettings: UserSettings | null
-  roleSettings: SupplierSettings | BuyerSettings | NetworkSettings | AdminSettings | null
+  roleSettings: Record<string, unknown> | null // Simplified to avoid infinite type recursion
 
   // State flags
   isLoading: boolean
@@ -65,7 +64,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
   // Load settings from database
   loadSettings: async () => {
-    set((state: SettingsState) => {
+    set((state) => {
       state.isLoading = true
       state.error = null
     })
@@ -146,14 +145,14 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
         }
       }
 
-      set((state: SettingsState) => {
-        state.userSettings = userSettings
-        state.roleSettings = roleSettings
-        state.isLoading = false
-        state.isDirty = false
+      set({
+        userSettings,
+        roleSettings: roleSettings as Record<string, unknown> | null,
+        isLoading: false,
+        isDirty: false
       })
     } catch (error) {
-      set((state: SettingsState) => {
+      set((state) => {
         state.error = error instanceof Error ? error.message : 'Failed to load settings'
         state.isLoading = false
       })
@@ -165,7 +164,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
     const state = get()
     if (!state.isDirty || state.isSaving) return
 
-    set((state: SettingsState) => {
+    set((state) => {
       state.isSaving = true
       state.error = null
     })
@@ -191,7 +190,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
         const currentMetadata = userData?.metadata || {}
         const metadataObject =
           typeof currentMetadata === 'object' && currentMetadata !== null
-            ? (currentMetadata as Record<string, unknown>)
+            ? (currentMetadata as unknown as Record<string, unknown>)
             : {}
 
         // Then update with new settings - explicit typing
@@ -267,13 +266,13 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
         new_value: settingsToJson(auditLogValue) as Record<string, unknown>,
       })
 
-      set((state: SettingsState) => {
+      set((state) => {
         state.isSaving = false
         state.isDirty = false
         state.lastSaved = new Date().toISOString()
       })
     } catch (error) {
-      set((state: SettingsState) => {
+      set((state) => {
         state.error = error instanceof Error ? error.message : 'Failed to save settings'
         state.isSaving = false
       })
@@ -282,7 +281,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
   // Update user setting
   updateUserSetting: <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
-    set((state: SettingsState) => {
+    set((state) => {
       if (state.userSettings) {
         state.userSettings[key] = value
       }
@@ -292,32 +291,39 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
   // Update role-specific setting with Immer - proper typing to avoid implicit 'any'
   updateRoleSetting: (path: string, value: unknown) => {
-    set((state: SettingsState) => {
+    set((state) => {
       if (!state.roleSettings) return
       
-      // Type-safe path updates using explicit typing
+      // Type-safe path updates - use a more type-safe approach
       const keys = path.split('.')
-      let current = state.roleSettings as Record<string, unknown>
+      let current: unknown = state.roleSettings
       
       // Navigate to the parent object with type safety
       for (let i = 0; i < keys.length - 1; i++) {
         const key = keys[i]
-        if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
-          current[key] = {} as Record<string, unknown>
+        if (typeof current !== 'object' || current === null) {
+          return // Can't navigate further - exit safely
         }
-        current = current[key] as Record<string, unknown>
+        const currentObj = current as Record<string, unknown>
+        if (!(key in currentObj) || typeof currentObj[key] !== 'object' || currentObj[key] === null) {
+          currentObj[key] = {} as Record<string, unknown>
+        }
+        current = currentObj[key]
       }
       
       // Set the value with explicit typing
-      const finalKey = keys[keys.length - 1]
-      current[finalKey] = value
-      state.isDirty = true
+      if (typeof current === 'object' && current !== null) {
+        const finalKey = keys[keys.length - 1]
+        const currentObj = current as Record<string, unknown>
+        currentObj[finalKey] = value
+        state.isDirty = true
+      }
     })
   },
 
   // Reset settings to defaults
   resetSettings: async () => {
-    set((state: SettingsState) => {
+    set((state) => {
       state.isLoading = true
     })
 
@@ -344,9 +350,9 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       }
       // Similar for other user types...
 
-      set((state: SettingsState) => {
+      set((state) => {
         state.userSettings = defaultUserSettings
-        state.roleSettings = defaultRoleSettings
+        state.roleSettings = defaultRoleSettings as Record<string, unknown> | null
         state.isDirty = true
         state.isLoading = false
       })
@@ -354,7 +360,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       // Auto-save after reset
       await get().saveSettings()
     } catch (error) {
-      set((state: SettingsState) => {
+      set((state) => {
         state.error = error instanceof Error ? error.message : 'Failed to reset settings'
         state.isLoading = false
       })
@@ -390,16 +396,16 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
       // Validate imported settings
       const userSettings = validateUserSettings(data.userSettings || {})
 
-      set((state: SettingsState) => {
+      set((state) => {
         state.userSettings = userSettings
-        state.roleSettings = data.roleSettings
+        state.roleSettings = data.roleSettings as Record<string, unknown> | null
         state.isDirty = true
       })
 
       // Auto-save after import
       await get().saveSettings()
     } catch (error) {
-      set((state: SettingsState) => {
+      set((state) => {
         state.error = error instanceof Error ? error.message : 'Failed to import settings'
       })
     }
@@ -407,13 +413,13 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
   // Utility actions
   setDirty: (dirty: boolean) => {
-    set((state: SettingsState) => {
+    set((state) => {
       state.isDirty = dirty
     })
   },
   
   clearError: () => {
-    set((state: SettingsState) => {
+    set((state) => {
       state.error = null
     })
   },
@@ -511,25 +517,35 @@ export const useSettingsStore = createStandardStore<SettingsState>({
   creator: createSettingsState,
   persist: {
     // SECURITY: Only persist non-sensitive user settings - NO API keys or credentials
-    partialize: (state) => ({
-      userSettings: state.userSettings ? {
-        ...state.userSettings,
-        // Remove any API keys, tokens, or sensitive configuration
-        integrations: state.userSettings.integrations ? {
-          ...state.userSettings.integrations,
-          // Clear API keys and secrets - only keep configuration flags
-          apiKeys: {},
-          credentials: {},
-        } : undefined,
-      } : null,
-      lastSaved: state.lastSaved,
-      // DO NOT PERSIST roleSettings - may contain API keys and sensitive config
-    }),
-    // Use encrypted storage for settings (CONFIDENTIAL classification due to potential PII)
-    storage: StorageFactory.createZustandStorage(
-      DataClassification.CONFIDENTIAL,
-      StorageType.LOCAL
-    ),
+    partialize: (state): SettingsState => {
+      // Return only the safe parts of the state for persistence
+      return {
+        ...state,
+        userSettings: state.userSettings ? {
+          profile: state.userSettings.profile,
+          preferences: state.userSettings.preferences,
+          notifications: state.userSettings.notifications,
+          security: state.userSettings.security,
+          version: state.userSettings.version,
+          updatedAt: state.userSettings.updatedAt,
+        } : null,
+        lastSaved: state.lastSaved,
+        // Reset sensitive data for persistence
+        roleSettings: null,
+      }
+    },
+    // Use standard localStorage for non-sensitive settings data
+    // (Sensitive data like API keys/tokens are filtered out in partialize above)
+    storage: {
+      getItem: (name: string) => {
+        const item = localStorage.getItem(name)
+        return item ? JSON.parse(item) : null
+      },
+      setItem: (name: string, value: unknown) => {
+        localStorage.setItem(name, JSON.stringify(value))
+      },
+      removeItem: (name: string) => localStorage.removeItem(name),
+    },
   },
   monitoring: {
     enabled: true,

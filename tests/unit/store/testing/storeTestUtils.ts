@@ -14,6 +14,7 @@ import { act } from '@testing-library/react'
 import { renderHook } from '@testing-library/react'
 import { vi, expect } from 'vitest'
 import type { StoreApi, UseBoundStore } from 'zustand'
+import { getPerformanceMemory } from '../../types/performance'
 
 // Import all store types for comprehensive testing
 import type { AuthState } from '../authStore'
@@ -66,7 +67,7 @@ export interface PerformanceSnapshot {
 /**
  * Creates a test wrapper for any Zustand store with comprehensive setup
  */
-export function createStoreTestWrapper<T extends Record<string, unknown>>(
+export function createStoreTestWrapper<T>(
   storeHook: UseBoundStore<StoreApi<T>>,
   config: StoreTestConfig
 ) {
@@ -87,10 +88,10 @@ export function createStoreTestWrapper<T extends Record<string, unknown>>(
     if (!config.trackPerformance) return fn()
     
     const startTime = performance.now()
-    const startMemory = performance.memory?.usedJSHeapSize || 0
+    const startMemory = getPerformanceMemory()?.usedJSHeapSize || 0
     const result = fn()
     const endTime = performance.now()
-    const endMemory = performance.memory?.usedJSHeapSize || 0
+    const endMemory = getPerformanceMemory()?.usedJSHeapSize || 0
     
     performanceSnapshots.push({
       storeName: config.storeName,
@@ -126,16 +127,10 @@ export function createStoreTestWrapper<T extends Record<string, unknown>>(
     // Store access
     store: storeHook,
     getState: () => storeHook.getState(),
-    setState: (updater: Partial<T> | ((state: T) => Partial<T>)) => {
+    setState: (updater: Parameters<typeof storeHook.setState>[0]) => {
       return trackPerformance('setState', () => {
         act(() => {
-          if (typeof updater === 'function') {
-            const currentState = storeHook.getState()
-            const updates = updater(currentState)
-            storeHook.setState(updates as Partial<T>)
-          } else {
-            storeHook.setState(updater)
-          }
+          storeHook.setState(updater)
         })
       })
     },

@@ -1241,16 +1241,14 @@ export const useSupplierStore = createStandardStore<SupplierState>({
   creator: createSupplierState,
   persist: {
     // SECURITY CRITICAL: Only persist business data, NO financial information
-    partialize: (state: SupplierState) => ({
+    partialize: (state: SupplierState): Partial<SupplierState> => ({
       listings: state.listings,
       leadSources: state.leadSources,
       _supplierCompliance: state._supplierCompliance,
       _optimization: state._optimization,
-      // EXPLICITLY EXCLUDED for security:
-      // - metrics: contains financial data
-      // - sales: contains financial data
-      // - dashboardData: contains financial data
-      // - qualityScoring: may contain sensitive analysis
+      // Return partial state with required properties for persistence
+      isLoading: false, // Reset loading state on rehydration
+      error: null, // Clear errors on rehydration
     }),
     // Use encrypted storage for business data (INTERNAL classification)
     storage: StorageFactory.createZustandStorage(

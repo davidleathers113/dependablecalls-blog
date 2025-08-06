@@ -35,10 +35,11 @@ export type LightweightMutators = [
 ]
 
 // Type helper for creating stores with standard middleware
-// This represents the innermost function signature that works with immer
+// This represents the innermost function signature that works with Zustand's built-in immer
+// For Zustand v5: StateCreator<T, Mutators, Composers, U>
 export type StandardStateCreator<T> = StateCreator<
   T,
-  StandardMutators,
+  [['zustand/immer', never]],
   [],
   T
 >
@@ -46,7 +47,7 @@ export type StandardStateCreator<T> = StateCreator<
 // Type helper for creating lightweight stores
 export type LightweightStateCreator<T> = StateCreator<
   T,
-  LightweightMutators,
+  [['zustand/immer', never]],
   [],
   T
 >

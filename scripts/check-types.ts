@@ -246,7 +246,7 @@ class TypeChecker {
       const typeTestPatterns = [
         'src/types/__tests__/**/*.test.ts',
         'src/hooks/__tests__/**/*.types.test.ts',
-        'src/store/__tests__/**/*.types.test.ts',
+        'tests/unit/store/**/*.types.test.ts',
       ]
 
       for (const pattern of typeTestPatterns) {

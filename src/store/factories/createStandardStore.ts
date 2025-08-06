@@ -10,7 +10,6 @@ import { immer } from 'zustand/middleware/immer'
 import { devtools } from 'zustand/middleware'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { persist, type PersistOptions } from 'zustand/middleware'
-import type { StateCreator } from 'zustand'
 import type { 
   StoreConfig, 
   StandardStoreConfig,
@@ -19,23 +18,9 @@ import type {
 } from '../types/mutators'
 import { isLightweightConfig } from '../types/mutators'
 
-// Conditional middleware types for proper type composition
-type DevtoolsSubscribeSelectorImmerMutators = [
-  ['zustand/devtools', never],
-  ['zustand/subscribeWithSelector', never], 
-  ['zustand/immer', never]
-]
-
-type PersistSubscribeSelectorImmerMutators = [
-  ['zustand/persist', unknown],
-  ['zustand/subscribeWithSelector', never],
-  ['zustand/immer', never]
-]
-
-type SubscribeSelectorImmerMutators = [
-  ['zustand/subscribeWithSelector', never],
-  ['zustand/immer', never]
-]
+// Middleware composition types for Zustand v5
+// Note: In v5, StateCreator parameters are: <T, Mutators, Composers, Result>
+// where Mutators = [] and Composers contain the middleware chain
 
 /**
  * Creates a standardized Zustand store with consistent middleware ordering
@@ -86,11 +71,10 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
   
   if (devtoolsConfig && !persistConfig) {
     // No persistence: devtools + subscribeWithSelector + immer
-    const creator = standardConfig.creator as StateCreator<T, DevtoolsSubscribeSelectorImmerMutators, [], T>
     return create<T>()(
       devtools(
         subscribeWithSelector(
-          immer(creator)
+          immer(standardConfig.creator)
         ),
         devtoolsConfig
       )
@@ -99,11 +83,10 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
   
   if (!devtoolsConfig && persistConfig) {
     // No devtools: persist + subscribeWithSelector + immer
-    const creator = standardConfig.creator as StateCreator<T, PersistSubscribeSelectorImmerMutators, [], T>
     return create<T>()(
       persist(
         subscribeWithSelector(
-          immer(creator)
+          immer(standardConfig.creator)
         ),
         persistConfig
       )
@@ -111,10 +94,9 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
   }
   
   // Minimal: just subscribeWithSelector + immer
-  const creator = standardConfig.creator as StateCreator<T, SubscribeSelectorImmerMutators, [], T>
   return create<T>()(
     subscribeWithSelector(
-      immer(creator)
+      immer(standardConfig.creator)
     )
   )
 }

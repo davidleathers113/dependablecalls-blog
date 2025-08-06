@@ -323,41 +323,41 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
 
   // DCE Set Actions - synchronous state updates
   setFilters: (filters) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       Object.assign(state.filters, filters)
       state.currentPage = 1 // Reset to first page on filter change
     })
   },
 
   setSort: (sort) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.sort = sort
       state.currentPage = 1 // Reset to first page on sort change
     })
   },
 
   setSearchQuery: (query) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.searchQuery = query
       state.currentPage = 1 // Reset to first page on search
     })
   },
 
   setCurrentPage: (page) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.currentPage = page
     })
   },
 
   setPageSize: (size) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.pageSize = size
       state.currentPage = 1 // Reset to first page on page size change
     })
   },
 
   setSelectedCategory: (categoryId) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.selectedCategoryId = categoryId
       if (categoryId) {
         state.filters.categoryId = categoryId
@@ -369,7 +369,7 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
   },
 
   setSelectedTag: (tagId) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.selectedTagId = tagId
       if (tagId) {
         state.filters.tagId = tagId
@@ -381,14 +381,14 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
   },
 
   setSelectedPosts: (postIds) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.selectedPostIds = [...postIds]
     })
   },
 
   // DCE Fetch Actions - asynchronous data fetching
   fetchPosts: async () => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.loading = true
       state.error = null
     })
@@ -435,13 +435,13 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
 
       if (error) throw error
 
-      set((state: BlogFilterState) => {
+      set((state) => {
         state.posts = data || []
         state.totalCount = count || 0
         state.loading = false
       })
     } catch (error) {
-      set((state: BlogFilterState) => {
+      set((state) => {
         state.error = error instanceof Error ? error.message : 'Failed to fetch posts'
         state.loading = false
       })
@@ -449,7 +449,7 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
   },
 
   fetchPostsByCategory: async (categoryId) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.filters.categoryId = categoryId
       state.selectedCategoryId = categoryId
       state.currentPage = 1
@@ -458,7 +458,7 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
   },
 
   fetchPostsByTag: async (tagId) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.filters.tagId = tagId
       state.selectedTagId = tagId
       state.currentPage = 1
@@ -468,7 +468,7 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
 
   // DCE Update Actions - state mutations
   updatePostSelection: (postId) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       const index = state.selectedPostIds.indexOf(postId)
       if (index !== -1) {
         state.selectedPostIds.splice(index, 1)
@@ -479,7 +479,7 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
   },
 
   updateFiltersAndRefetch: async (filters) => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       Object.assign(state.filters, filters)
       state.currentPage = 1
     })
@@ -488,7 +488,7 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
 
   // DCE Delete Actions - removal operations
   deletePostSelection: () => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.selectedPostIds = []
     })
   },
@@ -499,7 +499,7 @@ const createBlogFilterStoreState: LightweightStateCreator<BlogFilterState> = (se
   },
 
   resetFilters: () => {
-    set((state: BlogFilterState) => {
+    set((state) => {
       state.filters = {}
       state.searchQuery = ''
       state.currentPage = 1
@@ -910,22 +910,22 @@ export const useBlogEditorLoading = () => useBlogEditorStore((state: BlogEditorS
 export const useBlogEditorError = () => useBlogEditorStore((state: BlogEditorState) => state.error)
 
 // Filter selectors - explicit BlogFilterState typing
-export const useBlogFilters = () => useBlogFilterStore((state: BlogFilterState) => state.filters)
-export const useBlogSort = () => useBlogFilterStore((state: BlogFilterState) => state.sort)
-export const useBlogSearchQuery = () => useBlogFilterStore((state: BlogFilterState) => state.searchQuery)
-export const useBlogPosts = () => useBlogFilterStore((state: BlogFilterState) => state.posts)
-export const useBlogPagination = () => useBlogFilterStore((state: BlogFilterState) => ({
+export const useBlogFilters = () => useBlogFilterStore((state) => state.filters)
+export const useBlogSort = () => useBlogFilterStore((state) => state.sort)
+export const useBlogSearchQuery = () => useBlogFilterStore((state) => state.searchQuery)
+export const useBlogPosts = () => useBlogFilterStore((state) => state.posts)
+export const useBlogPagination = () => useBlogFilterStore((state) => ({
   currentPage: state.currentPage,
   pageSize: state.pageSize,
   totalCount: state.totalCount,
 }))
-export const useBlogSelection = () => useBlogFilterStore((state: BlogFilterState) => ({
+export const useBlogSelection = () => useBlogFilterStore((state) => ({
   selectedPostIds: state.selectedPostIds,
   selectedCategoryId: state.selectedCategoryId,
   selectedTagId: state.selectedTagId,
 }))
-export const useBlogFilterLoading = () => useBlogFilterStore((state: BlogFilterState) => state.loading)
-export const useBlogFilterError = () => useBlogFilterStore((state: BlogFilterState) => state.error)
+export const useBlogFilterLoading = () => useBlogFilterStore((state) => state.loading)
+export const useBlogFilterError = () => useBlogFilterStore((state) => state.error)
 
 // UI selectors - explicit BlogUIState typing
 export const useBlogViewMode = () => useBlogUIStore((state: BlogUIState) => state.viewMode)
