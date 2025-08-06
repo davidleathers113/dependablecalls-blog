@@ -25,11 +25,14 @@ export function createSlice<T extends BaseSlice>(
   initialState: Omit<T, keyof BaseSlice>,
   actions: Record<string, unknown>
 ): StateCreator<T, [], [], T> {
-  return (set, _get) => ({
-    ...initialState,
-    loading: { isLoading: false, error: null },
-    reset: () => set(initialState as T),
-    ...createBaseActions(),
-    ...actions,
-  } as T)
+  return (set, _get) => {
+    const state = {
+      ...initialState,
+      loading: { isLoading: false, error: null },
+      reset: () => set(initialState as unknown as T),
+      ...createBaseActions(),
+      ...actions,
+    }
+    return state as unknown as T
+  }
 }

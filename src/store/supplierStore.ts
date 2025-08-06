@@ -18,6 +18,7 @@ import type { StandardStateCreator } from './types/mutators'
 import { from, getSession } from '../lib/supabase-optimized'
 import { StorageFactory } from './utils/storage/encryptedStorage'
 import { DataClassification, StorageType } from './utils/dataClassification'
+import { createJSONStorage } from 'zustand/middleware'
 import { settingsToJson } from './types/enhanced'
 import type {
   CallListing,
@@ -1241,20 +1242,20 @@ export const useSupplierStore = createStandardStore<SupplierState>({
   creator: createSupplierState,
   persist: {
     // SECURITY CRITICAL: Only persist business data, NO financial information
-    partialize: (state: SupplierState): Partial<SupplierState> => ({
-      listings: state.listings,
+    partialize: (state): Partial<SupplierState> => ({
+      listings: state.listings || [],
       leadSources: state.leadSources,
       _supplierCompliance: state._supplierCompliance,
       _optimization: state._optimization,
       // Return partial state with required properties for persistence
-      isLoading: false, // Reset loading state on rehydration
+      loading: false, // Reset loading state on rehydration
       error: null, // Clear errors on rehydration
     }),
     // Use encrypted storage for business data (INTERNAL classification)
-    storage: StorageFactory.createZustandStorage(
+    storage: createJSONStorage(() => StorageFactory.createZustandStorage(
       DataClassification.INTERNAL,
       StorageType.LOCAL
-    ),
+    )),
   },
   monitoring: {
     enabled: true,

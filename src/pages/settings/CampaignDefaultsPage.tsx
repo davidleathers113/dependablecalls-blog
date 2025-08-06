@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
+import type { BuyerSettings } from '../../types/settings'
 import {
   SettingsSection,
   SettingsCard,
@@ -109,9 +110,13 @@ export default function CampaignDefaultsPage() {
   const { user, userType } = useAuthStore()
   const { roleSettings, updateRoleSetting, saveSettings, isLoading, isSaving, error } = useSettingsStore()
 
-  // Get buyer settings
-  const buyerSettings = userType === 'buyer' && roleSettings && 'campaigns' in roleSettings 
-    ? roleSettings.campaigns 
+  // Get buyer settings with proper type guard
+  const buyerSettings = userType === 'buyer' && 
+    roleSettings && 
+    typeof roleSettings === 'object' && 
+    roleSettings !== null &&
+    'campaigns' in roleSettings 
+    ? (roleSettings as BuyerSettings).campaigns 
     : null
 
   const {

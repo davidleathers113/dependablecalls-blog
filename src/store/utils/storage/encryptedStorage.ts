@@ -531,7 +531,7 @@ export class EncryptedStorage implements EncryptedStorageInterface {
    * DEPRECATED: This method had a critical security bug (plaintext storage)
    * Use AsyncEncryptedStorage for proper encryption
    */
-  private encryptDataForStorage(_data: string): string {
+  private encryptDataForStorage(_data: string): never {
     throw new Error(
       'SECURITY: Synchronous encryption not supported. ' +
       'This method previously stored plaintext data. ' +
@@ -543,7 +543,7 @@ export class EncryptedStorage implements EncryptedStorageInterface {
    * DEPRECATED: This method had a data loss bug
    * Use AsyncEncryptedStorage for proper decryption
    */
-  private decryptStoredData(_storedValue: string): string | null {
+  private decryptStoredData(_storedValue: string): never {
     throw new Error(
       'SECURITY: Synchronous decryption not supported. ' +
       'This method previously lost encrypted data. ' +

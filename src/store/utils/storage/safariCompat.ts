@@ -192,14 +192,14 @@ class SafeStorageWrapper implements Storage {
  */
 class MemoryStorageFallback implements Storage {
   private data = new Map<string, string>()
-  private readonly _storageType: string
+  private readonly _storageType: string // Used for debugging and identification
 
   constructor(storageType: string) {
     this._storageType = storageType
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.info(`💾 Using memory fallback for ${storageType}`)
-    }
+  }
+
+  get storageType(): string {
+    return this._storageType
   }
 
   get length(): number {

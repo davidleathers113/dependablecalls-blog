@@ -5,14 +5,14 @@
  * and provide better type safety for database operations.
  */
 
-import type { Json } from '../../../types/database-extended'
+import type { Json } from '../../types/database-extended'
 
 /**
  * Type-safe JSON serialization utilities
  */
 export type JsonValue = string | number | boolean | null | JsonObject | JsonArray
-export type JsonObject = Record<string, JsonValue>
-export type JsonArray = Array<JsonValue>
+export type JsonObject = { [key: string]: JsonValue }
+export type JsonArray = JsonValue[]
 
 /**
  * Safe JSON conversion with proper typing

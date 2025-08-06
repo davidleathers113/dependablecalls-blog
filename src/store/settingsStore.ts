@@ -28,7 +28,7 @@ import { useAuthStore } from './authStore'
 export interface SettingsState {
   // Settings data
   userSettings: UserSettings | null
-  roleSettings: Record<string, unknown> | null // Simplified to avoid infinite type recursion
+  roleSettings: unknown // Simplified to avoid infinite type recursion, properly typed in components
 
   // State flags
   isLoading: boolean
@@ -147,7 +147,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
       set({
         userSettings,
-        roleSettings: roleSettings as Record<string, unknown> | null,
+        roleSettings,
         isLoading: false,
         isDirty: false
       })
@@ -352,7 +352,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
       set((state) => {
         state.userSettings = defaultUserSettings
-        state.roleSettings = defaultRoleSettings as Record<string, unknown> | null
+        state.roleSettings = defaultRoleSettings
         state.isDirty = true
         state.isLoading = false
       })
@@ -398,7 +398,7 @@ const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => (
 
       set((state) => {
         state.userSettings = userSettings
-        state.roleSettings = data.roleSettings as Record<string, unknown> | null
+        state.roleSettings = data.roleSettings
         state.isDirty = true
       })
 
