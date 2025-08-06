@@ -5,7 +5,7 @@
  * It serves as a POC for the new standardized store factory pattern.
  */
 
-import { createStandardStore, createUIStore } from './factories/createStandardStore'
+import { createUIStore } from './factories/createStandardStore'
 import type { LightweightStateCreator } from './types/mutators'
 
 // UI Store State Interface

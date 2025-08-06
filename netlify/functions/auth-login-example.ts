@@ -19,7 +19,7 @@ function constantTimeCompare(a: string, b: string): boolean {
   return result === 0
 }
 
-export default async (request: Request, context: Context) => {
+export default async (request: Request, _context: Context) => {
   // Only allow POST requests
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })

@@ -135,8 +135,8 @@ type ErrorHandlingMiddlewareImpl = <
 //   }
 // }
 
-type Write<T, U> = Omit<T, keyof U> & U
-type StoreErrorHandling<S> = S extends { getState: () => infer T }
+type _Write<T, U> = Omit<T, keyof U> & U
+type _StoreErrorHandling<S> = S extends { getState: () => infer T }
   ? S & {
       setState: (
         partial: T | Partial<T> | ((state: T) => T | Partial<T>),

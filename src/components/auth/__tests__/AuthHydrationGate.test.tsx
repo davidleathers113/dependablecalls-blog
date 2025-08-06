@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { create } from 'zustand'
-import type { StateCreator } from 'zustand'
 import AuthHydrationGate, { useAuthHydrated, useAuthReady } from '../AuthHydrationGate'
 import type { AuthState } from '../../../store/authStore'
 

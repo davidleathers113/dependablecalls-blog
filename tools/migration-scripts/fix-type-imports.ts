@@ -14,7 +14,7 @@
  * - Comprehensive error handling and progress reporting
  */
 
-import { Project, SyntaxKind, ImportDeclaration, SourceFile, ts, Diagnostic } from 'ts-morph'
+import { Project, ImportDeclaration, SourceFile, ts } from 'ts-morph'
 import path from 'path'
 import fs from 'fs'
 
@@ -155,7 +155,7 @@ class TypeImportFixer {
     
     const typeOnlyImports: string[] = []
     const regularImports: string[] = []
-    const typeChecker = this.project.getTypeChecker().compilerObject
+    // TypeChecker not needed for basic import analysis
     
     for (const namedImport of namedImports) {
       const name = namedImport.getName()

@@ -12,7 +12,7 @@ export interface BaseSlice {
 }
 
 // Create base actions for common slice patterns
-export function createBaseActions<T extends BaseSlice>() {
+export function createBaseActions() {
   return {
     setLoading: (isLoading: boolean) => ({ loading: { isLoading, error: null } }),
     setError: (error: string | null) => ({ loading: { isLoading: false, error } }),
@@ -25,11 +25,11 @@ export function createSlice<T extends BaseSlice>(
   initialState: Omit<T, keyof BaseSlice>,
   actions: Record<string, unknown>
 ): StateCreator<T, [], [], T> {
-  return (set, get) => ({
+  return (set, _get) => ({
     ...initialState,
     loading: { isLoading: false, error: null },
     reset: () => set(initialState as T),
-    ...createBaseActions<T>(),
+    ...createBaseActions(),
     ...actions,
   } as T)
 }

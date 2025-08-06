@@ -25,7 +25,7 @@ export interface ImmerState {
 //   }
 // }
 
-type WithImmer<S> = S extends { getState: () => infer T; setState: infer SetState }
+type _WithImmer<S> = S extends { getState: () => infer T; setState: infer SetState }
   ? S & {
       setState: SetState extends (...a: unknown[]) => infer Sr
         ? (

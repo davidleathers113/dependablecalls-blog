@@ -13,7 +13,6 @@ import {
   RateLimiter,
   createDebouncedFunction 
 } from '../../../../src/store/utils/validationHelpers'
-import { registerSchema } from '../../../../src/store/utils/schemas'
 import { z } from 'zod'
 
 // Mock schemas module
@@ -111,10 +110,12 @@ describe('Runtime Validation Middleware', () => {
     it('should not block the event loop during validation', async () => {
       const mockValidation = vi.fn().mockResolvedValue({ success: true })
       const { validateWithSchema } = await import('../../../../src/store/utils/schemas')
-      ;(validateWithSchema as any).mockImplementation(() => {
+      ;(validateWithSchema as unknown as { mockImplementation: (fn: () => unknown) => void }).mockImplementation(() => {
         // Simulate heavy computation
         const start = Date.now()
-        while (Date.now() - start < 50) {} // 50ms blocking
+        while (Date.now() - start < 50) {
+          // Simulate heavy computation - intentionally blocking for 50ms
+        }
         return mockValidation()
       })
       
@@ -242,9 +243,9 @@ describe('Runtime Validation Middleware', () => {
     
     it('should only log PII in development mode', async () => {
       const originalEnv = process.env.NODE_ENV
-      const { scanStoreForPII, reportPIIToConsole } = await import('../../../../src/store/utils/piiScanner')
+      const { scanStoreForPII } = await import('../../../../src/store/utils/piiScanner')
       
-      ;(scanStoreForPII as any).mockReturnValue({
+      ;(scanStoreForPII as unknown as { mockReturnValue: (value: unknown) => void }).mockReturnValue({
         piiDetections: [{
           path: 'user.password',
           type: 'password',
@@ -312,7 +313,7 @@ describe('Runtime Validation Middleware', () => {
   describe('Debounced Functions (Memoization)', () => {
     it('should memoize debounced functions', () => {
       const fn = vi.fn()
-      const { debounced, cancel } = createDebouncedFunction(fn, 100)
+      const { debounced } = createDebouncedFunction(fn, 100)
       
       // Call multiple times rapidly
       debounced()
@@ -361,9 +362,9 @@ describe('Runtime Validation Middleware', () => {
       })
       
       const { getLatestSchema, getLatestSchemaVersion, validateWithSchema } = await import('../../../../src/store/utils/schemas')
-      ;(getLatestSchema as any).mockReturnValue(testSchema)
-      ;(getLatestSchemaVersion as any).mockReturnValue(1)
-      ;(validateWithSchema as any).mockImplementation((storeName, version, data) => {
+      ;(getLatestSchema as unknown as { mockReturnValue: (value: unknown) => void }).mockReturnValue(testSchema)
+      ;(getLatestSchemaVersion as unknown as { mockReturnValue: (value: unknown) => void }).mockReturnValue(1)
+      ;(validateWithSchema as unknown as { mockImplementation: (fn: (storeName: string, version: number, data: unknown) => unknown) => void }).mockImplementation((storeName, version, data) => {
         const result = testSchema.safeParse(data)
         return result
       })
