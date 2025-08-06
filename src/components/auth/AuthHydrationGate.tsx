@@ -81,20 +81,5 @@ export function AuthHydrationGate({
   return <>{children}</>
 }
 
-/**
- * Hook to check if auth store has fully hydrated
- * Useful for conditional rendering based on hydration state
- */
-export function useAuthHydrated() {
-  return useAuthStore((state) => state._hasHydrated)
-}
-
-/**
- * Hook to check if app is ready (hydrated and not loading)
- * Combines hydration status with loading state
- */
-export function useAuthReady() {
-  return useAuthStore((state) => state._hasHydrated && !state.loading)
-}
 
 export default AuthHydrationGate

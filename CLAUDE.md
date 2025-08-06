@@ -68,6 +68,72 @@ npm run migrate:encryption   # Run encryption migrations
 5. **ALWAYS commit every 30 minutes** during active development
 6. **90% test coverage minimum** for all new code
 
+## Specialized AI Agents
+
+This project includes specialized Claude Code agents in `.claude/agents/` that understand the DCE platform architecture, enforce code rules, and accelerate development. Each agent is an expert in specific aspects of the codebase.
+
+### Available Agents
+
+#### Core Development
+- **`react-optimization-specialist`** - React 19.1 performance optimization, component architecture, Tailwind/Headless UI patterns
+- **`typescript-expert`** - TypeScript 5.8 strict typing, Zod schemas, type definitions (enforces NO 'any' types)
+- **`javascript-expert`** - Vite optimization, utilities, real-time features (enforces NO regex patterns)
+- **`vitest-test-writer`** - Comprehensive testing to achieve 90% coverage requirement
+
+#### Infrastructure & State
+- **`supabase-specialist`** - Database operations, auth, real-time channels, RLS policies, Edge Functions
+- **`zustand-architect`** - State management patterns, store optimization, middleware configuration
+- **`netlify-deployment-specialist`** - Deployment configuration, CI/CD, edge functions
+
+#### Quality & Security
+- **`dce-production-analyzer`** - Pre-deployment analysis for production breakers, memory leaks, security vulnerabilities
+- **`dce-orchestrator`** - Master coordinator that routes tasks to appropriate specialist agents
+
+### Using Agents
+
+#### Automatic Routing
+Claude Code automatically selects appropriate agents based on context:
+```bash
+"Optimize the buyer dashboard" → react-optimization-specialist
+"Create type definitions for calls" → typescript-expert
+"Add tests for the campaign service" → vitest-test-writer
+```
+
+#### Explicit Agent Requests
+You can directly request specific agents:
+```bash
+"Use the typescript-expert to review these types"
+"Have the dce-production-analyzer scan before deployment"
+"Deploy the zustand-architect to optimize our stores"
+```
+
+#### Multi-Agent Coordination
+The orchestrator can coordinate multiple agents:
+```bash
+"Use dce-orchestrator to build a complete campaign feature"
+→ Coordinates: typescript-expert → supabase-specialist → react-optimization-specialist → vitest-test-writer
+```
+
+### Agent Enforcement
+All agents enforce DCE critical rules:
+- ✅ NO regex patterns (use validator.js/Zod)
+- ✅ NO 'any' types (use 'unknown' or proper types)
+- ✅ 90% test coverage minimum
+- ✅ Zustand for state (never Redux)
+- ✅ Tailwind CSS classes (no inline styles)
+- ✅ Proper Supabase cleanup (no memory leaks)
+
+### Pre-Deployment Workflow
+Always use before production deployment:
+```bash
+"Run dce-production-analyzer on the entire codebase"
+```
+This will identify:
+- 🔴 Production breakers (event loop blocking, memory leaks)
+- ⚡ Performance issues (bundle size, re-renders)
+- 🔒 Security vulnerabilities (XSS, SQL injection)
+- 📚 Deprecated APIs requiring updates
+
 ## Architecture Overview
 
 ### Frontend Structure

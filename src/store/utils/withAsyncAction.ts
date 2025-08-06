@@ -12,10 +12,9 @@
  * during the migration from direct Supabase calls to service layer architecture.
  */
 
-import { StoreApi } from 'zustand'
-import { StoreError, createStoreError, migrateError, type StoreErrorCode } from '../../lib/errors/StoreError'
+import type { StoreApi } from 'zustand'
+import { StoreError, createStoreError, migrateError } from '../../lib/errors/StoreError'
 import { reportError } from '../errors/reporting'
-import type { ErrorContext } from '../errors/errorTypes'
 
 // Types and Interfaces
 // ===================
@@ -102,7 +101,7 @@ interface ActionHistoryEntry {
   timestamp: number
   success: boolean
   duration: number
-  error?: StoreError
+  error?: StoreError | undefined
   params?: unknown
 }
 
@@ -141,13 +140,16 @@ const DEFAULT_CONFIG: Required<Omit<AsyncActionConfig, 'actionName' | 'storeName
 export function withAsyncAction<TState, TParams = void, TResult = unknown>(
   config: AsyncActionConfig<TParams, TResult>
 ) {
-  const fullConfig = { ...DEFAULT_CONFIG, ...config }
+  const fullConfig = { 
+    ...DEFAULT_CONFIG, 
+    ...config 
+  } as AsyncActionConfig<TParams, TResult> & typeof DEFAULT_CONFIG
   const cache = new Map<string, CacheEntry>()
   const actionHistory: ActionHistoryEntry[] = []
   let lastAction: { name: string, params: TParams } | null = null
 
   return function createAsyncAction(
-    operation: (params: TParams, context: AsyncActionExecutionContext<TState>) => Promise<TResult>
+    operation: (params: TParams, context: AsyncActionExecutionContext<TState, TParams, TResult>) => Promise<TResult>
   ) {
     return async function executeAsyncAction(
       this: StoreApi<TState>,
@@ -199,7 +201,7 @@ export function withAsyncAction<TState, TParams = void, TResult = unknown>(
         }
 
         // Execute operation with retry logic
-        const result = await executeWithRetry(
+        const result = await executeWithRetry<TParams, TResult>(
           () => operation(params, {
             state: this.getState(),
             setState: this.setState.bind(this),
@@ -265,7 +267,7 @@ export function withAsyncAction<TState, TParams = void, TResult = unknown>(
         const storeError = fullConfig.mapError 
           ? fullConfig.mapError(error, params)
           : migrateError(error, { 
-              serviceName: fullConfig.serviceName, 
+              serviceName: fullConfig.serviceName ?? undefined, 
               operation: fullConfig.actionName 
             })
 
@@ -311,7 +313,7 @@ export function withAsyncAction<TState, TParams = void, TResult = unknown>(
 // Execution Context for Operations
 // ================================
 
-export interface AsyncActionExecutionContext<TState> {
+export interface AsyncActionExecutionContext<TState, TParams = unknown, TResult = unknown> {
   /** Current store state */
   state: TState
   
@@ -319,7 +321,7 @@ export interface AsyncActionExecutionContext<TState> {
   setState: (partial: TState | Partial<TState> | ((state: TState) => TState | Partial<TState>)) => void
   
   /** Action configuration */
-  config: AsyncActionConfig
+  config: AsyncActionConfig<TParams, TResult>
   
   /** Current attempt number */
   attempt: number
@@ -330,7 +332,7 @@ export interface AsyncActionExecutionContext<TState> {
 
 async function executeWithRetry<TParams, TResult>(
   operation: () => Promise<TResult>,
-  config: AsyncActionConfig<TParams, TResult>,
+  config: AsyncActionConfig<TParams, TResult> & typeof DEFAULT_CONFIG,
   context: AsyncActionContext<TParams, TResult>
 ): Promise<TResult> {
   const retryConfig = config.retry
@@ -348,7 +350,7 @@ async function executeWithRetry<TParams, TResult>(
     } catch (error) {
       const storeError = error instanceof StoreError 
         ? error 
-        : migrateError(error, { serviceName: config.serviceName, operation: config.actionName })
+        : migrateError(error, { serviceName: config.serviceName ?? undefined, operation: config.actionName })
       
       lastError = storeError
 
@@ -407,7 +409,7 @@ function recordActionHistory(
   startTime: number,
   success: boolean,
   params?: unknown,
-  error?: StoreError,
+  error?: StoreError | undefined,
   duration?: number
 ): void {
   const entry: ActionHistoryEntry = {
@@ -415,7 +417,7 @@ function recordActionHistory(
     timestamp: startTime,
     success,
     duration: duration || Date.now() - startTime,
-    error,
+    error: error ?? undefined,
     params,
   }
 
@@ -533,7 +535,7 @@ export function createFetchAction<TState, TParams = void, TResult = unknown>(
   return withAsyncAction<TState, TParams, TResult>({
     actionName,
     storeName,
-    serviceName,
+    serviceName: serviceName ?? undefined,
     enableLoadingState: true,
     enableRecovery: true,
     enableTelemetry: true,
@@ -556,7 +558,7 @@ export function createMutationAction<TState, TParams = void, TResult = unknown>(
   return withAsyncAction<TState, TParams, TResult>({
     actionName,
     storeName,
-    serviceName,
+    serviceName: serviceName ?? undefined,
     enableLoadingState: true,
     enableRecovery: false, // Don't auto-retry mutations
     enableTelemetry: true,
@@ -567,10 +569,4 @@ export function createMutationAction<TState, TParams = void, TResult = unknown>(
   })
 }
 
-// Export types and utilities
-export type {
-  AsyncActionConfig,
-  AsyncActionState,
-  AsyncActionMethods,
-  AsyncActionExecutionContext,
-}
+// Types are already exported inline above

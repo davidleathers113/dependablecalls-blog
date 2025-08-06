@@ -23,9 +23,9 @@ import type { PersistOptions } from 'zustand/middleware'
 // Define the standard mutator chain for all stores
 export type StandardMutators = [
   ['zustand/immer', never],
-  ['zustand/devtools', never],
   ['zustand/subscribeWithSelector', never],
-  ['zustand/persist', unknown]
+  ['zustand/persist', unknown],
+  ['zustand/devtools', never]
 ]
 
 // Lightweight mutator chain for simple UI stores
@@ -82,7 +82,7 @@ export function isLightweightConfig<T>(
 
 // Feature flag check
 export function shouldUseStandardStore(): boolean {
-  return import.meta.env.VITE_USE_STANDARD_STORE === 'true'
+  return process.env.VITE_USE_STANDARD_STORE === 'true'
 }
 
 // Performance measurement utilities
@@ -128,7 +128,7 @@ export function recordStoreUpdate(storeName: string, duration: number): void {
 
 // Export monitoring utilities for development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as any).__dceStoreMetrics = {
+  (window as unknown as Record<string, unknown>).__dceStoreMetrics = {
     getMetrics: (storeName?: string) => {
       if (storeName) {
         return storeMetrics.get(storeName)

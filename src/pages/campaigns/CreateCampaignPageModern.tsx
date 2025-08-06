@@ -19,6 +19,7 @@ import { Button } from '../../components/common/Button'
 import { Loading } from '../../components/common/Loading'
 import { FormErrorBoundary } from '../../components/forms/FormErrorBoundary'
 import { useCampaignWizardIntegration } from '../../hooks/useCampaignWizard'
+import type { CampaignWizardFormData } from '../../store/slices/campaignWizardSlice'
 
 // Step components for better organization
 import { BasicInfoStep } from './steps/BasicInfoStep'
@@ -64,14 +65,31 @@ function CreateCampaignPageModern() {
   const navigate = useNavigate()
   const wizard = useCampaignWizardIntegration()
 
-  // Create a wrapper function that matches the expected updateData signature
+  // Create a properly typed wrapper function that matches the expected updateData signature
   const createUpdateDataWrapper = () => {
-    return <K extends keyof typeof wizard.formData>(
+    return <K extends keyof CampaignWizardFormData>(
       field: K, 
-      value: typeof wizard.formData[K]
+      value: CampaignWizardFormData[K]
     ) => {
       // Use proper path typing for React Hook Form setValue
-      wizard.form.setValue(field as any, value, {
+      // Cast the field to the proper FieldPath type for setValue
+      type FieldPath = Parameters<typeof wizard.form.setValue>[0]
+      const fieldPath = field as FieldPath
+      wizard.form.setValue(fieldPath, value as Parameters<typeof wizard.form.setValue>[1], {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      })
+    }
+  }
+
+  // Create a version that accepts unknown values for compatibility with some step components
+  const createUpdateDataWrapperUnknown = () => {
+    return (field: keyof CampaignWizardFormData, value: unknown) => {
+      // Use proper path typing for React Hook Form setValue
+      type FieldPath = Parameters<typeof wizard.form.setValue>[0]
+      const fieldPath = field as FieldPath
+      wizard.form.setValue(fieldPath, value as Parameters<typeof wizard.form.setValue>[1], {
         shouldValidate: true,
         shouldDirty: true,
         shouldTouch: true,
@@ -112,7 +130,7 @@ function CreateCampaignPageModern() {
           <CallHandlingStep
             form={wizard.form}
             formData={wizard.formData}          
-            updateData={createUpdateDataWrapper()}
+            updateData={createUpdateDataWrapperUnknown()}
             errors={wizard.getStepErrors()}
           />
         )
@@ -122,7 +140,7 @@ function CreateCampaignPageModern() {
           <BudgetScheduleStep
             form={wizard.form}
             formData={wizard.formData}
-            updateData={createUpdateDataWrapper()}
+            updateData={createUpdateDataWrapperUnknown()}
             errors={wizard.getStepErrors()}
           />
         )

@@ -56,7 +56,7 @@ export {
 // TESTING SUITE ORCHESTRATOR
 // ===========================================
 
-import { BenchmarkRunner } from './benchmarks'
+import type { BenchmarkRunner } from './benchmarks'
 
 /**
  * Main test orchestrator that runs comprehensive testing across all stores

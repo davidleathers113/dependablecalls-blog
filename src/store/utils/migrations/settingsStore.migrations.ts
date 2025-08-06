@@ -20,59 +20,9 @@ const SettingsPersistedV1Schema = z.object({
   lastSaved: z.string().nullable(),
 })
 
-// V2 Schema (adds theme customization and accessibility)
+// V2 Schema (extends base schema with theme and accessibility)
 const SettingsPersistedV2Schema = z.object({
-  userSettings: z.object({
-    version: z.number().default(1),
-    updatedAt: z.string(),
-    profile: z.object({
-      displayName: z.string().optional(),
-      timezone: z.string().default('UTC'),
-      language: z.string().default('en'),
-      dateFormat: z.string().default('MM/DD/YYYY'),
-      timeFormat: z.enum(['12h', '24h']).default('12h'),
-    }).default({
-      displayName: undefined,
-      timezone: 'UTC',
-      language: 'en',
-      dateFormat: 'MM/DD/YYYY',
-      timeFormat: '12h',
-    }),
-    notifications: z.object({
-      email: z.object({
-        enabled: z.boolean().default(true),
-        frequency: z.enum(['immediate', 'hourly', 'daily', 'weekly']).default('immediate'),
-        campaigns: z.boolean().default(true),
-        billing: z.boolean().default(true),
-        system: z.boolean().default(true),
-        marketing: z.boolean().default(false),
-      }).optional(),
-      push: z.object({
-        enabled: z.boolean().default(false),
-        campaigns: z.boolean().default(false),
-        billing: z.boolean().default(true),
-        system: z.boolean().default(true),
-      }).optional(),
-      sms: z.object({
-        enabled: z.boolean().default(false),
-        campaigns: z.boolean().default(false),
-        billing: z.boolean().default(false),
-        emergency: z.boolean().default(true),
-      }).optional(),
-    }).optional(),
-    privacy: z.object({
-      dataSharing: z.boolean().default(false),
-      analytics: z.boolean().default(true),
-      marketing: z.boolean().default(false),
-      thirdPartyIntegrations: z.boolean().default(true),
-    }).optional(),
-    dashboard: z.object({
-      layout: z.enum(['compact', 'standard', 'expanded']).default('standard'),
-      widgets: z.array(z.string()).default([]),
-      refreshInterval: z.number().default(30000),
-      showWelcome: z.boolean().default(true),
-    }).optional(),
-    
+  userSettings: UserSettingsSchema.extend({
     // NEW: Theme customization
     theme: z.object({
       mode: z.enum(['light', 'dark', 'auto']).default('auto'),
@@ -163,107 +113,69 @@ const settingsV1ToV2Migration: Migration<SettingsPersistedV1, SettingsPersistedV
 // VERSION 2 -> VERSION 3
 // ======================
 
-// V3 Schema (adds performance and advanced preferences)
-const SettingsPersistedV3Schema = z.object({
-  userSettings: z.object({
-    version: z.number().default(1),
-    updatedAt: z.string(),
-    profile: z.object({
-      displayName: z.string().optional(),
-      timezone: z.string().default('UTC'),
-      language: z.string().default('en'),
-      dateFormat: z.string().default('MM/DD/YYYY'),
-      timeFormat: z.enum(['12h', '24h']).default('12h'),
-    }).optional(),
-    notifications: z.object({
-      email: z.object({
-        enabled: z.boolean().default(true),
-        frequency: z.enum(['immediate', 'hourly', 'daily', 'weekly']).default('immediate'),
-        campaigns: z.boolean().default(true),
-        billing: z.boolean().default(true),
-        system: z.boolean().default(true),
-        marketing: z.boolean().default(false),
-      }).optional(),
-      push: z.object({
-        enabled: z.boolean().default(false),
-        campaigns: z.boolean().default(false),
-        billing: z.boolean().default(true),
-        system: z.boolean().default(true),
-      }).optional(),
-      sms: z.object({
-        enabled: z.boolean().default(false),
-        campaigns: z.boolean().default(false),
-        billing: z.boolean().default(false),
-        emergency: z.boolean().default(true),
-      }).optional(),
-    }).optional(),
-    privacy: z.object({
-      dataSharing: z.boolean().default(false),
+// V3 Schema (extends V2 with performance and privacy enhancements)
+const UserSettingsV3Schema = UserSettingsSchema.extend({
+  theme: z.object({
+    mode: z.enum(['light', 'dark', 'auto']).default('auto'),
+    primaryColor: z.string().default('#0066cc'),
+    accentColor: z.string().default('#ff6600'),
+    customCss: z.string().optional(),
+    highContrast: z.boolean().default(false),
+  }).optional(),
+  accessibility: z.object({
+    reducedMotion: z.boolean().default(false),
+    screenReader: z.boolean().default(false),
+    keyboardNavigation: z.boolean().default(false),
+    fontSize: z.enum(['small', 'medium', 'large', 'extra-large']).default('medium'),
+    focusIndicator: z.boolean().default(true),
+  }).optional(),
+  privacy: z.object({
+    dataSharing: z.boolean().default(false),
+    analytics: z.boolean().default(true),
+    marketing: z.boolean().default(false),
+    thirdPartyIntegrations: z.boolean().default(true),
+    // NEW: Enhanced privacy controls
+    cookieConsent: z.object({
+      necessary: z.boolean().default(true),
       analytics: z.boolean().default(true),
       marketing: z.boolean().default(false),
-      thirdPartyIntegrations: z.boolean().default(true),
-      
-      // NEW: Enhanced privacy controls
-      cookieConsent: z.object({
-        necessary: z.boolean().default(true),
-        analytics: z.boolean().default(true),
-        marketing: z.boolean().default(false),
-        personalization: z.boolean().default(true),
-        consentDate: z.string().optional(),
-      }).default({
-        necessary: true,
-        analytics: true,
-        marketing: false,
-        personalization: true,
-      }),
-      dataRetention: z.object({
-        autoDelete: z.boolean().default(false),
-        retentionPeriod: z.number().default(365), // days
-        lastCleanup: z.string().optional(),
-      }).default({
-        autoDelete: false,
-        retentionPeriod: 365,
-      }),
-    }).optional(),
-    dashboard: z.object({
-      layout: z.enum(['compact', 'standard', 'expanded']).default('standard'),
-      widgets: z.array(z.string()).default([]),
-      refreshInterval: z.number().default(30000),
-      showWelcome: z.boolean().default(true),
-    }).optional(),
-    theme: z.object({
-      mode: z.enum(['light', 'dark', 'auto']).default('auto'),
-      primaryColor: z.string().default('#0066cc'),
-      accentColor: z.string().default('#ff6600'),
-      customCss: z.string().optional(),
-      highContrast: z.boolean().default(false),
-    }).optional(),
-    accessibility: z.object({
-      reducedMotion: z.boolean().default(false),
-      screenReader: z.boolean().default(false),
-      keyboardNavigation: z.boolean().default(false),
-      fontSize: z.enum(['small', 'medium', 'large', 'extra-large']).default('medium'),
-      focusIndicator: z.boolean().default(true),
-    }).optional(),
-    
-    // NEW: Performance preferences
-    performance: z.object({
-      enableAnimations: z.boolean().default(true),
-      lazyLoading: z.boolean().default(true),
-      prefetchData: z.boolean().default(true),
-      compressionLevel: z.enum(['none', 'low', 'medium', 'high']).default('medium'),
-      cacheStrategy: z.enum(['aggressive', 'balanced', 'minimal']).default('balanced'),
-    }).optional(),
-    
-    // NEW: Advanced user preferences
-    advanced: z.object({
-      developerMode: z.boolean().default(false),
-      betaFeatures: z.boolean().default(false),
-      debugMode: z.boolean().default(false),
-      experimentalFeatures: z.array(z.string()).default([]),
-      customShortcuts: z.record(z.string()).default({}),
-    }).optional(),
-  }).nullable(),
+      personalization: z.boolean().default(true),
+      consentDate: z.string().optional(),
+    }).default({
+      necessary: true,
+      analytics: true,
+      marketing: false,
+      personalization: true,
+    }),
+    dataRetention: z.object({
+      autoDelete: z.boolean().default(false),
+      retentionPeriod: z.number().default(365),
+      lastCleanup: z.string().optional(),
+    }).default({
+      autoDelete: false,
+      retentionPeriod: 365,
+    }),
+  }).optional(),
+  // NEW: Performance preferences
+  performance: z.object({
+    enableAnimations: z.boolean().default(true),
+    lazyLoading: z.boolean().default(true),
+    prefetchData: z.boolean().default(true),
+    compressionLevel: z.enum(['none', 'low', 'medium', 'high']).default('medium'),
+    cacheStrategy: z.enum(['aggressive', 'balanced', 'minimal']).default('balanced'),
+  }).optional(),
+  // NEW: Advanced user preferences
+  advanced: z.object({
+    developerMode: z.boolean().default(false),
+    betaFeatures: z.boolean().default(false),
+    debugMode: z.boolean().default(false),
+    experimentalFeatures: z.array(z.string()).default([]),
+    customShortcuts: z.record(z.string()).default({}),
+  }).optional(),
+})
+
+const SettingsPersistedV3Schema = z.object({
+  userSettings: UserSettingsV3Schema.nullable(),
   lastSaved: z.string().nullable(),
 })
 
@@ -359,124 +271,33 @@ const settingsV2ToV3Migration: Migration<SettingsPersistedV2, SettingsPersistedV
 // VERSION 3 -> VERSION 4
 // ======================
 
-// V4 Schema (adds workspace and collaboration settings)
+// V4 Schema (extends V3 with workspace and collaboration settings)
+const UserSettingsV4Schema = UserSettingsV3Schema.extend({
+  // NEW: Workspace settings
+  workspace: z.object({
+    defaultView: z.enum(['dashboard', 'campaigns', 'analytics', 'settings']).default('dashboard'),
+    sidebarCollapsed: z.boolean().default(false),
+    recentItems: z.array(z.object({
+      id: z.string(),
+      type: z.string(),
+      name: z.string(),
+      accessedAt: z.string(),
+    })).default([]),
+    favorites: z.array(z.string()).default([]),
+    workspaceLayout: z.record(z.unknown()).default({}),
+  }).optional(),
+  // NEW: Collaboration preferences
+  collaboration: z.object({
+    shareAnalytics: z.boolean().default(false),
+    allowComments: z.boolean().default(true),
+    notifyOnMentions: z.boolean().default(true),
+    autoShareReports: z.boolean().default(false),
+    collaboratorVisibility: z.enum(['public', 'team', 'private']).default('team'),
+  }).optional(),
+})
+
 const SettingsPersistedV4Schema = z.object({
-  userSettings: z.object({
-    version: z.number().default(1),
-    updatedAt: z.string(),
-    profile: z.object({
-      displayName: z.string().optional(),
-      timezone: z.string().default('UTC'),
-      language: z.string().default('en'),
-      dateFormat: z.string().default('MM/DD/YYYY'),
-      timeFormat: z.enum(['12h', '24h']).default('12h'),
-    }).optional(),
-    notifications: z.object({
-      email: z.object({
-        enabled: z.boolean().default(true),
-        frequency: z.enum(['immediate', 'hourly', 'daily', 'weekly']).default('immediate'),
-        campaigns: z.boolean().default(true),
-        billing: z.boolean().default(true),
-        system: z.boolean().default(true),
-        marketing: z.boolean().default(false),
-      }).optional(),
-      push: z.object({
-        enabled: z.boolean().default(false),
-        campaigns: z.boolean().default(false),
-        billing: z.boolean().default(true),
-        system: z.boolean().default(true),
-      }).optional(),
-      sms: z.object({
-        enabled: z.boolean().default(false),
-        campaigns: z.boolean().default(false),
-        billing: z.boolean().default(false),
-        emergency: z.boolean().default(true),
-      }).optional(),
-    }).optional(),
-    privacy: z.object({
-      dataSharing: z.boolean().default(false),
-      analytics: z.boolean().default(true),
-      marketing: z.boolean().default(false),
-      thirdPartyIntegrations: z.boolean().default(true),
-      cookieConsent: z.object({
-        necessary: z.boolean().default(true),
-        analytics: z.boolean().default(true),
-        marketing: z.boolean().default(false),
-        personalization: z.boolean().default(true),
-        consentDate: z.string().optional(),
-      }).default({
-        necessary: true,
-        analytics: true,
-        marketing: false,
-        personalization: true,
-      }),
-      dataRetention: z.object({
-        autoDelete: z.boolean().default(false),
-        retentionPeriod: z.number().default(365),
-        lastCleanup: z.string().optional(),
-      }).default({
-        autoDelete: false,
-        retentionPeriod: 365,
-      }),
-    }).optional(),
-    dashboard: z.object({
-      layout: z.enum(['compact', 'standard', 'expanded']).default('standard'),
-      widgets: z.array(z.string()).default([]),
-      refreshInterval: z.number().default(30000),
-      showWelcome: z.boolean().default(true),
-    }).optional(),
-    theme: z.object({
-      mode: z.enum(['light', 'dark', 'auto']).default('auto'),
-      primaryColor: z.string().default('#0066cc'),
-      accentColor: z.string().default('#ff6600'),
-      customCss: z.string().optional(),
-      highContrast: z.boolean().default(false),
-    }).optional(),
-    accessibility: z.object({
-      reducedMotion: z.boolean().default(false),
-      screenReader: z.boolean().default(false),
-      keyboardNavigation: z.boolean().default(false),
-      fontSize: z.enum(['small', 'medium', 'large', 'extra-large']).default('medium'),
-      focusIndicator: z.boolean().default(true),
-    }).optional(),
-    performance: z.object({
-      enableAnimations: z.boolean().default(true),
-      lazyLoading: z.boolean().default(true),
-      prefetchData: z.boolean().default(true),
-      compressionLevel: z.enum(['none', 'low', 'medium', 'high']).default('medium'),
-      cacheStrategy: z.enum(['aggressive', 'balanced', 'minimal']).default('balanced'),
-    }).optional(),
-    advanced: z.object({
-      developerMode: z.boolean().default(false),
-      betaFeatures: z.boolean().default(false),
-      debugMode: z.boolean().default(false),
-      experimentalFeatures: z.array(z.string()).default([]),
-      customShortcuts: z.record(z.string()).default({}),
-    }).optional(),
-    
-    // NEW: Workspace settings
-    workspace: z.object({
-      defaultView: z.enum(['dashboard', 'campaigns', 'analytics', 'settings']).default('dashboard'),
-      sidebarCollapsed: z.boolean().default(false),
-      recentItems: z.array(z.object({
-        id: z.string(),
-        type: z.string(),
-        name: z.string(),
-        accessedAt: z.string(),
-      })).default([]),
-      favorites: z.array(z.string()).default([]),
-      workspaceLayout: z.record(z.unknown()).default({}),
-    }).optional(),
-    
-    // NEW: Collaboration preferences
-    collaboration: z.object({
-      shareAnalytics: z.boolean().default(false),
-      allowComments: z.boolean().default(true),
-      notifyOnMentions: z.boolean().default(true),
-      autoShareReports: z.boolean().default(false),
-      collaboratorVisibility: z.enum(['public', 'team', 'private']).default('team'),
-    }).optional(),
-  }).nullable(),
+  userSettings: UserSettingsV4Schema.nullable(),
   lastSaved: z.string().nullable(),
 })
 

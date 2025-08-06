@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
 import { SettingsSection } from '../../components/settings/SettingsSection'
@@ -18,15 +19,8 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline'
-import type { CallTrackingSettings } from '../../types/settings'
 import type { ProviderType } from '../../types/call-tracking'
-
-interface CallTrackingFormData extends CallTrackingSettings {
-  // Additional provider-specific fields
-  providerApiKey?: string
-  providerApiSecret?: string
-  providerAccountId?: string
-}
+import { callTrackingSettingsSchema, type CallTrackingFormData } from '../../lib/validation'
 
 const PROVIDER_OPTIONS: Array<{ value: ProviderType | '', label: string }> = [
   { value: '', label: 'Select a provider' },
@@ -65,6 +59,7 @@ export default function CallTrackingSettingsPage() {
     : null
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<CallTrackingFormData>({
+    resolver: zodResolver(callTrackingSettingsSchema),
     defaultValues: callTrackingSettings || {
       defaultProvider: '',
       trackingNumbers: [],
@@ -83,7 +78,10 @@ export default function CallTrackingSettingsPage() {
   useEffect(() => {
     if (callTrackingSettings) {
       Object.entries(callTrackingSettings).forEach(([key, value]) => {
-        setValue(key as keyof CallTrackingFormData, value)
+        // Type-safe setValue calls with proper validation
+        if (key in callTrackingSettings && key !== 'trackingNumbers') {
+          setValue(key as keyof CallTrackingFormData, value as never)
+        }
       })
     }
   }, [callTrackingSettings, setValue])
@@ -255,12 +253,7 @@ export default function CallTrackingSettingsPage() {
               error={errors.webhookUrl?.message}
             >
               <SettingsInput
-                {...register('webhookUrl', {
-                  pattern: {
-                    value: /^https?:\/\/.+/,
-                    message: 'Please enter a valid URL starting with http:// or https://'
-                  }
-                })}
+                {...register('webhookUrl')}
                 type="url"
                 placeholder="https://your-domain.com/webhooks/calls"
               />
@@ -272,11 +265,7 @@ export default function CallTrackingSettingsPage() {
               error={errors.retryAttempts?.message}
             >
               <SettingsInput
-                {...register('retryAttempts', {
-                  valueAsNumber: true,
-                  min: { value: 0, message: 'Must be 0 or greater' },
-                  max: { value: 10, message: 'Maximum 10 retry attempts' }
-                })}
+                {...register('retryAttempts', { valueAsNumber: true })}
                 type="number"
                 min="0"
                 max="10"
@@ -289,11 +278,7 @@ export default function CallTrackingSettingsPage() {
               error={errors.timeoutSeconds?.message}
             >
               <SettingsInput
-                {...register('timeoutSeconds', {
-                  valueAsNumber: true,
-                  min: { value: 5, message: 'Minimum 5 seconds' },
-                  max: { value: 120, message: 'Maximum 120 seconds' }
-                })}
+                {...register('timeoutSeconds', { valueAsNumber: true })}
                 type="number"
                 min="5"
                 max="120"

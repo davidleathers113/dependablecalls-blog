@@ -1,9 +1,15 @@
-import { create } from 'zustand'
-import { persist, subscribeWithSelector } from 'zustand/middleware'
+/**
+ * Settings Store - Migrated to Standard Store Factory
+ * 
+ * This is the migrated version of settingsStore using the unified mutator chain.
+ * It maintains backward compatibility while fixing TypeScript issues.
+ */
+
+import { createStandardStore } from './factories/createStandardStore'
+import type { StandardStateCreator } from './types/mutators'
 import { supabase } from '../lib/supabase'
-import { StorageFactory } from './utils/storage/encryptedStorage'
 import { DataClassification, StorageType } from './utils/dataClassification'
-import { resourceCleanup } from './utils/resourceCleanup'
+import { StorageFactory } from './utils/storage/encryptedStorage'
 import { settingsToJson, isValidSupplierSettings, isValidBuyerSettings, isValidNetworkSettings } from './types/enhanced'
 import type {
   UserSettings,
@@ -20,7 +26,7 @@ import {
 } from '../types/settings'
 import { useAuthStore } from './authStore'
 
-interface SettingsState {
+export interface SettingsState {
   // Settings data
   userSettings: UserSettings | null
   roleSettings: SupplierSettings | BuyerSettings | NetworkSettings | AdminSettings | null
@@ -46,492 +52,479 @@ interface SettingsState {
   clearError: () => void
 }
 
-// Helper to update nested objects
-function updateNestedObject(obj: unknown, path: string, value: unknown): unknown {
-  if (!obj || typeof obj !== 'object') return obj
+// Create store state using Immer (no need for updateNestedObject with Immer)
+const createSettingsState: StandardStateCreator<SettingsState> = (set, get) => ({
+  // Initial state
+  userSettings: null,
+  roleSettings: null,
+  isLoading: false,
+  isSaving: false,
+  isDirty: false,
+  error: null,
+  lastSaved: null,
 
-  const keys = path.split('.')
-  const result = { ...obj } as Record<string, unknown>
-  let current = result
+  // Load settings from database
+  loadSettings: async () => {
+    set((state) => {
+      state.isLoading = true
+      state.error = null
+    })
 
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i]
-    if (!current[key] || typeof current[key] !== 'object') {
-      current[key] = {}
-    }
-    current[key] = { ...(current[key] as Record<string, unknown>) }
-    current = current[key] as Record<string, unknown>
-  }
+    try {
+      const { user, userType } = useAuthStore.getState()
+      if (!user) throw new Error('User not authenticated')
 
-  current[keys[keys.length - 1]] = value
-  return result
-}
+      // Load user settings from metadata
+      const { data: userData, error: userError } = await supabase!
+        .from('users')
+        .select('metadata')
+        .eq('id', user.id)
+        .single()
 
-const useSettingsStoreLegacy = create<SettingsState>()(
-  resourceCleanup({
-    enableAutoCleanup: true,
-    maxAge: 5 * 60 * 1000, // 5 minutes
-    maxResources: 50,
-    cleanupInterval: 30 * 1000, // 30 seconds
-  })(
-    subscribeWithSelector(
-      persist(
-        (set, get) => ({
-        // Initial state
-        userSettings: null,
-        roleSettings: null,
-        isLoading: false,
-        isSaving: false,
-        isDirty: false,
-        error: null,
-        lastSaved: null,
+      if (userError) throw userError
 
-        // Load settings from database
-        loadSettings: async () => {
-          set({ isLoading: true, error: null })
+      const userSettings = validateUserSettings(
+        typeof userData.metadata === 'object' &&
+          userData.metadata !== null &&
+          typeof (userData.metadata as Record<string, unknown>).settings === 'object'
+          ? ((userData.metadata as Record<string, unknown>).settings as Partial<UserSettings>)
+          : {}
+      )
 
-          try {
-            const { user, userType } = useAuthStore.getState()
-            if (!user) throw new Error('User not authenticated')
+      // Load role-specific settings
+      let roleSettings = null
 
-            // Load user settings from metadata
-            const { data: userData, error: userError } = await supabase!
-              .from('users')
-              .select('metadata')
-              .eq('id', user.id)
-              .single()
+      if (userType === 'supplier') {
+        const { data, error } = await supabase!
+          .from('suppliers')
+          .select('settings')
+          .eq('user_id', user.id)
+          .single()
 
-            if (userError) throw userError
+        if (error) throw error
+        if (data?.settings && isSupplierSettings(data.settings)) {
+          roleSettings = data.settings
+        }
+      } else if (userType === 'buyer') {
+        const { data, error } = await supabase!
+          .from('buyers')
+          .select('settings')
+          .eq('user_id', user.id)
+          .single()
 
-            const userSettings = validateUserSettings(
-              typeof userData.metadata === 'object' &&
-                userData.metadata !== null &&
-                typeof (userData.metadata as Record<string, unknown>).settings === 'object'
-                ? ((userData.metadata as Record<string, unknown>).settings as Partial<UserSettings>)
-                : {}
-            )
+        if (error) throw error
+        if (data?.settings && isBuyerSettings(data.settings)) {
+          roleSettings = data.settings
+        }
+      } else if (userType === 'network' && 'networkId' in user && user.networkId) {
+        const { data, error } = await supabase!
+          .from('networks')
+          .select('settings')
+          .eq('id', (user as { networkId: string }).networkId)
+          .single()
 
-            // Load role-specific settings
-            let roleSettings = null
+        if (error) throw error
+        if (data?.settings && isNetworkSettings(data.settings)) {
+          roleSettings = data.settings
+        }
+      } else if (userType === 'admin' && 'adminId' in user && user.adminId) {
+        const { error } = await supabase!
+          .from('admins')
+          .select('permissions')
+          .eq('id', (user as { adminId: string }).adminId)
+          .single()
 
-            if (userType === 'supplier') {
-              const { data, error } = await supabase!
-                .from('suppliers')
-                .select('settings')
-                .eq('user_id', user.id)
-                .single()
-
-              if (error) throw error
-              if (data?.settings && isSupplierSettings(data.settings)) {
-                roleSettings = data.settings
-              }
-            } else if (userType === 'buyer') {
-              const { data, error } = await supabase!
-                .from('buyers')
-                .select('settings')
-                .eq('user_id', user.id)
-                .single()
-
-              if (error) throw error
-              if (data?.settings && isBuyerSettings(data.settings)) {
-                roleSettings = data.settings
-              }
-            } else if (userType === 'network' && 'networkId' in user && user.networkId) {
-              const { data, error } = await supabase!
-                .from('networks')
-                .select('settings')
-                .eq('id', (user as { networkId: string }).networkId)
-                .single()
-
-              if (error) throw error
-              if (data?.settings && isNetworkSettings(data.settings)) {
-                roleSettings = data.settings
-              }
-            } else if (userType === 'admin' && 'adminId' in user && user.adminId) {
-              const { error } = await supabase!
-                .from('admins')
-                .select('permissions')
-                .eq('id', (user as { adminId: string }).adminId)
-                .single()
-
-              if (error) throw error
-              // Admin settings are stored differently - they would need a separate table
-              // For now, we'll create default admin settings
-              if (userType === 'admin') {
-                roleSettings = {
-                  version: 1,
-                  updatedAt: new Date().toISOString(),
-                  permissions: {
-                    fullAccess: true,
-                    modules: [],
-                    dataAccess: 'full' as const,
-                    userManagement: true,
-                    systemConfiguration: true,
-                    billingAccess: true,
-                  },
-                  systemConfig: {
-                    platformSettings: {
-                      siteName: '',
-                      siteUrl: '',
-                      supportEmail: '',
-                      timezone: 'UTC',
-                      maintenanceMode: false,
-                    },
-                    securityPolicies: [],
-                    integrationSettings: {
-                      providers: {},
-                      limits: {},
-                      defaults: {},
-                    },
-                    featureFlags: [],
-                    rateLimits: [],
-                  },
-                  auditLog: {
-                    enabled: true,
-                    retention: 90,
-                    logLevel: 'info' as const,
-                    includeReadOperations: false,
-                    sensitiveDataMasking: true,
-                    exportFormat: 'json' as const,
-                  },
-                  monitoring: {
-                    healthChecks: [],
-                    alertChannels: [],
-                    performanceMetrics: {
-                      sampleRate: 1,
-                      metrics: [],
-                      thresholds: {},
-                    },
-                    errorTracking: {
-                      provider: '',
-                      projectId: '',
-                      environment: 'production',
-                      sampleRate: 1,
-                    },
-                    uptimeMonitoring: {
-                      monitors: [],
-                      statusPage: false,
-                    },
-                  },
-                  maintenance: {
-                    maintenanceWindow: {
-                      dayOfWeek: 0,
-                      startHour: 0,
-                      duration: 0,
-                      timezone: 'UTC',
-                    },
-                    backupSchedule: {
-                      frequency: 'daily',
-                      retention: 30,
-                      location: '',
-                      encryption: true,
-                    },
-                    updatePolicy: {
-                      autoUpdate: false,
-                      schedule: 'manual',
-                      testing: true,
-                      rollback: true,
-                    },
-                    disasterRecovery: {
-                      rpo: 24,
-                      rto: 4,
-                      backupRegions: [],
-                      testFrequency: 'quarterly',
-                    },
-                  },
-                } as AdminSettings
-              }
-            }
-
-            set({
-              userSettings,
-              roleSettings,
-              isLoading: false,
-              isDirty: false,
-            })
-          } catch (error) {
-            set({
-              error: error instanceof Error ? error.message : 'Failed to load settings',
-              isLoading: false,
-            })
-          }
-        },
-
-        // Save settings to database
-        saveSettings: async () => {
-          const state = get()
-          if (!state.isDirty || state.isSaving) return
-
-          set({ isSaving: true, error: null })
-
-          try {
-            const { user, userType } = useAuthStore.getState()
-            if (!user) throw new Error('User not authenticated')
-
-            // Save user settings
-            if (state.userSettings) {
-              const updatedSettings = {
-                ...state.userSettings,
-                updatedAt: new Date().toISOString(),
-              }
-
-              // First fetch current metadata
-              const { data: userData } = await supabase!
-                .from('users')
-                .select('metadata')
-                .eq('id', user.id)
-                .single()
-
-              const currentMetadata = userData?.metadata || {}
-              const metadataObject =
-                typeof currentMetadata === 'object' && currentMetadata !== null
-                  ? (currentMetadata as Record<string, unknown>)
-                  : {}
-
-              // Then update with new settings
-              const { error } = await supabase!
-                .from('users')
-                .update({
-                  metadata: settingsToJson({
-                    ...metadataObject,
-                    settings: updatedSettings,
-                  }),
-                })
-                .eq('id', user.id)
-
-              if (error) throw error
-            }
-
-            // Save role-specific settings
-            if (state.roleSettings) {
-              const updatedSettings = {
-                ...state.roleSettings,
-                updatedAt: new Date().toISOString(),
-              }
-
-              if (userType === 'supplier' && isValidSupplierSettings(updatedSettings)) {
-                const { error } = await supabase!
-                  .from('suppliers')
-                  .update({
-                    settings: settingsToJson(updatedSettings, isValidSupplierSettings),
-                    settings_updated_at: new Date().toISOString(),
-                  })
-                  .eq('user_id', user.id)
-
-                if (error) throw error
-              } else if (userType === 'buyer' && isValidBuyerSettings(updatedSettings)) {
-                const { error } = await supabase!
-                  .from('buyers')
-                  .update({
-                    settings: settingsToJson(updatedSettings, isValidBuyerSettings),
-                    settings_updated_at: new Date().toISOString(),
-                  })
-                  .eq('user_id', user.id)
-
-                if (error) throw error
-              } else if (userType === 'network' && 'networkId' in user && user.networkId && isValidNetworkSettings(updatedSettings)) {
-                const { error } = await supabase!
-                  .from('networks')
-                  .update({
-                    settings: settingsToJson(updatedSettings, isValidNetworkSettings),
-                    settings_updated_at: new Date().toISOString(),
-                  })
-                  .eq('id', (user as { networkId: string }).networkId)
-
-                if (error) throw error
-              } else if (userType === 'admin' && 'adminId' in user && user.adminId) {
-                // Admin settings would need a separate table or different approach
-                // For now, we'll skip saving admin settings
-                console.warn('Admin settings saving not implemented - needs separate table')
-              }
-            }
-
-            // Log settings change to audit log
-            await supabase!.from('settings_audit_log').insert({
-              user_id: user.id,
-              setting_type: userType as 'user' | 'supplier' | 'buyer' | 'network' | 'admin',
-              setting_key: 'all',
-              action: 'update',
-              new_value: settingsToJson({
-                user: state.userSettings,
-                role: state.roleSettings,
-              }),
-            })
-
-            set({
-              isSaving: false,
-              isDirty: false,
-              lastSaved: new Date().toISOString(),
-            })
-          } catch (error) {
-            set({
-              error: error instanceof Error ? error.message : 'Failed to save settings',
-              isSaving: false,
-            })
-          }
-        },
-
-        // Update user setting
-        updateUserSetting: (key, value) => {
-          set((state) => ({
-            userSettings: state.userSettings
-              ? {
-                  ...state.userSettings,
-                  [key]: value,
-                }
-              : null,
-            isDirty: true,
-          }))
-        },
-
-        // Update role-specific setting
-        updateRoleSetting: (path, value) => {
-          set((state) => ({
-            roleSettings: updateNestedObject(
-              state.roleSettings,
-              path,
-              value
-            ) as typeof state.roleSettings,
-            isDirty: true,
-          }))
-        },
-
-        // Reset settings to defaults
-        resetSettings: async () => {
-          set({ isLoading: true })
-
-          try {
-            // Load default settings based on user type
-            const { userType } = useAuthStore.getState()
-
-            // Apply default templates
-            const defaultUserSettings = validateUserSettings({})
-
-            let defaultRoleSettings = null
-            if (userType === 'supplier') {
-              // Load default supplier template
-              const { data } = await supabase!
-                .from('settings_templates')
-                .select('settings')
-                .eq('user_type', 'supplier')
-                .eq('is_default', true)
-                .single()
-
-              if (data?.settings && isSupplierSettings(data.settings)) {
-                defaultRoleSettings = data.settings
-              }
-            }
-            // Similar for other user types...
-
-            set({
-              userSettings: defaultUserSettings,
-              roleSettings: defaultRoleSettings,
-              isDirty: true,
-              isLoading: false,
-            })
-
-            // Auto-save after reset
-            await get().saveSettings()
-          } catch (error) {
-            set({
-              error: error instanceof Error ? error.message : 'Failed to reset settings',
-              isLoading: false,
-            })
-          }
-        },
-
-        // Export settings
-        exportSettings: async () => {
-          const state = get()
-          const exportData = {
-            version: 1,
-            exportedAt: new Date().toISOString(),
-            userSettings: state.userSettings,
-            roleSettings: state.roleSettings,
-            userType: useAuthStore.getState().userType,
-          }
-
-          return new Blob([JSON.stringify(exportData, null, 2)], {
-            type: 'application/json',
-          })
-        },
-
-        // Import settings
-        importSettings: async (file) => {
-          try {
-            const text = await file.text()
-            const data = JSON.parse(text)
-
-            if (data.version !== 1) {
-              throw new Error('Unsupported settings version')
-            }
-
-            // Validate imported settings
-            const userSettings = validateUserSettings(data.userSettings || {})
-
-            set({
-              userSettings,
-              roleSettings: data.roleSettings,
-              isDirty: true,
-            })
-
-            // Auto-save after import
-            await get().saveSettings()
-          } catch (error) {
-            set({
-              error: error instanceof Error ? error.message : 'Failed to import settings',
-            })
-          }
-        },
-
-        // Utility actions
-        setDirty: (dirty) => set({ isDirty: dirty }),
-        clearError: () => set({ error: null }),
-      }),
-      {
-        name: 'settings-storage',
-        // SECURITY: Only persist non-sensitive user settings - NO API keys or credentials
-        partialize: (state) => ({
-          userSettings: state.userSettings ? {
-            ...state.userSettings,
-            // Remove any API keys, tokens, or sensitive configuration
-            integrations: state.userSettings.integrations ? {
-              ...state.userSettings.integrations,
-              // Clear API keys and secrets - only keep configuration flags
-              apiKeys: {},
-              credentials: {},
-            } : undefined,
-          } : null,
-          lastSaved: state.lastSaved,
-          // DO NOT PERSIST roleSettings - may contain API keys and sensitive config
-        }),
-        // Use encrypted storage for settings (CONFIDENTIAL classification due to potential PII)
-        storage: StorageFactory.createZustandStorage(
-          DataClassification.CONFIDENTIAL,
-          StorageType.LOCAL
-        ),
+        if (error) throw error
+        // Admin settings - create defaults for now
+        if (userType === 'admin') {
+          roleSettings = createDefaultAdminSettings()
+        }
       }
-    )
-  )
-  )
-)
 
-// Import the new v2 implementation
-let useSettingsStoreV2: any
-try {
-  const v2Module = require('./settingsStore.v2')
-  useSettingsStoreV2 = v2Module.useSettingsStore
-} catch {
-  console.warn('[Settings Store] v2 implementation not available, using legacy')
+      set((state) => {
+        state.userSettings = userSettings
+        state.roleSettings = roleSettings
+        state.isLoading = false
+        state.isDirty = false
+      })
+    } catch (error) {
+      set((state) => {
+        state.error = error instanceof Error ? error.message : 'Failed to load settings'
+        state.isLoading = false
+      })
+    }
+  },
+
+  // Save settings to database
+  saveSettings: async () => {
+    const state = get()
+    if (!state.isDirty || state.isSaving) return
+
+    set((state) => {
+      state.isSaving = true
+      state.error = null
+    })
+
+    try {
+      const { user, userType } = useAuthStore.getState()
+      if (!user) throw new Error('User not authenticated')
+
+      // Save user settings
+      if (state.userSettings) {
+        const updatedSettings = {
+          ...state.userSettings,
+          updatedAt: new Date().toISOString(),
+        }
+
+        // First fetch current metadata
+        const { data: userData } = await supabase!
+          .from('users')
+          .select('metadata')
+          .eq('id', user.id)
+          .single()
+
+        const currentMetadata = userData?.metadata || {}
+        const metadataObject =
+          typeof currentMetadata === 'object' && currentMetadata !== null
+            ? (currentMetadata as Record<string, unknown>)
+            : {}
+
+        // Then update with new settings
+        const { error } = await supabase!
+          .from('users')
+          .update({
+            metadata: settingsToJson({
+              ...metadataObject,
+              settings: updatedSettings,
+            }),
+          })
+          .eq('id', user.id)
+
+        if (error) throw error
+      }
+
+      // Save role-specific settings
+      if (state.roleSettings) {
+        const updatedSettings = {
+          ...state.roleSettings,
+          updatedAt: new Date().toISOString(),
+        }
+
+        if (userType === 'supplier' && isValidSupplierSettings(updatedSettings)) {
+          const { error } = await supabase!
+            .from('suppliers')
+            .update({
+              settings: settingsToJson(updatedSettings, isValidSupplierSettings),
+              settings_updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+
+          if (error) throw error
+        } else if (userType === 'buyer' && isValidBuyerSettings(updatedSettings)) {
+          const { error } = await supabase!
+            .from('buyers')
+            .update({
+              settings: settingsToJson(updatedSettings, isValidBuyerSettings),
+              settings_updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+
+          if (error) throw error
+        } else if (userType === 'network' && 'networkId' in user && user.networkId && isValidNetworkSettings(updatedSettings)) {
+          const { error } = await supabase!
+            .from('networks')
+            .update({
+              settings: settingsToJson(updatedSettings, isValidNetworkSettings),
+              settings_updated_at: new Date().toISOString(),
+            })
+            .eq('id', (user as { networkId: string }).networkId)
+
+          if (error) throw error
+        } else if (userType === 'admin' && 'adminId' in user && user.adminId) {
+          // Admin settings would need a separate table or different approach
+          console.warn('Admin settings saving not implemented - needs separate table')
+        }
+      }
+
+      // Log settings change to audit log
+      await supabase!.from('settings_audit_log').insert({
+        user_id: user.id,
+        setting_type: userType as 'user' | 'supplier' | 'buyer' | 'network' | 'admin',
+        setting_key: 'all',
+        action: 'update',
+        new_value: settingsToJson({
+          user: state.userSettings,
+          role: state.roleSettings,
+        }),
+      })
+
+      set((state) => {
+        state.isSaving = false
+        state.isDirty = false
+        state.lastSaved = new Date().toISOString()
+      })
+    } catch (error) {
+      set((state) => {
+        state.error = error instanceof Error ? error.message : 'Failed to save settings'
+        state.isSaving = false
+      })
+    }
+  },
+
+  // Update user setting
+  updateUserSetting: <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
+    set((state) => {
+      if (state.userSettings) {
+        state.userSettings[key] = value
+      }
+      state.isDirty = true
+    })
+  },
+
+  // Update role-specific setting with Immer
+  updateRoleSetting: (path: string, value: unknown) => {
+    set((state) => {
+      if (!state.roleSettings) return
+      
+      // Use Immer's built-in support for path updates
+      const keys = path.split('.')
+      let current: Record<string, unknown> = state.roleSettings as Record<string, unknown>
+      
+      // Navigate to the parent object
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!(keys[i] in current)) {
+          current[keys[i]] = {}
+        }
+        current = current[keys[i]] as Record<string, unknown>
+      }
+      
+      // Set the value
+      current[keys[keys.length - 1]] = value
+      state.isDirty = true
+    })
+  },
+
+  // Reset settings to defaults
+  resetSettings: async () => {
+    set((state) => {
+      state.isLoading = true
+    })
+
+    try {
+      // Load default settings based on user type
+      const { userType } = useAuthStore.getState()
+
+      // Apply default templates
+      const defaultUserSettings = validateUserSettings({})
+
+      let defaultRoleSettings = null
+      if (userType === 'supplier') {
+        // Load default supplier template
+        const { data } = await supabase!
+          .from('settings_templates')
+          .select('settings')
+          .eq('user_type', 'supplier')
+          .eq('is_default', true)
+          .single()
+
+        if (data?.settings && isSupplierSettings(data.settings)) {
+          defaultRoleSettings = data.settings
+        }
+      }
+      // Similar for other user types...
+
+      set((state) => {
+        state.userSettings = defaultUserSettings
+        state.roleSettings = defaultRoleSettings
+        state.isDirty = true
+        state.isLoading = false
+      })
+
+      // Auto-save after reset
+      await get().saveSettings()
+    } catch (error) {
+      set((state) => {
+        state.error = error instanceof Error ? error.message : 'Failed to reset settings'
+        state.isLoading = false
+      })
+    }
+  },
+
+  // Export settings
+  exportSettings: async () => {
+    const state = get()
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      userSettings: state.userSettings,
+      roleSettings: state.roleSettings,
+      userType: useAuthStore.getState().userType,
+    }
+
+    return new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json',
+    })
+  },
+
+  // Import settings
+  importSettings: async (file: File) => {
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      if (data.version !== 1) {
+        throw new Error('Unsupported settings version')
+      }
+
+      // Validate imported settings
+      const userSettings = validateUserSettings(data.userSettings || {})
+
+      set((state) => {
+        state.userSettings = userSettings
+        state.roleSettings = data.roleSettings
+        state.isDirty = true
+      })
+
+      // Auto-save after import
+      await get().saveSettings()
+    } catch (error) {
+      set((state) => {
+        state.error = error instanceof Error ? error.message : 'Failed to import settings'
+      })
+    }
+  },
+
+  // Utility actions
+  setDirty: (dirty: boolean) => {
+    set((state) => {
+      state.isDirty = dirty
+    })
+  },
+  
+  clearError: () => {
+    set((state) => {
+      state.error = null
+    })
+  },
+})
+
+// Helper function for default admin settings
+function createDefaultAdminSettings(): AdminSettings {
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    permissions: {
+      fullAccess: true,
+      modules: [],
+      dataAccess: 'full' as const,
+      userManagement: true,
+      systemConfiguration: true,
+      billingAccess: true,
+    },
+    systemConfig: {
+      platformSettings: {
+        siteName: '',
+        siteUrl: '',
+        supportEmail: '',
+        timezone: 'UTC',
+        maintenanceMode: false,
+      },
+      securityPolicies: [],
+      integrationSettings: {
+        providers: {},
+        limits: {},
+        defaults: {},
+      },
+      featureFlags: [],
+      rateLimits: [],
+    },
+    auditLog: {
+      enabled: true,
+      retention: 90,
+      logLevel: 'info' as const,
+      includeReadOperations: false,
+      sensitiveDataMasking: true,
+      exportFormat: 'json' as const,
+    },
+    monitoring: {
+      healthChecks: [],
+      alertChannels: [],
+      performanceMetrics: {
+        sampleRate: 1,
+        metrics: [],
+        thresholds: {},
+      },
+      errorTracking: {
+        provider: '',
+        projectId: '',
+        environment: 'production',
+        sampleRate: 1,
+      },
+      uptimeMonitoring: {
+        monitors: [],
+        statusPage: false,
+      },
+    },
+    maintenance: {
+      maintenanceWindow: {
+        dayOfWeek: 0,
+        startHour: 0,
+        duration: 0,
+        timezone: 'UTC',
+      },
+      backupSchedule: {
+        frequency: 'daily',
+        retention: 30,
+        location: '',
+        encryption: true,
+      },
+      updatePolicy: {
+        autoUpdate: false,
+        schedule: 'manual',
+        testing: true,
+        rollback: true,
+      },
+      disasterRecovery: {
+        rpo: 24,
+        rto: 4,
+        backupRegions: [],
+        testFrequency: 'quarterly',
+      },
+    },
+  }
 }
 
-// Export the appropriate implementation based on feature flag
-export const useSettingsStore = (() => {
-  if (import.meta.env.VITE_USE_STANDARD_STORE === 'true' && useSettingsStoreV2) {
-    console.log('[Settings Store] Using v2 implementation with standard middleware')
-    return useSettingsStoreV2
-  } else {
-    console.log('[Settings Store] Using legacy implementation')
-    return useSettingsStoreLegacy
-  }
-})()
+// Create the store using the standard factory
+export const useSettingsStore = createStandardStore<SettingsState>({
+  name: 'settings-store',
+  creator: createSettingsState,
+  persist: {
+    // SECURITY: Only persist non-sensitive user settings - NO API keys or credentials
+    partialize: (state) => ({
+      userSettings: state.userSettings ? {
+        ...state.userSettings,
+        // Remove any API keys, tokens, or sensitive configuration
+        integrations: state.userSettings.integrations ? {
+          ...state.userSettings.integrations,
+          // Clear API keys and secrets - only keep configuration flags
+          apiKeys: {},
+          credentials: {},
+        } : undefined,
+      } : null,
+      lastSaved: state.lastSaved,
+      // DO NOT PERSIST roleSettings - may contain API keys and sensitive config
+    }),
+    // Use encrypted storage for settings (CONFIDENTIAL classification due to potential PII)
+    storage: StorageFactory.createZustandStorage(
+      DataClassification.CONFIDENTIAL,
+      StorageType.LOCAL
+    ),
+  },
+  monitoring: {
+    enabled: true,
+    trackPerformance: true,
+  },
+})
+
+// Export the type for external use
+export type UseSettingsStore = typeof useSettingsStore

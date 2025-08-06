@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
 import { SettingsSection } from '../../components/settings/SettingsSection'
@@ -19,14 +20,7 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline'
-import type { PayoutSettings } from '../../types/settings'
-
-interface PayoutFormData extends PayoutSettings {
-  // Additional form-specific fields
-  confirmAccountNumber?: string
-  confirmRoutingNumber?: string
-  acceptTerms?: boolean
-}
+import { payoutSettingsSchema, type PayoutFormData } from '../../lib/validation'
 
 const PAYOUT_METHOD_OPTIONS = [
   { 
@@ -87,6 +81,7 @@ export default function PayoutSettingsPage() {
     formState: { errors, isDirty },
     setError
   } = useForm<PayoutFormData>({
+    resolver: zodResolver(payoutSettingsSchema),
     defaultValues: payoutSettings || {
       preferredMethod: 'bank_transfer',
       minimumPayout: 100,
@@ -103,7 +98,8 @@ export default function PayoutSettingsPage() {
         emailTo: [],
         includeDetails: true,
         customTemplate: undefined
-      }
+      },
+      acceptTerms: false
     }
   })
 
@@ -115,7 +111,10 @@ export default function PayoutSettingsPage() {
   useEffect(() => {
     if (payoutSettings) {
       Object.entries(payoutSettings).forEach(([key, value]) => {
-        setValue(key as keyof PayoutFormData, value)
+        // Type-safe setValue calls with proper validation
+        if (key in payoutSettings) {
+          setValue(key as keyof PayoutFormData, value as never)
+        }
       })
       if (payoutSettings.bankDetails) {
         setShowBankDetails(true)
@@ -259,11 +258,7 @@ export default function PayoutSettingsPage() {
                     >
                       <SettingsInput
                         {...register('bankDetails.routingNumber', {
-                          required: 'Routing number is required',
-                          pattern: {
-                            value: /^\d{9}$/,
-                            message: 'Routing number must be 9 digits'
-                          }
+                          required: 'Routing number is required'
                         })}
                         placeholder="123456789"
                         maxLength={9}
@@ -291,15 +286,7 @@ export default function PayoutSettingsPage() {
                     >
                       <SettingsInput
                         {...register('bankDetails.accountNumber', {
-                          required: 'Account number is required',
-                          minLength: {
-                            value: 4,
-                            message: 'Account number must be at least 4 digits'
-                          },
-                          maxLength: {
-                            value: 17,
-                            message: 'Account number must be at most 17 digits'
-                          }
+                          required: 'Account number is required'
                         })}
                         type="password"
                         placeholder="••••••••••"
@@ -401,9 +388,7 @@ export default function PayoutSettingsPage() {
               required
             >
               <SettingsInput
-                {...register('taxInformation.taxId', {
-                  required: 'Tax ID is required for payouts'
-                })}
+                {...register('taxInformation.taxId')}
                 placeholder="XX-XXXXXXX"
               />
             </SettingsField>

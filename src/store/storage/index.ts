@@ -50,10 +50,10 @@ export {
 } from './cleanup'
 
 // Utility functions for common storage operations
-import { storageManager } from './storageManager'
-import { keyMigrationManager } from './keyMigration'
-import { namespaceIsolation } from './namespaceIsolation'
-import { storageCleanup } from './cleanup'
+import type { storageManager } from './storageManager'
+import type { keyMigrationManager } from './keyMigration'
+import type { namespaceIsolation } from './namespaceIsolation'
+import type { storageCleanup } from './cleanup'
 
 /**
  * Initialize the storage architecture system

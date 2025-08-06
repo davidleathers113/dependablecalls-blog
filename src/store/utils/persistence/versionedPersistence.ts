@@ -285,10 +285,10 @@ export const versionedPersistence = <
       }
       
       // Update state with persistence timestamp
-      set((state: T & VersionedPersistenceState) => ({
-        ...state,
-        _lastPersisted: new Date().toISOString()
-      }))
+      set((state: T & VersionedPersistenceState) => {
+        state._lastPersisted = new Date().toISOString()
+        return state
+      })
       
       if (opts.development?.verbose) {
         console.log(`💾 [${storeName}] Persisted state (v${currentVersion})`)
@@ -351,10 +351,10 @@ export const versionedPersistence = <
             },
           ]
           
-          set((state: T & VersionedPersistenceState) => ({
-            ...state,
-            _migrationHistory: migrationHistory
-          }))
+          set((state: T & VersionedPersistenceState) => {
+            state._migrationHistory = migrationHistory
+            return state
+          })
           
           if (opts.migrations?.logMigrations) {
             console.log(`🔄 [${storeName}] Migrated from v${storedVersion} to v${latestVersion}`)
@@ -381,10 +381,10 @@ export const versionedPersistence = <
             },
           ]
           
-          set((state: T & VersionedPersistenceState) => ({
-            ...state,
-            _migrationHistory: migrationHistory
-          }))
+          set((state: T & VersionedPersistenceState) => {
+            state._migrationHistory = migrationHistory
+            return state
+          })
           
           return // Don't apply failed migration data
         }
@@ -406,12 +406,12 @@ export const versionedPersistence = <
       // Apply rehydrated data to state
       // Ensure data is an object type before spreading
       const rehydratedData = (typeof data === 'object' && data !== null) ? data as Record<string, unknown> : {}
-      set((state: T & VersionedPersistenceState) => ({
-        ...state,
-        ...rehydratedData,
-        _version: latestVersion,
-        _lastPersisted: new Date().toISOString(),
-      }))
+      set((state: T & VersionedPersistenceState) => {
+        Object.assign(state, rehydratedData)
+        state._version = latestVersion
+        state._lastPersisted = new Date().toISOString()
+        return state
+      })
       
       if (opts.development?.verbose) {
         console.log(`✅ [${storeName}] Rehydration complete`)
@@ -464,11 +464,11 @@ export const versionedPersistence = <
     if (result.success) {
       // Ensure result.data is an object type before spreading
       const migrationData = (typeof result.data === 'object' && result.data !== null) ? result.data as Record<string, unknown> : {}
-      set((state: T & VersionedPersistenceState) => ({
-        ...state,
-        ...migrationData,
-        _version: targetVersion,
-      }))
+      set((state: T & VersionedPersistenceState) => {
+        Object.assign(state, migrationData)
+        state._version = targetVersion
+        return state
+      })
       
       await debouncedPersist() // Persist the migrated data
     }

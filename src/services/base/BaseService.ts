@@ -117,7 +117,16 @@ export abstract class BaseService {
   private readonly pendingRequests = new Map<string, Promise<unknown>>()
 
   constructor(config: ServiceConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    this.config = { 
+      ...DEFAULT_CONFIG, 
+      ...config,
+      customContext: config.customContext || {}
+    }
+    
+    if (!supabase) {
+      throw new Error(`[${config.name}] Supabase client not available`)
+    }
+    
     this.supabase = supabase
     
     // Initialize cleanup interval for cache
@@ -131,7 +140,7 @@ export abstract class BaseService {
    */
   protected async executeOperation<T>(operation: ServiceOperation<T>): Promise<T> {
     const startTime = Date.now()
-    const context = this.buildErrorContext(operation.name)
+    const _context = this.buildErrorContext(operation.name)
 
     try {
       // Check for pending request deduplication
@@ -167,7 +176,7 @@ export abstract class BaseService {
       const result = await this.withRetry(
         () => operationPromise,
         operation.retryConfig || {},
-        context
+        _context
       )
 
       // Cache result if applicable
@@ -182,8 +191,8 @@ export abstract class BaseService {
       this.updateMetrics(startTime, false, true)
       
       // Convert to service error and report
-      const serviceError = this.createServiceError(error, operation.name, context)
-      await this.reportServiceError(serviceError, context)
+      const serviceError = this.createServiceError(error, operation.name, _context)
+      await this.reportServiceError(serviceError, _context)
       
       throw serviceError
     } finally {
@@ -200,7 +209,7 @@ export abstract class BaseService {
   private async withRetry<T>(
     operation: () => Promise<T>,
     retryConfig: ServiceOperation['retryConfig'] = {},
-    context: ErrorContext
+    _context: ErrorContext
   ): Promise<T> {
     const maxAttempts = retryConfig.maxAttempts ?? this.config.maxRetries
     const baseDelay = retryConfig.baseDelay ?? this.config.baseRetryDelay
@@ -284,7 +293,7 @@ export abstract class BaseService {
   /**
    * Create service-specific error with proper context
    */
-  private createServiceError(error: unknown, operationName: string, context: ErrorContext): DCEError {
+  private createServiceError(error: unknown, operationName: string, _context: ErrorContext): DCEError {
     if (error instanceof DCEError) {
       return error
     }
@@ -294,21 +303,21 @@ export abstract class BaseService {
       if (error.message.includes('validation') || error.message.includes('invalid')) {
         return createError.validation(error.message, undefined, undefined, undefined, {
           cause: error,
-          context: { ...context, operation: operationName }
+          context: { ..._context, operation: operationName }
         })
       }
 
       if (error.message.includes('network') || error.message.includes('fetch')) {
         return createError.network(error.message, undefined, undefined, undefined, {
           cause: error,
-          context: { ...context, operation: operationName }
+          context: { ..._context, operation: operationName }
         })
       }
 
       if (error.message.includes('unauthorized') || error.message.includes('forbidden')) {
         return createError.authentication(error.message, {
           cause: error,
-          context: { ...context, operation: operationName }
+          context: { ..._context, operation: operationName }
         })
       }
 
@@ -320,7 +329,7 @@ export abstract class BaseService {
         undefined,
         {
           cause: error,
-          context: { ...context, operation: operationName }
+          context: { ..._context, operation: operationName }
         }
       )
     }
@@ -332,7 +341,7 @@ export abstract class BaseService {
       operationName,
       undefined,
       {
-        context: { ...context, operation: operationName, originalError: error }
+        context: { ..._context, operation: operationName, originalError: error }
       }
     )
   }
@@ -340,10 +349,10 @@ export abstract class BaseService {
   /**
    * Report service error to monitoring systems
    */
-  private async reportServiceError(error: DCEError, context: ErrorContext): Promise<void> {
+  private async reportServiceError(error: DCEError, _context: ErrorContext): Promise<void> {
     try {
       await reportError(error, {
-        ...context,
+        ..._context,
         serviceName: this.config.name,
         timestamp: Date.now(),
       })
@@ -552,17 +561,17 @@ export function createStoreProxy<T extends BaseService, K extends keyof T>(
  */
 export async function executeServiceOperation<T>(
   operation: () => Promise<T>,
-  context: { storeName: string; actionName: string }
+  _context: { storeName: string; actionName: string }
 ): Promise<T> {
   try {
     return await operation()
   } catch (error) {
     // Log service error in store context
-    console.error(`[${context.storeName}] Service operation failed in ${context.actionName}:`, error)
+    console.error(`[${_context.storeName}] Service operation failed in ${_context.actionName}:`, error)
     
     // Re-throw as-is since service already created proper DCEError
     throw error
   }
 }
 
-export type { ServiceConfig, ServiceOperation, ServiceMetrics }
+// Types are already exported inline above

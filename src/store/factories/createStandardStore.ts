@@ -9,17 +9,19 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { devtools } from 'zustand/middleware'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { persist } from 'zustand/middleware'
+import { persist, type PersistOptions } from 'zustand/middleware'
+import type { StateCreator } from 'zustand'
 import type { 
   StoreConfig, 
-  StandardStoreConfig
+  StandardStoreConfig,
+  StandardMutators,
+  LightweightMutators
 } from '../types/mutators'
 import { isLightweightConfig } from '../types/mutators'
 
 // Import our custom monitoring middleware if available
-import type { StateCreator } from 'zustand'
 
-let createMonitoringMiddleware: ((config: unknown) => (f: unknown) => unknown) | undefined
+let createMonitoringMiddleware: (<T>(config: unknown) => (f: StateCreator<T, [], [], T>) => StateCreator<T, [], [], T>) | undefined
 try {
   // Dynamic import to avoid circular dependencies
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -46,31 +48,33 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
   // Standard stores use the full middleware chain
   const standardConfig = config as StandardStoreConfig<T>
   
-  // Build middleware chain from inside out
+  // Build middleware chain from inside out with proper typing
   // Correct order: immer (innermost) → subscribeWithSelector → persist → devtools (outermost)
-  let middleware = standardConfig.creator
+  
+  // Apply middleware in the correct order for type compatibility
+  let storeCreator = standardConfig.creator
 
   // Apply immer for immutable updates (innermost)
-  middleware = immer(middleware as any) as any
+  storeCreator = immer(storeCreator)
 
   // Apply subscribeWithSelector for granular subscriptions
-  middleware = subscribeWithSelector(middleware as any) as any
+  storeCreator = subscribeWithSelector(storeCreator)
 
   // Apply persist middleware if configured
   if (standardConfig.persist) {
-    middleware = persist(middleware as any, {
+    storeCreator = persist(storeCreator, {
       name: `${standardConfig.name}-storage`,
       ...standardConfig.persist,
-    }) as any
+    })
   }
 
   // Apply devtools in development (outermost)
   if (process.env.NODE_ENV === 'development') {
-    middleware = devtools(middleware as any, {
+    storeCreator = devtools(storeCreator, {
       name: standardConfig.name,
       enabled: true,
       ...standardConfig.devtools,
-    }) as any
+    })
   }
 
   // Apply monitoring in development if available and enabled
@@ -79,7 +83,7 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
     createMonitoringMiddleware &&
     standardConfig.monitoring?.enabled !== false
   ) {
-    middleware = createMonitoringMiddleware({
+    storeCreator = createMonitoringMiddleware({
       name: standardConfig.name,
       enabled: true,
       options: {
@@ -89,11 +93,11 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
         enableTimeTravel: false, // Memory intensive
         maxHistorySize: 100,
       },
-    })(middleware as any) as any
+    })(storeCreator)
   }
 
   // Create the store with the built middleware chain
-  return create<T>()(middleware as any)
+  return create<T>()(storeCreator)
 }
 
 /**
@@ -101,11 +105,11 @@ export function createStandardStore<T>(config: StoreConfig<T>) {
  * This allows incremental migration without breaking existing code
  */
 export function migrateToStandardStore<T>(
-  existingStore: any,
+  existingStore: ReturnType<typeof create<T>>,
   config: StoreConfig<T>
-): any {
+): ReturnType<typeof create<T>> {
   // If feature flag is off, return existing store
-  if (import.meta.env.VITE_USE_STANDARD_STORE !== 'true') {
+  if (process.env.VITE_USE_STANDARD_STORE !== 'true') {
     return existingStore
   }
 
@@ -114,7 +118,10 @@ export function migrateToStandardStore<T>(
 }
 
 // Export convenience creators for common patterns
-export const createUIStore = <T>(name: string, creator: any) =>
+export const createUIStore = <T>(
+  name: string, 
+  creator: StateCreator<T, LightweightMutators, [], T>
+) =>
   createStandardStore<T>({
     name,
     creator,
@@ -123,8 +130,8 @@ export const createUIStore = <T>(name: string, creator: any) =>
 
 export const createDataStore = <T>(
   name: string,
-  creator: any,
-  persistConfig?: any
+  creator: StateCreator<T, StandardMutators, [], T>,
+  persistConfig?: Omit<PersistOptions<T>, 'name'>
 ) =>
   createStandardStore<T>({
     name,
@@ -138,8 +145,8 @@ export const createDataStore = <T>(
 
 export const createAuthStore = <T>(
   name: string,
-  creator: any,
-  persistConfig?: any
+  creator: StateCreator<T, StandardMutators, [], T>,
+  persistConfig?: Omit<PersistOptions<T>, 'name'>
 ) =>
   createStandardStore<T>({
     name,
@@ -153,10 +160,20 @@ export const createAuthStore = <T>(
     devtools: {
       trace: true, // Enable action tracing for auth debugging
       // SECURITY: Sanitize sensitive data from DevTools
-      stateSanitizer: (state: any) => ({
-        ...state,
-        session: state.session ? { id: state.session.id, expires_at: state.session.expires_at } : null,
-        // Never expose tokens or sensitive session data
-      }),
+      stateSanitizer: (state: T): T => {
+        const authState = state as unknown as { 
+          session?: { id?: string; expires_at?: string } 
+        }
+        return {
+          ...state,
+          session: authState.session 
+            ? { 
+                id: authState.session.id, 
+                expires_at: authState.session.expires_at 
+              } 
+            : null,
+          // Never expose tokens or sensitive session data
+        } as T
+      },
     },
   })

@@ -14,19 +14,18 @@
 import {
   DCEError,
   createError as baseFcreateError,
-  type ErrorContext,
-  type ErrorOptions,
-  type RecoveryStrategy,
-  type MonitoringError,
   AuthenticationError,
   AuthorizationError,
   NetworkError,
-  APIError,
   ValidationError,
   DataError,
-  StateError,
   BusinessLogicError,
   ConfigurationError,
+} from '../../store/errors/errorTypes'
+import type {
+  ErrorOptions,
+  RecoveryStrategy,
+  MonitoringError,
 } from '../../store/errors/errorTypes'
 
 // Service-Specific Error Codes
@@ -626,26 +625,26 @@ export const ErrorCodeUtils = {
    * Check if error code indicates user action required
    */
   requiresUserAction: (code: StoreErrorCode): boolean => {
-    return [
+    return ([
       STORE_ERROR_CODES.AUTH_SESSION_EXPIRED,
       STORE_ERROR_CODES.AUTH_INVALID_CREDENTIALS,
       STORE_ERROR_CODES.AUTH_MFA_REQUIRED,
       STORE_ERROR_CODES.DATA_VALIDATION_FAILED,
       STORE_ERROR_CODES.BILLING_INSUFFICIENT_FUNDS,
       STORE_ERROR_CODES.BILLING_CARD_DECLINED,
-    ].includes(code)
+    ] as StoreErrorCode[]).includes(code)
   },
 
   /**
    * Check if error code indicates system issue
    */
   isSystemIssue: (code: StoreErrorCode): boolean => {
-    return [
+    return ([
       STORE_ERROR_CODES.SERVICE_UNAVAILABLE,
       STORE_ERROR_CODES.CONFIG_MISSING_REQUIRED,
       STORE_ERROR_CODES.ENV_VARIABLE_MISSING,
       STORE_ERROR_CODES.EXTERNAL_API_ERROR,
-    ].includes(code)
+    ] as StoreErrorCode[]).includes(code)
   },
 }
 
@@ -655,5 +654,4 @@ export const createError = {
   store: createStoreError,
 }
 
-export type { StoreErrorCode }
-export { STORE_ERROR_CODES, StoreError }
+// Types and constants are already exported inline above

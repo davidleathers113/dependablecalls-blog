@@ -46,7 +46,7 @@ export interface ResourceCleanupState {
 
 // Centralized StoreMutators declaration to avoid conflicts
 declare module 'zustand/vanilla' {
-  interface StoreMutators<S, A> {
+  interface StoreMutators<S, _A> {
     'zustand/resource-cleanup': WithResourceCleanup<S>
     'zustand/immer': WithImmer<S>
     errorHandling: Write<S, StoreErrorHandling<S>>
@@ -141,7 +141,10 @@ export const resourceCleanup = <T>(
         // Update state with current resource count
         const currentState = get() as T_WithCleanup
         if (currentState.__resources.size !== resources.size) {
-          set({ __resources: new Map(resources) } as Partial<T_WithCleanup>)
+          set((state: T_WithCleanup) => {
+            state.__resources = new Map(resources)
+            return state
+          })
         }
       }
       
@@ -153,7 +156,10 @@ export const resourceCleanup = <T>(
       // Resource management methods
       const addResource = (resource: CleanupResource) => {
         resources.set(resource.id, resource)
-        set({ __resources: new Map(resources) } as Partial<T_WithCleanup>)
+        set((state: T_WithCleanup) => {
+          state.__resources = new Map(resources)
+          return state
+        })
         
         if (process.env.NODE_ENV === 'development') {
           console.debug(`Added resource ${resource.id} (type: ${resource.type})`)
@@ -169,7 +175,10 @@ export const resourceCleanup = <T>(
             console.warn(`Failed to cleanup resource ${id}:`, error)
           }
           resources.delete(id)
-          set({ __resources: new Map(resources) } as Partial<T_WithCleanup>)
+          set((state: T_WithCleanup) => {
+            state.__resources = new Map(resources)
+            return state
+          })
           
           if (process.env.NODE_ENV === 'development') {
             console.debug(`Removed resource ${id}`)
@@ -192,10 +201,11 @@ export const resourceCleanup = <T>(
           cleanupIntervalId = null
         }
         
-        set({ 
-          __resources: new Map(),
-          __cleanup_enabled: false
-        } as Partial<T_WithCleanup>)
+        set((state: T_WithCleanup) => {
+          state.__resources = new Map()
+          state.__cleanup_enabled = false
+          return state
+        })
         
         if (process.env.NODE_ENV === 'development') {
           console.debug('Cleaned up all resources')

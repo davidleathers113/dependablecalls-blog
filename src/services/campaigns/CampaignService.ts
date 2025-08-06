@@ -12,10 +12,9 @@
  * a migration path to move business logic out of stores.
  */
 
-import { BaseService, type ServiceConfig, type ServiceOperation } from '../base/BaseService'
-import { createStoreError, type StoreErrorCode, STORE_ERROR_CODES } from '../../lib/errors/StoreError'
+import { BaseService } from '../base/BaseService'
+import { createStoreError } from '../../lib/errors/StoreError'
 import { createServiceAction, type AsyncActionExecutionContext } from '../../store/utils/withAsyncAction'
-import type { Database } from '../../types/database.generated'
 
 // Campaign Types
 // ==============
@@ -337,7 +336,7 @@ export class CampaignService extends BaseService {
   /**
    * Update existing campaign with business rule validation
    */
-  async updateCampaign(request: UpdateCampaignRequest, userId: string): Promise<Campaign> {
+  async updateCampaign(request: UpdateCampaignRequest, _userId: string): Promise<Campaign> {
     return this.executeOperation<Campaign>({
       name: 'updateCampaign',
       skipCache: true,
@@ -409,7 +408,7 @@ export class CampaignService extends BaseService {
   /**
    * Delete campaign with validation
    */
-  async deleteCampaign(id: string, userId: string): Promise<void> {
+  async deleteCampaign(id: string, _userId: string): Promise<void> {
     return this.executeOperation<void>({
       name: 'deleteCampaign',
       skipCache: true,
@@ -576,12 +575,12 @@ export class CampaignService extends BaseService {
     this.log('Cleaning up campaign resources', { campaignId })
   }
 
-  private calculateMetrics(callLogs: unknown[]): CampaignMetrics {
+  private calculateMetrics(_callLogs: unknown[]): CampaignMetrics {
     // Calculate campaign performance metrics from call logs
     // This is simplified - real implementation would be more complex
-    const totalCalls = callLogs.length
-    const qualifiedCalls = callLogs.filter((call: any) => call.qualified).length
-    const totalCost = callLogs.reduce((sum: number, call: any) => sum + (call.cost || 0), 0)
+    const totalCalls = _callLogs.length
+    const qualifiedCalls = _callLogs.filter((call: unknown) => (call as { qualified?: boolean }).qualified).length
+    const totalCost = _callLogs.reduce((sum: number, call: unknown) => sum + ((call as { cost?: number }).cost || 0), 0)
     
     return {
       totalCalls,
@@ -594,25 +593,45 @@ export class CampaignService extends BaseService {
     }
   }
 
-  private transformDbRowToCampaign(row: any): Campaign {
+  private transformDbRowToCampaign(row: unknown): Campaign {
+    const dbRow = row as {
+      id: string
+      name: string
+      description?: string
+      status: CampaignStatus
+      budget: number
+      daily_budget?: number
+      budget_spent?: number
+      bid_price: number
+      targeting?: CampaignTargeting
+      schedule?: CampaignSchedule
+      supplier_id: string
+      buyer_id: string
+      call_tracking_number?: string
+      quality_score?: number
+      conversion_rate?: number
+      created_at: string
+      updated_at: string
+    }
+
     return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      status: row.status,
-      budget: row.budget,
-      dailyBudget: row.daily_budget,
-      budgetSpent: row.budget_spent || 0,
-      bidPrice: row.bid_price,
-      targeting: row.targeting || { geolocations: [] },
-      schedule: row.schedule,
-      supplierId: row.supplier_id,
-      buyerId: row.buyer_id,
-      callTrackingNumber: row.call_tracking_number,
-      qualityScore: row.quality_score,
-      conversionRate: row.conversion_rate,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      id: dbRow.id,
+      name: dbRow.name,
+      description: dbRow.description,
+      status: dbRow.status,
+      budget: dbRow.budget,
+      dailyBudget: dbRow.daily_budget,
+      budgetSpent: dbRow.budget_spent || 0,
+      bidPrice: dbRow.bid_price,
+      targeting: dbRow.targeting || { geolocations: [] },
+      schedule: dbRow.schedule,
+      supplierId: dbRow.supplier_id,
+      buyerId: dbRow.buyer_id,
+      callTrackingNumber: dbRow.call_tracking_number,
+      qualityScore: dbRow.quality_score,
+      conversionRate: dbRow.conversion_rate,
+      createdAt: dbRow.created_at,
+      updatedAt: dbRow.updated_at,
     }
   }
 
@@ -638,7 +657,7 @@ export class CampaignService extends BaseService {
  */
 export function createCampaignAction<TState, TParams = void, TResult = unknown>(
   actionName: string,
-  operation: (service: CampaignService, params: TParams, context: AsyncActionExecutionContext<TState>) => Promise<TResult>
+  operation: (service: CampaignService, params: TParams, context: AsyncActionExecutionContext<TState, TParams, TResult>) => Promise<TResult>
 ) {
   const campaignService = CampaignService.getInstance()
   
@@ -654,7 +673,7 @@ export function createCampaignAction<TState, TParams = void, TResult = unknown>(
       maxAttempts: 3,
       baseDelay: 1000,
     },
-  })(async (params: TParams, context: AsyncActionExecutionContext<TState>) => {
+  })(async (params: TParams, context: AsyncActionExecutionContext<TState, TParams, TResult>) => {
     return operation(campaignService, params, context)
   })
 }
@@ -662,13 +681,4 @@ export function createCampaignAction<TState, TParams = void, TResult = unknown>(
 // Export service instance and types
 export const campaignService = CampaignService.getInstance()
 
-export type {
-  Campaign,
-  CampaignStatus,
-  CampaignTargeting,
-  CampaignSchedule,
-  CreateCampaignRequest,
-  UpdateCampaignRequest,
-  CampaignFilters,
-  CampaignMetrics,
-}
+// Types are already exported inline above

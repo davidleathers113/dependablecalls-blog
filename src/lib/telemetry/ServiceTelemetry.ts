@@ -10,8 +10,7 @@
  * - Custom dashboards and alerting
  */
 
-import { StoreError, type StoreErrorCode } from '../errors/StoreError'
-import type { ServiceMetrics } from '../../services/base/BaseService'
+import type { StoreError, StoreErrorCode } from '../errors/StoreError'
 
 // Telemetry Configuration
 // =======================
@@ -164,7 +163,6 @@ const DEFAULT_CONFIG: TelemetryConfig = {
 export class ServiceTelemetryCollector {
   private config: TelemetryConfig
   private eventBuffer: TelemetryEvent[] = []
-  private performanceBuffer: PerformanceMetrics[] = []
   private flushTimer: NodeJS.Timeout | null = null
   private operationTimings = new Map<string, number[]>()
   private operationCounts = new Map<string, { success: number; failure: number }>()
@@ -744,9 +742,4 @@ export const DEFAULT_TRANSFORMERS: TelemetryTransformer[] = [
   },
 ]
 
-export type {
-  TelemetryConfig,
-  TelemetryEvent,
-  TelemetryTransformer,
-  PerformanceMetrics,
-}
+// Types are already exported inline above
