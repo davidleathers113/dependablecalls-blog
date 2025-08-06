@@ -4,26 +4,51 @@
  */
 
 import React, { useEffect, useState } from 'react'
-import { 
+import {
   usePerformanceMonitor,
   useStateDebugger,
   useMetricsCollector,
-  useDeveloperTools 
+  useDeveloperTools,
+  type PerformanceMetrics,
+  type PerformanceReport,
+  type DeveloperCommand,
 } from './index'
 import { useMonitoringIntegration } from '../utils/monitoringIntegration'
 
+// ==================== Additional Type Definitions ====================
+
+interface MetricsSummary {
+  userInteractions: {
+    totalInteractions: number
+    bounceRate: number
+  }
+  apiPerformance: {
+    totalCalls: number
+    averageResponseTime: number
+    errorRate: number
+  }
+  performance: {
+    averageLoadTime: number
+    memoryUsage: number
+  }
+  errors: {
+    total: number
+    byType: Record<string, number>
+  }
+}
+
 // ==================== Performance Monitoring Example ====================
 
-export const PerformanceMonitorExample: React.FC = () => {
-  const [metrics, setMetrics] = useState(null)
-  const [report, setReport] = useState(null)
+export const PerformanceMonitoringExample: React.FC = () => {
+  const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null)
+  const [report, setReport] = useState<PerformanceReport | null>(null)
   const performanceMonitor = usePerformanceMonitor()
 
   useEffect(() => {
     // Subscribe to performance updates
     const unsubscribe = usePerformanceMonitor.subscribe(
-      (state) => state.metrics,
-      (newMetrics) => setMetrics(newMetrics)
+      (state: { metrics: PerformanceMetrics }) => state.metrics,
+      (newMetrics: PerformanceMetrics) => setMetrics(newMetrics)
     )
 
     return unsubscribe
@@ -43,23 +68,23 @@ export const PerformanceMonitorExample: React.FC = () => {
   return (
     <div className="p-6 bg-white rounded-lg shadow">
       <h2 className="text-xl font-bold mb-4">Performance Monitor</h2>
-      
+
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-blue-50 p-4 rounded">
           <h3 className="font-semibold">Store Updates</h3>
           <p>{metrics.storeUpdateFrequency.toFixed(2)} updates/sec</p>
         </div>
-        
+
         <div className="bg-green-50 p-4 rounded">
           <h3 className="font-semibold">Memory Usage</h3>
           <p>{(metrics.memoryUsage / 1024 / 1024).toFixed(2)} MB</p>
         </div>
-        
+
         <div className="bg-yellow-50 p-4 rounded">
           <h3 className="font-semibold">Re-renders</h3>
           <p>{metrics.reRenderCount}</p>
         </div>
-        
+
         <div className="bg-purple-50 p-4 rounded">
           <h3 className="font-semibold">Selector Time</h3>
           <p>{metrics.selectorComputationTime.toFixed(2)}ms</p>
@@ -73,7 +98,7 @@ export const PerformanceMonitorExample: React.FC = () => {
         >
           Generate Report
         </button>
-        
+
         <button
           onClick={handleStartProfiling}
           className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
@@ -85,9 +110,15 @@ export const PerformanceMonitorExample: React.FC = () => {
       {report && (
         <div className="bg-gray-50 p-4 rounded">
           <h3 className="font-semibold mb-2">Performance Report</h3>
-          <p><strong>Score:</strong> {report.summary.overallScore}/100</p>
-          <p><strong>Bottlenecks:</strong> {report.summary.bottlenecks.join(', ')}</p>
-          <p><strong>Warnings:</strong> {report.summary.warnings.join(', ')}</p>
+          <p>
+            <strong>Score:</strong> {report.summary.overallScore}/100
+          </p>
+          <p>
+            <strong>Bottlenecks:</strong> {report.summary.bottlenecks.join(', ')}
+          </p>
+          <p>
+            <strong>Warnings:</strong> {report.summary.warnings.join(', ')}
+          </p>
         </div>
       )}
     </div>
@@ -96,18 +127,18 @@ export const PerformanceMonitorExample: React.FC = () => {
 
 // ==================== State Debugging Example ====================
 
-export const StateDebuggerExample: React.FC = () => {
-  const [snapshots, setSnapshots] = useState([])
+export const StateDebuggingExample: React.FC = () => {
+  const [snapshots, setSnapshots] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
   const stateDebugger = useStateDebugger()
 
   useEffect(() => {
     const unsubscribe = useStateDebugger.subscribe(
-      (state) => ({
+      (state: { history: { snapshots: string[]; currentIndex: number } }) => ({
         snapshots: state.history.snapshots,
         currentIndex: state.history.currentIndex,
       }),
-      ({ snapshots, currentIndex }) => {
+      ({ snapshots, currentIndex }: { snapshots: string[]; currentIndex: number }) => {
         setSnapshots(snapshots)
         setCurrentIndex(currentIndex)
       }
@@ -131,7 +162,7 @@ export const StateDebuggerExample: React.FC = () => {
   const handleAnalyzeMemory = () => {
     const leaks = stateDebugger.findStateLeaks()
     const growth = stateDebugger.analyzeStateGrowth()
-    
+
     console.log('Memory Analysis:')
     console.log('Potential leaks:', leaks)
     console.log('State growth:', growth)
@@ -140,7 +171,7 @@ export const StateDebuggerExample: React.FC = () => {
   return (
     <div className="p-6 bg-white rounded-lg shadow">
       <h2 className="text-xl font-bold mb-4">State Debugger</h2>
-      
+
       <div className="flex gap-2 mb-4">
         <button
           onClick={handleStepBack}
@@ -149,7 +180,7 @@ export const StateDebuggerExample: React.FC = () => {
         >
           ← Step Back
         </button>
-        
+
         <button
           onClick={handleStepForward}
           disabled={currentIndex >= snapshots.length - 1}
@@ -157,7 +188,7 @@ export const StateDebuggerExample: React.FC = () => {
         >
           Step Forward →
         </button>
-        
+
         <button
           onClick={handleAnalyzeMemory}
           className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
@@ -172,10 +203,10 @@ export const StateDebuggerExample: React.FC = () => {
           <p>No state snapshots available</p>
         ) : (
           <div className="space-y-1">
-            {snapshots.slice(-10).map((snapshotId, index) => {
+            {snapshots.slice(-10).map((snapshotId: string, index: number) => {
               const actualIndex = snapshots.length - 10 + index
               const isActive = actualIndex === currentIndex
-              
+
               return (
                 <button
                   key={snapshotId}
@@ -198,7 +229,7 @@ export const StateDebuggerExample: React.FC = () => {
 // ==================== Metrics Collection Example ====================
 
 export const MetricsCollectionExample: React.FC = () => {
-  const [summary, setSummary] = useState(null)
+  const [summary, setSummary] = useState<MetricsSummary | null>(null)
   const metricsCollector = useMetricsCollector()
   const monitoring = useMonitoringIntegration('metrics-example')
 
@@ -234,27 +265,27 @@ export const MetricsCollectionExample: React.FC = () => {
   return (
     <div className="p-6 bg-white rounded-lg shadow">
       <h2 className="text-xl font-bold mb-4">Metrics Collection</h2>
-      
+
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-blue-50 p-4 rounded">
           <h3 className="font-semibold">User Interactions</h3>
           <p>Total: {summary.userInteractions.totalInteractions}</p>
           <p>Bounce Rate: {(summary.userInteractions.bounceRate * 100).toFixed(1)}%</p>
         </div>
-        
+
         <div className="bg-green-50 p-4 rounded">
           <h3 className="font-semibold">API Performance</h3>
           <p>Total Calls: {summary.apiPerformance.totalCalls}</p>
           <p>Avg Response: {summary.apiPerformance.averageResponseTime.toFixed(0)}ms</p>
           <p>Error Rate: {(summary.apiPerformance.errorRate * 100).toFixed(2)}%</p>
         </div>
-        
+
         <div className="bg-yellow-50 p-4 rounded">
           <h3 className="font-semibold">Performance</h3>
           <p>Avg Load Time: {summary.performance.averageLoadTime.toFixed(0)}ms</p>
           <p>Memory Usage: {(summary.performance.memoryUsage / 1024 / 1024).toFixed(2)}MB</p>
         </div>
-        
+
         <div className="bg-red-50 p-4 rounded">
           <h3 className="font-semibold">Errors</h3>
           <p>Total: {summary.errors.total}</p>
@@ -269,14 +300,14 @@ export const MetricsCollectionExample: React.FC = () => {
         >
           Track Click
         </button>
-        
+
         <button
           onClick={() => handleTrackInteraction('navigation')}
           className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
         >
           Track Navigation
         </button>
-        
+
         <button
           onClick={handleExportMetrics}
           className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
@@ -291,18 +322,18 @@ export const MetricsCollectionExample: React.FC = () => {
 // ==================== Developer Tools Example ====================
 
 export const DeveloperToolsExample: React.FC = () => {
-  const [commands, setCommands] = useState([])
-  const [commandHistory, setCommandHistory] = useState([])
+  const [commands, setCommands] = useState<DeveloperCommand[]>([])
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
   const [selectedCommand, setSelectedCommand] = useState('')
   const developerTools = useDeveloperTools()
 
   useEffect(() => {
     const unsubscribe = useDeveloperTools.subscribe(
-      (state) => ({
+      (state: { commands: Map<string, DeveloperCommand>; commandHistory: string[] }) => ({
         commands: Array.from(state.commands.values()),
         history: state.commandHistory,
       }),
-      ({ commands, history }) => {
+      ({ commands, history }: { commands: DeveloperCommand[]; history: string[] }) => {
         setCommands(commands)
         setCommandHistory(history)
       }
@@ -313,7 +344,7 @@ export const DeveloperToolsExample: React.FC = () => {
 
   const handleExecuteCommand = async () => {
     if (!selectedCommand) return
-    
+
     try {
       const result = await developerTools.executeCommand(selectedCommand)
       console.log('Command result:', result)
@@ -334,7 +365,7 @@ export const DeveloperToolsExample: React.FC = () => {
   return (
     <div className="p-6 bg-white rounded-lg shadow">
       <h2 className="text-xl font-bold mb-4">Developer Tools</h2>
-      
+
       <div className="mb-6">
         <label className="block text-sm font-medium mb-2">Execute Command:</label>
         <div className="flex gap-2">
@@ -350,7 +381,7 @@ export const DeveloperToolsExample: React.FC = () => {
               </option>
             ))}
           </select>
-          
+
           <button
             onClick={handleExecuteCommand}
             disabled={!selectedCommand}
@@ -412,9 +443,7 @@ export const DeveloperToolsExample: React.FC = () => {
 
       <div className="bg-blue-50 p-4 rounded">
         <h3 className="font-semibold mb-2">Console Access</h3>
-        <p className="text-sm text-gray-700 mb-2">
-          Open browser console and use these commands:
-        </p>
+        <p className="text-sm text-gray-700 mb-2">Open browser console and use these commands:</p>
         <div className="bg-white p-2 rounded font-mono text-sm">
           <div>__dce.help() - Show all commands</div>
           <div>__dce.state() - Inspect state</div>
@@ -433,19 +462,20 @@ export const MonitoringDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('performance')
 
   const tabs = [
-    { id: 'performance', label: 'Performance', component: PerformanceMonitorExample },
-    { id: 'debugging', label: 'State Debugger', component: StateDebuggerExample },
+    { id: 'performance', label: 'Performance', component: PerformanceMonitoringExample },
+    { id: 'debugging', label: 'State Debugger', component: StateDebuggingExample },
     { id: 'metrics', label: 'Metrics', component: MetricsCollectionExample },
     { id: 'tools', label: 'Developer Tools', component: DeveloperToolsExample },
   ]
 
-  const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component || PerformanceMonitorExample
+  const ActiveComponent =
+    tabs.find((tab) => tab.id === activeTab)?.component || PerformanceMonitoringExample
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">DCE Monitoring Dashboard</h1>
-        
+
         <div className="bg-white rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-6">
@@ -464,7 +494,7 @@ export const MonitoringDashboard: React.FC = () => {
               ))}
             </nav>
           </div>
-          
+
           <div className="p-6">
             <ActiveComponent />
           </div>
@@ -473,8 +503,8 @@ export const MonitoringDashboard: React.FC = () => {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <h2 className="font-semibold text-yellow-800 mb-2">Development Mode Only</h2>
           <p className="text-yellow-700 text-sm">
-            This monitoring dashboard is only available in development mode. 
-            In production, monitoring runs with minimal overhead and sampling.
+            This monitoring dashboard is only available in development mode. In production,
+            monitoring runs with minimal overhead and sampling.
           </p>
         </div>
       </div>
@@ -485,8 +515,8 @@ export const MonitoringDashboard: React.FC = () => {
 // ==================== Export Index ====================
 
 export {
-  PerformanceMonitorExample,
-  StateDebuggerExample,
+  PerformanceMonitoringExample,
+  StateDebuggingExample,
   MetricsCollectionExample,
   DeveloperToolsExample,
   MonitoringDashboard,
