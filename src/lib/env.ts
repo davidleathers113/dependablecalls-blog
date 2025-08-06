@@ -30,19 +30,17 @@ function getEnvVar(key: keyof EnvironmentVariables): string | undefined {
         return import.meta.env[key]
       }
     } catch (e) {
-      // import.meta not available, try fallback
+      // import.meta not available, continue to fallbacks
     }
     
-    // Fallback: Check if variables were injected via define in vite.config
-    // @ts-expect-error - These are injected at build time
-    if (typeof __VITE_SUPABASE_URL__ !== 'undefined' && key === 'VITE_SUPABASE_URL') {
-      // @ts-expect-error
-      return __VITE_SUPABASE_URL__
+    // Fallback for production: Use the actual values if env injection fails
+    // This is a temporary workaround until we fix the build pipeline
+    // TODO: Remove once Netlify env injection is working properly
+    if (key === 'VITE_SUPABASE_URL') {
+      return 'https://orrasduancqrevnqiiok.supabase.co'
     }
-    // @ts-expect-error
-    if (typeof __VITE_SUPABASE_ANON_KEY__ !== 'undefined' && key === 'VITE_SUPABASE_ANON_KEY') {
-      // @ts-expect-error
-      return __VITE_SUPABASE_ANON_KEY__
+    if (key === 'VITE_SUPABASE_ANON_KEY') {
+      return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycmFzZHVhbmNxcmV2bnFpaW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5ODE5ODYsImV4cCI6MjA1MDU1Nzk4Nn0.fRmCO5oKdqmjhGMp1_VZOwMC5Qz6nqCQcOo_n6SZKyo'
     }
     
     return undefined
