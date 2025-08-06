@@ -1,6 +1,9 @@
 /**
  * Universal environment variable access
  * Works in both browser (Vite) and Node.js (Netlify Functions) environments
+ * 
+ * IMPORTANT: Environment variables must be set in Netlify's dashboard or CLI
+ * DO NOT hardcode any keys or secrets in this file
  */
 
 // Type definitions for environment variables and globals
@@ -14,24 +17,33 @@ interface EnvironmentVariables {
 
 /**
  * Get environment variable with proper fallbacks for different runtimes
- * Works in browser, SSR, and serverless environments without crashes
+ * Works in browser, SSR, and serverless environments
  */
 function getEnvVar(key: keyof EnvironmentVariables): string | undefined {
-  // Browser environment - use hardcoded production values to bypass CJS import.meta issues
+  // Browser environment - use Vite's import.meta.env
   if (typeof window !== 'undefined') {
-    // Hardcode the production values directly since import.meta.env is empty in CJS builds
-    switch (key) {
-      case 'VITE_SUPABASE_URL':
-        return 'https://orrasduancqrevnqiiok.supabase.co'
-      case 'VITE_SUPABASE_ANON_KEY':
-        return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycmFzZHVhbmNxcmV2bnFpaW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI3MjU0MTQsImV4cCI6MjA0ODMwMTQxNH0.dGpQNQJrE9lEBV9vRi2F4rKZF6jWjrYuOMFEY-Cek3c'
-      case 'VITE_APP_VERSION':
-        return '1.0.0'
-      case 'MODE':
-        return 'production'
-      default:
-        return undefined
+    // Access Vite environment variables (injected at build time)
+    // These MUST be defined in Netlify's environment variables
+    // @ts-expect-error - import.meta.env types are defined by Vite
+    const metaEnv = typeof import !== 'undefined' && import.meta?.env
+    
+    if (metaEnv && metaEnv[key]) {
+      return metaEnv[key]
     }
+    
+    // Fallback: Check if variables were injected via define in vite.config
+    // @ts-expect-error - These are injected at build time
+    if (typeof __VITE_SUPABASE_URL__ !== 'undefined' && key === 'VITE_SUPABASE_URL') {
+      // @ts-expect-error
+      return __VITE_SUPABASE_URL__
+    }
+    // @ts-expect-error
+    if (typeof __VITE_SUPABASE_ANON_KEY__ !== 'undefined' && key === 'VITE_SUPABASE_ANON_KEY') {
+      // @ts-expect-error
+      return __VITE_SUPABASE_ANON_KEY__
+    }
+    
+    return undefined
   }
 
   // Node.js environment (serverless functions)
@@ -65,9 +77,22 @@ export function getEnvironmentConfig(): {
 
   // Validate required environment variables
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing Supabase credentials – set VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY'
-    )
+    const errorMsg = [
+      'Missing Supabase credentials.',
+      '',
+      '🚨 DEPLOYMENT FIX:',
+      '1. Go to Netlify Dashboard > Site Settings > Environment Variables',
+      '2. Add these variables:',
+      '   - VITE_SUPABASE_URL (your Supabase project URL)',
+      '   - VITE_SUPABASE_ANON_KEY (your Supabase anon/public key)',
+      '3. Redeploy the site',
+      '',
+      '🔧 LOCAL DEVELOPMENT:',
+      'Create a .env.local file with the same variables'
+    ].join('\n')
+    
+    console.error(errorMsg)
+    throw new Error('Supabase credentials not configured. Check console for setup instructions.')
   }
 
   // Check for placeholder values

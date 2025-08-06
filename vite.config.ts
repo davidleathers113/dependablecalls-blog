@@ -36,6 +36,16 @@ export default defineConfig(({ mode }) => ({
       filename: 'dist/stats.html',
     }),
   ],
+  // Define global constants replaced at build time
+  // This ensures environment variables are properly injected
+  define: {
+    // Inject environment variables as global constants for production builds
+    // These will be replaced with actual values from process.env during build
+    ...(mode === 'production' && {
+      '__VITE_SUPABASE_URL__': JSON.stringify(process.env.VITE_SUPABASE_URL),
+      '__VITE_SUPABASE_ANON_KEY__': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY),
+    })
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
