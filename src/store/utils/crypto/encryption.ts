@@ -348,11 +348,25 @@ export const SecurityUtils = {
       return { valid: true }
     }
     
-    // For user passwords, check complexity
-    const hasLower = /[a-z]/.test(password)
-    const hasUpper = /[A-Z]/.test(password)
-    const hasNumber = /\d/.test(password)
-    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    // For user passwords, check complexity (NO REGEX - using character checks)
+    let hasLower = false
+    let hasUpper = false  
+    let hasNumber = false
+    let hasSpecial = false
+    
+    const specialChars = '!@#$%^&*(),.?":{}|<>'
+    
+    for (let i = 0; i < password.length; i++) {
+      const char = password[i]
+      
+      if (char >= 'a' && char <= 'z') hasLower = true
+      else if (char >= 'A' && char <= 'Z') hasUpper = true
+      else if (char >= '0' && char <= '9') hasNumber = true
+      else if (specialChars.includes(char)) hasSpecial = true
+      
+      // Early exit if all requirements met
+      if (hasLower && hasUpper && hasNumber && hasSpecial) break
+    }
     
     if (!(hasLower && hasUpper && hasNumber && hasSpecial)) {
       return { 
@@ -391,6 +405,13 @@ export const SecurityUtils = {
       str = ''
     }
   },
+}
+
+/**
+ * Standalone export for generateSecurePassword (used by key rotation)
+ */
+export function generateSecurePassword(length: number = 16): string {
+  return SecurityUtils.generateSecurePassword(length)
 }
 
 /**
