@@ -24,11 +24,13 @@ function getEnvVar(key: keyof EnvironmentVariables): string | undefined {
   if (typeof window !== 'undefined') {
     // Access Vite environment variables (injected at build time)
     // These MUST be defined in Netlify's environment variables
-    // @ts-expect-error - import.meta.env types are defined by Vite
-    const metaEnv = typeof import !== 'undefined' && import.meta?.env
-    
-    if (metaEnv && metaEnv[key]) {
-      return metaEnv[key]
+    try {
+      // import.meta.env is available in Vite builds
+      if (import.meta && import.meta.env && import.meta.env[key]) {
+        return import.meta.env[key]
+      }
+    } catch (e) {
+      // import.meta not available, try fallback
     }
     
     // Fallback: Check if variables were injected via define in vite.config
