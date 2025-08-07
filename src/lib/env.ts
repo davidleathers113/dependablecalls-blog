@@ -29,7 +29,7 @@ function getEnvVar(key: keyof EnvironmentVariables): string | undefined {
       if (import.meta && import.meta.env && import.meta.env[key]) {
         return import.meta.env[key]
       }
-    } catch (e) {
+    } catch (_e) {
       // import.meta not available, continue to fallbacks
     }
     

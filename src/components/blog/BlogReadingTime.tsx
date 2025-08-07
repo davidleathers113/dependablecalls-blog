@@ -2,6 +2,7 @@ import { useMemo, useEffect, useState } from 'react'
 import { ClockIcon, EyeIcon } from '@heroicons/react/24/outline'
 import { AccessibleIcon } from '../common/AccessibleIcon'
 import { ErrorBoundary } from '../common/ErrorBoundary'
+import { useStyleNonce } from '../../hooks/useCSPNonce'
 
 export interface BlogReadingTimeProps {
   /** The content to analyze (HTML or plain text) */
@@ -149,6 +150,7 @@ const ReadingProgress: React.FC<{
   readingTimeMinutes: number
   className?: string
 }> = ({ readingTimeMinutes, className = '' }) => {
+  const styleNonce = useStyleNonce()
   const [progress, setProgress] = useState(0)
   const [timeSpent, setTimeSpent] = useState(0)
 
@@ -181,6 +183,7 @@ const ReadingProgress: React.FC<{
             isComplete ? 'bg-green-500' : 'bg-blue-500'
           }`}
           style={{ width: `${progressWidth}%` }}
+          nonce={styleNonce}
         />
       </div>
 

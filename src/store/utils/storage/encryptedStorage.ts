@@ -532,7 +532,7 @@ export class EncryptedStorage implements EncryptedStorageInterface {
    * Use AsyncEncryptedStorage for proper encryption
    * @deprecated This method is intentionally unused - throws security error
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   // @ts-expect-error: Intentionally unused deprecated method
   private encryptDataForStorage(_data: string): never {
     throw new Error(
@@ -547,7 +547,7 @@ export class EncryptedStorage implements EncryptedStorageInterface {
    * Use AsyncEncryptedStorage for proper decryption
    * @deprecated This method is intentionally unused - throws security error
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   // @ts-expect-error: Intentionally unused deprecated method
   private decryptStoredData(_storedValue: string): never {
     throw new Error(

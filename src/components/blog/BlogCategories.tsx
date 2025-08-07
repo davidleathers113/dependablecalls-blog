@@ -11,6 +11,7 @@ import { Button } from '../common/Button'
 import { Badge } from '../common/Badge'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { AccessibleIcon } from '../common/AccessibleIcon'
+import { useStyleNonce } from '../../hooks/useCSPNonce'
 import type { BlogCategory } from '../../types/blog'
 
 export interface BlogCategoriesProps {
@@ -65,6 +66,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
   variant,
   onCategoryChange,
 }) => {
+  const styleNonce = useStyleNonce()
   const [isExpanded, setIsExpanded] = useState(!category.parent_id) // Root categories start expanded
   const isSelected = selectedCategory === category.id
   const hasChildren = category.children && category.children.length > 0
@@ -130,6 +132,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
           ${variant === 'sidebar' ? 'text-sm' : ''}
         `}
         style={{ paddingLeft: `${paddingLeft + 12}px` }}
+        nonce={styleNonce}
         onClick={handleClick}
         role={interactive ? 'button' : undefined}
         tabIndex={interactive ? 0 : undefined}
@@ -176,6 +179,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
         <div
           className="px-3 pb-2 text-sm text-gray-600"
           style={{ paddingLeft: `${paddingLeft + 32}px` }}
+          nonce={styleNonce}
         >
           {category.description}
         </div>

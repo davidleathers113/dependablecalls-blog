@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { PlayIcon, PauseIcon, EyeIcon, ChartBarIcon } from '@heroicons/react/24/outline'
 import { MockDataService } from '../../../lib/mock-data-service'
+import { useStyleNonce } from '../../../hooks/useCSPNonce'
 
 interface ActiveCampaignsTableProps {
   supplierId: string
@@ -68,6 +69,7 @@ function CampaignStatusBadge({ status }: { status: Campaign['status'] }) {
 }
 
 function ProgressBar({ current, max, label }: { current: number; max: number; label: string }) {
+  const styleNonce = useStyleNonce()
   const percentage = max > 0 ? Math.min((current / max) * 100, 100) : 0
   const isNearLimit = percentage >= 90
 
@@ -85,6 +87,7 @@ function ProgressBar({ current, max, label }: { current: number; max: number; la
             isNearLimit ? 'bg-red-500' : 'bg-primary-500'
           }`}
           style={{ width: `${percentage}%` }}
+          nonce={styleNonce}
         />
       </div>
     </div>
