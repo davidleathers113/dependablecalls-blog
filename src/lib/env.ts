@@ -33,15 +33,8 @@ function getEnvVar(key: keyof EnvironmentVariables): string | undefined {
       // import.meta not available, continue to fallbacks
     }
     
-    // Fallback for production: Use the actual values if env injection fails
-    // This is a temporary workaround until we fix the build pipeline
-    // TODO: Remove once Netlify env injection is working properly
-    if (key === 'VITE_SUPABASE_URL') {
-      return 'https://orrasduancqrevnqiiok.supabase.co'
-    }
-    if (key === 'VITE_SUPABASE_ANON_KEY') {
-      return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycmFzZHVhbmNxcmV2bnFpaW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4MTU1MDEsImV4cCI6MjA2OTM5MTUwMX0.NTvBxvOexHrt_Yq6ylauAxlEEIdhUmVLVd766qMFB0Y'
-    }
+    // 🔒 SECURITY: No fallback credentials - environment variables are required
+    // This ensures proper deployment configuration and prevents credential exposure
     
     return undefined
   }
