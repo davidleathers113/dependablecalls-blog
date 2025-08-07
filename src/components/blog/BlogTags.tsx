@@ -50,27 +50,27 @@ const TagCloud: React.FC<TagCloudProps> = ({
   selectedTags,
   interactive,
   showCounts,
-  onTagClick
+  onTagClick,
 }) => {
   const sortedTags = useMemo(() => {
     return tags.sort((a, b) => {
-      const aCount = 'count' in a ? a.count : ('postsCount' in a ? a.postsCount || 0 : 0)
-      const bCount = 'count' in b ? b.count : ('postsCount' in b ? b.postsCount || 0 : 0)
+      const aCount = 'count' in a ? a.count : 'postsCount' in a ? a.postsCount || 0 : 0
+      const bCount = 'count' in b ? b.count : 'postsCount' in b ? b.postsCount || 0 : 0
       return bCount - aCount
     })
   }, [tags])
 
   const getTagSize = (tag: BlogTag | PopularTag) => {
-    const count = 'count' in tag ? tag.count : ('postsCount' in tag ? tag.postsCount || 0 : 0)
-    const maxCount = Math.max(...sortedTags.map(t => 
-      'count' in t ? t.count : ('postsCount' in t ? t.postsCount || 0 : 0)
-    ))
-    const minCount = Math.min(...sortedTags.map(t => 
-      'count' in t ? t.count : ('postsCount' in t ? t.postsCount || 0 : 0)
-    ))
-    
+    const count = 'count' in tag ? tag.count : 'postsCount' in tag ? tag.postsCount || 0 : 0
+    const maxCount = Math.max(
+      ...sortedTags.map((t) => ('count' in t ? t.count : 'postsCount' in t ? t.postsCount || 0 : 0))
+    )
+    const minCount = Math.min(
+      ...sortedTags.map((t) => ('count' in t ? t.count : 'postsCount' in t ? t.postsCount || 0 : 0))
+    )
+
     if (maxCount === minCount) return 'text-base'
-    
+
     const ratio = (count - minCount) / (maxCount - minCount)
     if (ratio > 0.8) return 'text-xl font-semibold'
     if (ratio > 0.6) return 'text-lg font-medium'
@@ -84,8 +84,8 @@ const TagCloud: React.FC<TagCloudProps> = ({
       {sortedTags.map((tag) => {
         const isSelected = selectedTags.includes(tag.id)
         const sizeClass = getTagSize(tag)
-        const count = 'count' in tag ? tag.count : ('postsCount' in tag ? tag.postsCount || 0 : 0)
-        
+        const count = 'count' in tag ? tag.count : 'postsCount' in tag ? tag.postsCount || 0 : 0
+
         return (
           <span
             key={tag.id}
@@ -130,7 +130,7 @@ const TagInput: React.FC<TagInputProps> = ({
   selectedTags,
   allowCreation,
   onTagChange,
-  onTagCreate
+  onTagCreate,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -139,9 +139,10 @@ const TagInput: React.FC<TagInputProps> = ({
   const filteredTags = useMemo(() => {
     if (!searchTerm) return availableTags.slice(0, 10)
     return availableTags
-      .filter(tag => 
-        tag.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !selectedTags.includes(tag.id)
+      .filter(
+        (tag) =>
+          tag.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !selectedTags.includes(tag.id)
       )
       .slice(0, 10)
   }, [availableTags, searchTerm, selectedTags])
@@ -155,7 +156,7 @@ const TagInput: React.FC<TagInputProps> = ({
   }
 
   const handleTagRemove = (tagId: string) => {
-    onTagChange(selectedTags.filter(id => id !== tagId))
+    onTagChange(selectedTags.filter((id) => id !== tagId))
   }
 
   const handleCreateTag = async () => {
@@ -173,9 +174,11 @@ const TagInput: React.FC<TagInputProps> = ({
     }
   }
 
-  const selectedTagObjects = availableTags.filter(tag => selectedTags.includes(tag.id))
-  const canCreateTag = allowCreation && searchTerm.trim() && 
-    !availableTags.some(tag => tag.name.toLowerCase() === searchTerm.toLowerCase())
+  const selectedTagObjects = availableTags.filter((tag) => selectedTags.includes(tag.id))
+  const canCreateTag =
+    allowCreation &&
+    searchTerm.trim() &&
+    !availableTags.some((tag) => tag.name.toLowerCase() === searchTerm.toLowerCase())
 
   return (
     <div className="space-y-3">
@@ -183,11 +186,7 @@ const TagInput: React.FC<TagInputProps> = ({
       {selectedTagObjects.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedTagObjects.map((tag) => (
-            <Badge
-              key={tag.id}
-              variant="default"
-              className="flex items-center gap-1 pr-1"
-            >
+            <Badge key={tag.id} variant="default" className="flex items-center gap-1 pr-1">
               <AccessibleIcon icon={TagIcon} className="h-3 w-3" />
               {tag.name}
               <button
@@ -237,9 +236,7 @@ const TagInput: React.FC<TagInputProps> = ({
                       {tag.name}
                     </span>
                     {tag.postsCount && (
-                      <span className="text-xs text-gray-500">
-                        {tag.postsCount} posts
-                      </span>
+                      <span className="text-xs text-gray-500">{tag.postsCount} posts</span>
                     )}
                   </button>
                 ))}
@@ -259,9 +256,7 @@ const TagInput: React.FC<TagInputProps> = ({
                 >
                   <AccessibleIcon icon={TagIcon} className="h-4 w-4 mr-2" />
                   Create "{searchTerm}"
-                  {isCreating && (
-                    <Loading variant="dots" size="sm" className="ml-2" />
-                  )}
+                  {isCreating && <Loading variant="dots" size="sm" className="ml-2" />}
                 </button>
               </div>
             )}
@@ -291,8 +286,8 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
   allowCreation = false,
   onTagChange,
   onTagCreate,
-  emptyStateMessage = "No tags available",
-  className = ''
+  emptyStateMessage = 'No tags available',
+  className = '',
 }) => {
   const [popularTags, setPopularTags] = useState<PopularTag[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -311,7 +306,7 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
         // TODO: Replace with actual API call
         // const response = await fetchPopularTags({ limit: maxPopularTags })
         // setPopularTags(response)
-        
+
         // Mock data for development
         setPopularTags([])
       } catch (err) {
@@ -328,7 +323,7 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
     if (!interactive || !onTagChange) return
 
     const newSelectedTags = selectedTags.includes(tagId)
-      ? selectedTags.filter(id => id !== tagId)
+      ? selectedTags.filter((id) => id !== tagId)
       : [...selectedTags, tagId]
 
     onTagChange(newSelectedTags)
@@ -340,8 +335,8 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
     return tags.slice(0, maxDisplayTags)
   }, [availableTags, popularTags, showPopularTags, maxDisplayTags, showAllTags])
 
-  const hasMoreTags = maxDisplayTags && 
-    (showPopularTags ? popularTags.length : availableTags.length) > maxDisplayTags
+  const hasMoreTags =
+    maxDisplayTags && (showPopularTags ? popularTags.length : availableTags.length) > maxDisplayTags
 
   if (error) {
     return (
@@ -355,9 +350,12 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
     return (
       <div className={`space-y-3 ${className}`}>
         <div className="flex flex-wrap gap-2">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-6 bg-gray-200 rounded-full animate-pulse" style={{ width: `${60 + Math.random() * 40}px` }} />
-          ))}
+          {[...Array(8)].map((_, i) => {
+            const widthClass = i % 3 === 0 ? 'w-24' : i % 3 === 1 ? 'w-20' : 'w-16'
+            return (
+              <div key={i} className={`h-6 bg-gray-200 rounded-full animate-pulse ${widthClass}`} />
+            )
+          })}
         </div>
       </div>
     )
@@ -398,8 +396,8 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
         <div className="flex flex-wrap gap-1">
           {displayTags.map((tag) => {
             const isSelected = selectedTags.includes(tag.id)
-            const count = 'count' in tag ? tag.count : ('postsCount' in tag ? tag.postsCount || 0 : 0)
-            
+            const count = 'count' in tag ? tag.count : 'postsCount' in tag ? tag.postsCount || 0 : 0
+
             return (
               <Badge
                 key={tag.id}
@@ -420,8 +418,8 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
         <div className="flex flex-wrap gap-2">
           {displayTags.map((tag) => {
             const isSelected = selectedTags.includes(tag.id)
-            const count = 'count' in tag ? tag.count : ('postsCount' in tag ? tag.postsCount || 0 : 0)
-            
+            const count = 'count' in tag ? tag.count : 'postsCount' in tag ? tag.postsCount || 0 : 0
+
             return (
               <Button
                 key={tag.id}
@@ -447,12 +445,10 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
       {/* Show More/Less Button */}
       {hasMoreTags && (
         <div className="text-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAllTags(!showAllTags)}
-          >
-            {showAllTags ? 'Show Less' : `Show ${(showPopularTags ? popularTags.length : availableTags.length) - maxDisplayTags!} More Tags`}
+          <Button variant="ghost" size="sm" onClick={() => setShowAllTags(!showAllTags)}>
+            {showAllTags
+              ? 'Show Less'
+              : `Show ${(showPopularTags ? popularTags.length : availableTags.length) - maxDisplayTags!} More Tags`}
           </Button>
         </div>
       )}
@@ -490,7 +486,7 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
 
 /**
  * Blog Tags Component
- * 
+ *
  * A flexible tag system supporting:
  * - Multiple display variants (default, compact, cloud)
  * - Interactive filtering and selection
@@ -499,7 +495,7 @@ const BlogTagsInner: React.FC<BlogTagsProps> = ({
  * - Search and autocomplete
  * - Accessibility features
  * - Loading and error states
- * 
+ *
  * @example
  * ```tsx
  * <BlogTags

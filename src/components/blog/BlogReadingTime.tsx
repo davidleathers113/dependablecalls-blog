@@ -44,10 +44,10 @@ const stripHtml = (html: string): string => {
   // Create a temporary div to decode HTML entities
   const temp = document.createElement('div')
   temp.innerHTML = html
-  
+
   // Get text content without HTML tags
   const text = temp.textContent || temp.innerText || ''
-  
+
   return text
 }
 
@@ -56,7 +56,10 @@ const stripHtml = (html: string): string => {
  */
 const countWords = (text: string): number => {
   // Remove extra whitespace and split by whitespace
-  const words = text.trim().split(/\s+/).filter(word => word.length > 0)
+  const words = text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0)
   return words.length
 }
 
@@ -86,26 +89,26 @@ const calculateReadingTime = (
   // Strip HTML and count words
   const plainText = stripHtml(content)
   const wordCount = countWords(plainText)
-  
+
   // Count images if including them
   const imageCount = includeImages ? countImages(content) : 0
-  
+
   // Calculate base reading time in minutes
   let totalWords = wordCount
-  
+
   // Add equivalent words for image viewing time
   if (includeImages && imageCount > 0) {
-    const imageWordEquivalent = (imageCount * imageViewingTime) / 60 * wordsPerMinute
+    const imageWordEquivalent = ((imageCount * imageViewingTime) / 60) * wordsPerMinute
     totalWords += imageWordEquivalent
   }
-  
+
   const readingTimeMinutes = Math.max(1, Math.ceil(totalWords / wordsPerMinute))
-  
+
   return {
     wordCount,
     imageCount,
     readingTimeMinutes,
-    displayText: formatReadingTime(readingTimeMinutes, customText)
+    displayText: formatReadingTime(readingTimeMinutes, customText),
   }
 }
 
@@ -125,17 +128,17 @@ const formatReadingTime = (
     minute: customText?.minute || 'min',
     minutes: customText?.minutes || 'min',
     lessThanMinute: customText?.lessThanMinute || 'Less than a minute',
-    read: customText?.read || 'read'
+    read: customText?.read || 'read',
   }
 
   if (minutes < 1) {
     return text.lessThanMinute
   }
-  
+
   if (minutes === 1) {
     return `1 ${text.minute} ${text.read}`
   }
-  
+
   return `${minutes} ${text.minutes} ${text.read}`
 }
 
@@ -151,7 +154,7 @@ const ReadingProgress: React.FC<{
 
   useEffect(() => {
     const startTime = Date.now()
-    
+
     const updateProgress = () => {
       const elapsed = (Date.now() - startTime) / 1000 / 60 // minutes
       setTimeSpent(elapsed)
@@ -171,21 +174,19 @@ const ReadingProgress: React.FC<{
         <span>Reading Progress</span>
         <span>{Math.round(progress)}%</span>
       </div>
-      
-      <div className="w-full bg-gray-200 rounded-full h-2">
-        <div 
-          className={`h-2 rounded-full transition-all duration-300 ${
+
+      <div className="w-full bg-gray-200 rounded-full h-2 relative overflow-hidden">
+        <div
+          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-300 ${
             isComplete ? 'bg-green-500' : 'bg-blue-500'
           }`}
           style={{ width: `${progressWidth}%` }}
         />
       </div>
-      
+
       <div className="flex items-center justify-between text-xs text-gray-500">
         <span>{Math.round(timeSpent * 60)}s read</span>
-        {isComplete && (
-          <span className="text-green-600 font-medium">Complete!</span>
-        )}
+        {isComplete && <span className="text-green-600 font-medium">Complete!</span>}
       </div>
     </div>
   )
@@ -199,10 +200,11 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
   includeImages = true,
   imageViewingTime = DEFAULT_IMAGE_VIEWING_TIME,
   customText,
-  className = ''
+  className = '',
 }) => {
-  const stats = useMemo(() => 
-    calculateReadingTime(content, wordsPerMinute, includeImages, imageViewingTime, customText),
+  const stats = useMemo(
+    () =>
+      calculateReadingTime(content, wordsPerMinute, includeImages, imageViewingTime, customText),
     [content, wordsPerMinute, includeImages, imageViewingTime, customText]
   )
 
@@ -215,13 +217,13 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
 
   if (variant === 'badge') {
     return (
-      <span className={`
+      <span
+        className={`
         inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
         bg-gray-100 text-gray-700 ${className}
-      `}>
-        {showIcon && (
-          <AccessibleIcon icon={ClockIcon} className="h-3 w-3 mr-1" />
-        )}
+      `}
+      >
+        {showIcon && <AccessibleIcon icon={ClockIcon} className="h-3 w-3 mr-1" />}
         {stats.displayText}
       </span>
     )
@@ -230,9 +232,7 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
   if (variant === 'minimal') {
     return (
       <span className={`inline-flex items-center text-gray-500 ${textSize} ${className}`}>
-        {showIcon && (
-          <AccessibleIcon icon={ClockIcon} className={`${iconSize} mr-1`} />
-        )}
+        {showIcon && <AccessibleIcon icon={ClockIcon} className={`${iconSize} mr-1`} />}
         {stats.displayText}
       </span>
     )
@@ -243,12 +243,8 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
       <div className={`space-y-3 ${className}`}>
         {/* Main reading time */}
         <div className="flex items-center text-gray-600">
-          {showIcon && (
-            <AccessibleIcon icon={ClockIcon} className={`${iconSize} mr-2`} />
-          )}
-          <span className={`font-medium ${textSize}`}>
-            {stats.displayText}
-          </span>
+          {showIcon && <AccessibleIcon icon={ClockIcon} className={`${iconSize} mr-2`} />}
+          <span className={`font-medium ${textSize}`}>{stats.displayText}</span>
         </div>
 
         {/* Detailed stats */}
@@ -257,26 +253,27 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
             <AccessibleIcon icon={EyeIcon} className="h-3 w-3 mr-1" />
             <span>{stats.wordCount.toLocaleString()} words</span>
           </div>
-          
+
           {includeImages && stats.imageCount > 0 && (
             <div className="flex items-center">
               <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span>{stats.imageCount} images</span>
             </div>
           )}
-          
+
           <div>
             <span>{wordsPerMinute} WPM</span>
           </div>
         </div>
 
         {/* Reading progress */}
-        <ReadingProgress 
-          readingTimeMinutes={stats.readingTimeMinutes}
-          className="mt-4"
-        />
+        <ReadingProgress readingTimeMinutes={stats.readingTimeMinutes} className="mt-4" />
       </div>
     )
   }
@@ -284,15 +281,11 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
   // Default variant
   return (
     <div className={`flex items-center text-gray-600 ${textSize} ${className}`}>
-      {showIcon && (
-        <AccessibleIcon icon={ClockIcon} className={`${iconSize} mr-2 flex-shrink-0`} />
-      )}
+      {showIcon && <AccessibleIcon icon={ClockIcon} className={`${iconSize} mr-2 flex-shrink-0`} />}
       <span>
         {stats.displayText}
         {variant === 'default' && stats.wordCount > 0 && (
-          <span className="ml-2 text-gray-400">
-            ({stats.wordCount.toLocaleString()} words)
-          </span>
+          <span className="ml-2 text-gray-400">({stats.wordCount.toLocaleString()} words)</span>
         )}
       </span>
     </div>
@@ -301,7 +294,7 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
 
 /**
  * Blog Reading Time Component
- * 
+ *
  * Calculates and displays estimated reading time for blog content with:
  * - Accurate word counting with HTML tag removal
  * - Image viewing time calculation
@@ -310,14 +303,14 @@ const BlogReadingTimeInner: React.FC<BlogReadingTimeProps> = ({
  * - Reading progress tracking (detailed variant)
  * - Accessibility features
  * - Responsive design
- * 
+ *
  * Features:
  * - Strips HTML tags for accurate word counting
  * - Accounts for image viewing time
  * - Supports custom text formatting
  * - Real-time reading progress tracking
  * - Multiple display variants for different contexts
- * 
+ *
  * @example
  * ```tsx
  * <BlogReadingTime

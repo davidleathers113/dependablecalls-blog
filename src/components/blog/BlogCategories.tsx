@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react'
-import { 
-  FolderIcon, 
-  FolderOpenIcon, 
-  ChevronRightIcon, 
+import {
+  FolderIcon,
+  FolderOpenIcon,
+  ChevronRightIcon,
   ChevronDownIcon,
   ListBulletIcon,
-  Squares2X2Icon
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 import { Button } from '../common/Button'
 import { Badge } from '../common/Badge'
@@ -63,7 +63,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
   showDescriptions,
   showEmptyCategories,
   variant,
-  onCategoryChange
+  onCategoryChange,
 }) => {
   const [isExpanded, setIsExpanded] = useState(!category.parent_id) // Root categories start expanded
   const isSelected = selectedCategory === category.id
@@ -88,7 +88,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
   if (variant === 'grid') {
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
-        <div 
+        <div
           className={`cursor-pointer ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}
           onClick={handleClick}
           role={interactive ? 'button' : undefined}
@@ -101,7 +101,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
           }}
         >
           <div className="flex items-center mb-2">
-            <AccessibleIcon 
+            <AccessibleIcon
               icon={isSelected ? FolderOpenIcon : FolderIcon}
               className={`h-5 w-5 mr-2 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`}
             />
@@ -124,7 +124,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
     <div className={variant === 'tree' ? '' : 'border-b border-gray-100 last:border-b-0'}>
       <div
         className={`
-          flex items-center py-2 px-3 rounded-md transition-colors
+          flex items-center py-2 rounded-md transition-colors
           ${interactive ? 'cursor-pointer hover:bg-gray-50' : ''}
           ${isSelected ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}
           ${variant === 'sidebar' ? 'text-sm' : ''}
@@ -147,7 +147,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
             className="mr-1 p-0.5 hover:bg-gray-200 rounded"
             aria-label={isExpanded ? 'Collapse category' : 'Expand category'}
           >
-            <AccessibleIcon 
+            <AccessibleIcon
               icon={isExpanded ? ChevronDownIcon : ChevronRightIcon}
               className="h-4 w-4 text-gray-400"
             />
@@ -155,7 +155,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
         )}
 
         {/* Category Icon */}
-        <AccessibleIcon 
+        <AccessibleIcon
           icon={isSelected ? FolderOpenIcon : FolderIcon}
           className={`h-4 w-4 mr-2 flex-shrink-0 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`}
         />
@@ -165,10 +165,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
 
         {/* Post Count */}
         {showCounts && (category.postsCount || 0) > 0 && (
-          <Badge 
-            variant={isSelected ? 'info' : 'neutral'} 
-            className="ml-2 text-xs"
-          >
+          <Badge variant={isSelected ? 'info' : 'neutral'} className="ml-2 text-xs">
             {category.postsCount}
           </Badge>
         )}
@@ -176,7 +173,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
 
       {/* Description */}
       {showDescriptions && category.description && (
-        <div 
+        <div
           className="px-3 pb-2 text-sm text-gray-600"
           style={{ paddingLeft: `${paddingLeft + 32}px` }}
         >
@@ -229,9 +226,9 @@ const CategoryList: React.FC<CategoryListProps> = ({
   showEmptyCategories,
   variant,
   maxDepth,
-  onCategoryChange
+  onCategoryChange,
 }) => {
-  const rootCategories = categories.filter(cat => !cat.parent_id)
+  const rootCategories = categories.filter((cat) => !cat.parent_id)
 
   if (variant === 'grid') {
     return (
@@ -286,26 +283,26 @@ const BlogCategoriesInner: React.FC<BlogCategoriesProps> = ({
   showEmptyCategories = true,
   maxDepth = 3,
   onCategoryChange,
-  emptyStateMessage = "No categories available",
-  className = ''
+  emptyStateMessage = 'No categories available',
+  className = '',
 }) => {
   const [isLoading] = useState(false)
   const [error] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'tree' | 'list' | 'grid'>(
-    variant === 'sidebar' ? 'list' : variant as 'tree' | 'list' | 'grid'
+    variant === 'sidebar' ? 'list' : (variant as 'tree' | 'list' | 'grid')
   )
 
   // Build category tree with children
   const categoriesWithChildren = useMemo(() => {
     const categoryMap = new Map<string, BlogCategory>()
-    
+
     // Initialize all categories
-    categories.forEach(cat => {
+    categories.forEach((cat) => {
       categoryMap.set(cat.id, { ...cat, children: [] })
     })
 
     // Build parent-child relationships
-    categories.forEach(cat => {
+    categories.forEach((cat) => {
       if (cat.parent_id) {
         const parent = categoryMap.get(cat.parent_id)
         const child = categoryMap.get(cat.id)
@@ -325,8 +322,8 @@ const BlogCategoriesInner: React.FC<BlogCategoriesProps> = ({
     }
   }
 
-  const selectedCategoryName = selectedCategory 
-    ? categories.find(cat => cat.id === selectedCategory)?.name 
+  const selectedCategoryName = selectedCategory
+    ? categories.find((cat) => cat.id === selectedCategory)?.name
     : null
 
   if (error) {
@@ -373,7 +370,7 @@ const BlogCategoriesInner: React.FC<BlogCategoriesProps> = ({
               </span>
             )}
           </h3>
-          
+
           {/* View Mode Toggle */}
           <div className="flex items-center space-x-1 bg-gray-100 rounded-md p-1">
             <Button
@@ -446,7 +443,7 @@ const BlogCategoriesInner: React.FC<BlogCategoriesProps> = ({
 
 /**
  * Blog Categories Component
- * 
+ *
  * A flexible category navigation system supporting:
  * - Multiple display variants (tree, list, grid, sidebar)
  * - Hierarchical category structures
@@ -455,7 +452,7 @@ const BlogCategoriesInner: React.FC<BlogCategoriesProps> = ({
  * - Collapsible tree navigation
  * - Accessibility features
  * - Loading and error states
- * 
+ *
  * @example
  * ```tsx
  * <BlogCategories

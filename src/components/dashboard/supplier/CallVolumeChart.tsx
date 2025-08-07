@@ -25,20 +25,20 @@ async function fetchChartData(supplierId: string, timeRange: string): Promise<Ch
   // 1. Query the calls table with aggregation for the specific supplierId
   // 2. Group by time intervals (hourly, daily, etc.)
   // 3. Calculate revenue and conversions
-  
+
   // Using supplierId to demonstrate it's not unused - will be used for real data fetching
   console.log(`Fetching chart data for supplier: ${supplierId}`)
-  
+
   const mockData: ChartDataPoint[] = []
   const intervalHours = timeRange === '24h' ? 1 : timeRange === '7d' ? 6 : 24
-  
+
   for (let i = 0; i < hoursBack / intervalHours; i++) {
     const timestamp = new Date(startTime.getTime() + i * intervalHours * 60 * 60 * 1000)
     mockData.push({
       timestamp: timestamp.toISOString(),
       calls: Math.floor(Math.random() * 50) + 10,
       revenue: Math.floor(Math.random() * 500) + 100,
-      conversions: Math.floor(Math.random() * 20) + 5
+      conversions: Math.floor(Math.random() * 20) + 5,
     })
   }
 
@@ -152,8 +152,7 @@ function SimpleBarChart({
                 x={`${xPosition + barWidth / 2}%`}
                 y={height + 35}
                 textAnchor="middle"
-                className="text-xs fill-gray-600"
-                style={{ fontSize: '10px' }}
+                className="text-xs fill-gray-600 text-[10px]"
               >
                 {point.formattedTime}
               </text>
@@ -162,10 +161,10 @@ function SimpleBarChart({
         })}
 
         {/* Y-axis labels */}
-        <text x="10" y="15" className="text-xs fill-gray-600" style={{ fontSize: '10px' }}>
+        <text x="10" y="15" className="text-xs fill-gray-600 text-[10px]">
           {formatValue(maxValue)}
         </text>
-        <text x="10" y={height + 15} className="text-xs fill-gray-600" style={{ fontSize: '10px' }}>
+        <text x="10" y={height + 15} className="text-xs fill-gray-600 text-[10px]">
           {formatValue(minValue)}
         </text>
       </svg>

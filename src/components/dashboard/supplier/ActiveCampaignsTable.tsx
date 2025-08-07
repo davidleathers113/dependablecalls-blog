@@ -79,9 +79,9 @@ function ProgressBar({ current, max, label }: { current: number; max: number; la
           {current}/{max}
         </span>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
+      <div className="w-full bg-gray-200 rounded-full h-2 relative overflow-hidden">
         <div
-          className={`h-2 rounded-full transition-all duration-300 ${
+          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-300 ${
             isNearLimit ? 'bg-red-500' : 'bg-primary-500'
           }`}
           style={{ width: `${percentage}%` }}
@@ -108,7 +108,7 @@ export function ActiveCampaignsTable({ supplierId }: ActiveCampaignsTableProps) 
     // In development mode, just log the action
     MockDataService.logMockUsage('ActiveCampaignsTable', 'handleToggleCampaign')
     console.info(`Campaign ${campaignId} status changed from ${currentStatus} to ${newStatus}`)
-    
+
     // In a real implementation, this would update the database and invalidate queries
     // For now, the component will refresh via refetchInterval
   }
