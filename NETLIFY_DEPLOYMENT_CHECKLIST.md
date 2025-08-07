@@ -1,5 +1,22 @@
 # 🚀 Netlify Deployment Checklist
 
+## 🚨 CRITICAL SECURITY ALERT (MUST FIX IMMEDIATELY)
+
+**Status:** Production deployment contains hardcoded credentials  
+**Risk Level:** CVSS 10.0 - Critical credential exposure  
+**Detected:** August 8, 2025  
+
+**Issue:** Despite removing hardcoded credentials from source code (commit 67f8650), the live production site still contains embedded Supabase credentials in JavaScript assets.
+
+**Immediate Action Required:**
+1. **Go to Netlify Dashboard** → Site deploys → **Trigger deploy** → **Deploy site**
+2. **Verify the build uses latest commit** (67f8650 or newer)
+3. **After deployment**, verify security: `curl -s https://dependablecalls.com/assets/js/state-*.js | grep "orrasduancqrevnqiiok"` should return NO results
+
+**DO NOT USE PRODUCTION SITE** until this security issue is resolved.
+
+---
+
 ## CRITICAL: Required Environment Variables
 
 These environment variables **MUST** be set in Netlify Dashboard before deployment:
