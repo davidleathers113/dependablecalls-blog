@@ -387,4 +387,111 @@ export interface MockTables {
       },
     ]
   }
+
+  // User profiles table (unified user profile view)
+  user_profiles: {
+    Row: {
+      user_id: string
+      email: string
+      first_name: string | null
+      last_name: string | null
+      role: UserRole
+      company: string | null
+      created_at: string
+      last_login: string | null
+      status: 'active' | 'inactive' | 'suspended'
+      avatar_url: string | null
+      phone: string | null
+      metadata: Json | null
+    }
+    Insert: {
+      user_id: string
+      email: string
+      first_name?: string | null
+      last_name?: string | null
+      role: UserRole
+      company?: string | null
+      created_at?: string
+      last_login?: string | null
+      status?: 'active' | 'inactive' | 'suspended'
+      avatar_url?: string | null
+      phone?: string | null
+      metadata?: Json | null
+    }
+    Update: {
+      user_id?: string
+      email?: string
+      first_name?: string | null
+      last_name?: string | null
+      role?: UserRole
+      company?: string | null
+      created_at?: string
+      last_login?: string | null
+      status?: 'active' | 'inactive' | 'suspended'
+      avatar_url?: string | null
+      phone?: string | null
+      metadata?: Json | null
+    }
+    Relationships: [
+      {
+        foreignKeyName: 'user_profiles_user_id_fkey'
+        columns: ['user_id']
+        isOneToOne: true
+        referencedRelation: 'users'
+        referencedColumns: ['id']
+      },
+    ]
+  }
+
+  // Search analytics table
+  search_analytics: {
+    Row: {
+      id: string
+      query: string
+      result_count: number
+      user_id: string | null
+      search_time_ms: number | null
+      selected_result_id: string | null
+      search_filters: Json | null
+      searched_at: string
+      session_id: string | null
+      ip_address: string | null
+      user_agent: string | null
+    }
+    Insert: {
+      id?: string
+      query: string
+      result_count: number
+      user_id?: string | null
+      search_time_ms?: number | null
+      selected_result_id?: string | null
+      search_filters?: Json | null
+      searched_at?: string
+      session_id?: string | null
+      ip_address?: string | null
+      user_agent?: string | null
+    }
+    Update: {
+      id?: string
+      query?: string
+      result_count?: number
+      user_id?: string | null
+      search_time_ms?: number | null
+      selected_result_id?: string | null
+      search_filters?: Json | null
+      searched_at?: string
+      session_id?: string | null
+      ip_address?: string | null
+      user_agent?: string | null
+    }
+    Relationships: [
+      {
+        foreignKeyName: 'search_analytics_user_id_fkey'
+        columns: ['user_id']
+        isOneToOne: false
+        referencedRelation: 'users'
+        referencedColumns: ['id']
+      },
+    ]
+  }
 }
