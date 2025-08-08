@@ -228,7 +228,9 @@ GRANT EXECUTE ON FUNCTION reindex_blog_search() TO service_role;
 -- =====================================================
 -- This is stored as a function for safety
 CREATE OR REPLACE FUNCTION rollback_blog_infrastructure() 
-RETURNS void AS $$
+RETURNS void 
+LANGUAGE plpgsql
+AS $rollback$
 BEGIN
   -- Drop maintenance functions
   DROP FUNCTION IF EXISTS analyze_blog_tables();
@@ -247,45 +249,10 @@ BEGIN
   -- Revert to original word count function
   DROP TRIGGER IF EXISTS blog_posts_reading_time ON blog_posts;
   DROP FUNCTION IF EXISTS calculate_reading_time();
-  
-  CREATE OR REPLACE FUNCTION calculate_reading_time() RETURNS trigger AS $$
-  DECLARE
-    word_count INTEGER;
-    reading_speed CONSTANT INTEGER := 200;
-  BEGIN
-    word_count := array_length(string_to_array(NEW.content, ' '), 1);
-    NEW.reading_time_minutes := GREATEST(1, CEIL(word_count::FLOAT / reading_speed));
-    RETURN NEW;
-  END;
-  $$ LANGUAGE plpgsql;
-  
-  CREATE TRIGGER blog_posts_reading_time
-    BEFORE INSERT OR UPDATE OF content ON blog_posts
-    FOR EACH ROW EXECUTE FUNCTION calculate_reading_time();
-    
-  -- Log the rollback
-  INSERT INTO audit_logs (
-    table_name,
-    action,
-    user_id,
-    new_data,
-    created_at
-  ) VALUES (
-    'blog_infrastructure',
-    'rollback',
-    auth.uid(),
-    jsonb_build_object(
-      'timestamp', NOW(),
-      'components_rolled_back', ARRAY[
-        'maintenance_functions',
-        'improved_indexes',
-        'word_count_function'
-      ]
-    ),
-    NOW()
-  );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$rollback$;
+
+-- Note: The original reading time function can be recreated if needed by calling rollback_blog_infrastructure()
 
 -- =====================================================
 -- Comments and Documentation
