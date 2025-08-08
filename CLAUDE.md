@@ -268,3 +268,7 @@ DCE (Dependable Calls Exchange) is a pay-per-call network platform:
 - **Buyers**: Advertisers paying for qualified leads
 - **Focus**: Real-time tracking, fraud prevention, automated billing
 - **Critical**: Call quality scoring, geographic targeting, budget management
+
+## Test Running Best Practices
+- Whenever you go to run a test, make sure that no other tests are running/hanging. Kill them first and then run the test.
+- Do not run a command that kills all node processes as it may interrupt other projects that I'm working on.
