@@ -2,8 +2,16 @@ import { z } from 'zod'
 import validator from 'validator'
 
 /**
- * Common validation schemas for forms
+ * LEGACY VALIDATION FILE - DEPRECATED
+ * 
+ * This file is maintained for backward compatibility.
+ * New validation schemas are located in src/lib/validation/
+ * 
+ * @deprecated Use validation schemas from src/lib/validation/ instead
  */
+
+// Re-export new validation system for backward compatibility
+export * from './validation/index'
 
 // URL validation using validator.js (NO REGEX)
 export const urlSchema = z
@@ -78,7 +86,7 @@ export const loginSchema = z.object({
 export const LoginSchema = loginSchema
 export type LoginData = z.infer<typeof loginSchema>
 
-// Register schema
+// Register schema (traditional password-based registration)
 export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
@@ -93,6 +101,15 @@ export const registerSchema = z.object({
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword']
+})
+
+// Magic link registration schema (passwordless)
+export const magicLinkRegisterSchema = z.object({
+  email: emailSchema,
+  role: z.enum(['supplier', 'buyer', 'network']),
+  acceptTerms: z.boolean().refine(val => val === true, {
+    message: 'You must accept the terms and conditions'
+  })
 })
 
 // Contact form schema
@@ -126,6 +143,7 @@ export type CreateCampaignData = z.infer<typeof createCampaignSchema>
 export type MagicLinkLoginData = z.infer<typeof magicLinkLoginSchema>
 export type LoginFormData = z.infer<typeof loginSchema>
 export type RegisterData = z.infer<typeof registerSchema>
+export type MagicLinkRegisterData = z.infer<typeof magicLinkRegisterSchema>
 export type ContactFormData = z.infer<typeof contactSchema>
 export type ResetPasswordData = z.infer<typeof resetPasswordSchema>
 

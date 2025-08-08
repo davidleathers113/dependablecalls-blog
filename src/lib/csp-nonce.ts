@@ -14,6 +14,11 @@ declare global {
     __CSP_CONTEXT__?: {
       hashedNonces: Record<string, string>;
     };
+    __CSP_NONCES__?: {
+      script: string;
+      style: string;
+      timestamp?: number;
+    };
   }
 }
 
@@ -132,6 +137,31 @@ export function isValidNonce(nonce: string): boolean {
  * Creates new nonces if none exist for this request
  */
 export function getCurrentNonces(): NonceContext {
+  // Check for edge function nonces first (but respect TTL)
+  if (typeof window !== 'undefined' && window.__CSP_NONCES__) {
+    const edgeNonces = window.__CSP_NONCES__;
+    if (edgeNonces.script && edgeNonces.style) {
+      // Check TTL if timestamp is provided (5 minute default TTL)
+      if (edgeNonces.timestamp) {
+        const TTL = 5 * 60 * 1000; // 5 minutes
+        const age = Date.now() - edgeNonces.timestamp;
+        if (age > TTL) {
+          // Nonces are expired, generate new ones
+          currentNonces = {
+            script: generateNonce(),
+            style: generateNonce()
+          };
+          return { ...currentNonces };
+        }
+      }
+      
+      return {
+        script: edgeNonces.script,
+        style: edgeNonces.style
+      };
+    }
+  }
+  
   if (!currentNonces) {
     currentNonces = {
       script: generateNonce(),

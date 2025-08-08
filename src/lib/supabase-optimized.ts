@@ -63,6 +63,12 @@ export const onAuthStateChange = auth.onAuthStateChange.bind(auth)
  */
 export const signOut = auth.signOut.bind(auth)
 
+/**
+ * Send a password reset email to the user
+ * Used in: ForgotPasswordPage
+ */
+export const resetPasswordForEmail = auth.resetPasswordForEmail.bind(auth)
+
 // Database exports - CRUD operations and queries
 /**
  * Access database tables with full TypeScript support
