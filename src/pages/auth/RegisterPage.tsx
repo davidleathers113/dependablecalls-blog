@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuthStore } from '../../store/authStore'
 import { useCsrfForm } from '../../hooks/useCsrf'
 import { usePageTitle } from '../../hooks/usePageTitle'
-import { registerSchema, type RegisterData } from '../../lib/validation'
+import { magicLinkRegisterSchema, type MagicLinkRegisterData } from '../../lib/validation'
 
 export default function RegisterPage() {
   usePageTitle('Register')
@@ -14,7 +14,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
-  const { submitWithCsrf } = useCsrfForm<RegisterData>()
+  const { submitWithCsrf } = useCsrfForm<MagicLinkRegisterData>()
 
   // Get selected plan from location state
   const selectedPlan = location.state?.selectedPlan
@@ -24,8 +24,8 @@ export default function RegisterPage() {
     handleSubmit,
     formState: { errors },
     watch,
-  } = useForm<RegisterData>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<MagicLinkRegisterData>({
+    resolver: zodResolver(magicLinkRegisterSchema),
     defaultValues: {
       role: 'supplier',
     },

@@ -9,6 +9,7 @@ import {
   CurrencyDollarIcon,
   BoltIcon,
   GlobeAltIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline'
 import AccessibleIcon from '../../components/common/AccessibleIcon'
 
@@ -108,8 +109,17 @@ export default function HomePage() {
                   </div>
                   <div className="mt-3 sm:mt-0 sm:ml-3">
                     <Link
-                      to="/login"
+                      to="/demo"
                       className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200 md:py-4 md:text-lg md:px-10"
+                    >
+                      <EyeIcon className="mr-2 h-5 w-5" aria-hidden="true" />
+                      Try Demo
+                    </Link>
+                  </div>
+                  <div className="mt-3 sm:mt-0 sm:ml-3">
+                    <Link
+                      to="/login"
+                      className="w-full flex items-center justify-center px-8 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 md:py-4 md:text-lg md:px-10"
                     >
                       Login
                     </Link>

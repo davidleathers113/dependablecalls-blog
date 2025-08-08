@@ -8,7 +8,7 @@ import { useCsrfForm } from '../../hooks/useCsrf'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().min(1, 'Email is required'),
 })
 
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
@@ -83,7 +83,7 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit((data) => { onSubmit(data) })}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email address
