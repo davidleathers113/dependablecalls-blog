@@ -26,6 +26,8 @@
     "test:blog:types": "vitest run src/types/__tests__/ --coverage",
     "test:blog:hooks": "vitest run src/hooks/__tests__/ --coverage",
     "test:blog:stores": "vitest run tests/unit/store/ --coverage",
+    "test:security": "vitest run tests/security/ --coverage --reporter=verbose",
+    "test:pentest": "node scripts/security/run-penetration-tests.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview",
@@ -58,7 +60,14 @@
     "verify:blog": "tsx scripts/verify-blog-setup.ts",
     "security:full": "npm run security:test && npm run security:audit && npm run security:scan && npm run security:licenses && npm run security:sbom && npm run security:report",
     "deps:check": "npm-check-updates",
-    "deps:update": "npm-check-updates -u"
+    "deps:update": "npm-check-updates -u",
+    "perf:analyze": "npm run build && npx vite-bundle-analyzer dist/stats.html",
+    "perf:lighthouse": "lighthouse http://localhost:4173 --output json --output html --output-path ./lighthouse-report",
+    "perf:audit": "npm run build && npm run preview & sleep 3 && npm run perf:lighthouse && kill %1",
+    "perf:test": "vitest run src/components/performance/__tests__ --coverage",
+    "perf:monitor": "node scripts/performance-monitor.js",
+    "perf:budget": "bundlesize",
+    "perf:report": "npm run size && npm run perf:test && npm run perf:budget"
   },
   "size-limit": [
     {
@@ -181,6 +190,7 @@
     "bull": "^4.16.4",
     "date-fns": "^4.1.0",
     "express": "^5.1.0",
+    "fuse.js": "^7.1.0",
     "immer": "^10.1.1",
     "ioredis": "^5.4.1",
     "lodash": "^4.17.21",
@@ -195,7 +205,7 @@
     "tailwindcss": "^4.1.11",
     "uuid": "^11.1.0",
     "validator": "^13.15.15",
-    "web-vitals": "^5.0.3",
+    "web-vitals": "^5.1.0",
     "zod": "^3.25.76",
     "zustand": "^5.0.6"
   },
@@ -233,6 +243,7 @@
     "prettier": "^3.6.2",
     "rollup-plugin-visualizer": "^6.0.3",
     "snyk": "^1.1298.0",
+    "terser": "^5.43.1",
     "ts-morph": "^26.0.0",
     "tsx": "^4.20.0",
     "type-coverage": "^2.29.1",
@@ -259,5 +270,22 @@
     "tar-fs": "^3.0.9",
     "ws": "^8.18.3",
     "nanoid": "^5.0.9"
-  }
+  },
+  "bundlesize": [
+    {
+      "path": "dist/assets/js/index-*.js",
+      "maxSize": "100kB",
+      "compression": "gzip"
+    },
+    {
+      "path": "dist/assets/js/react-core-*.js",
+      "maxSize": "150kB",
+      "compression": "gzip"
+    },
+    {
+      "path": "dist/assets/css/index-*.css",
+      "maxSize": "20kB",
+      "compression": "gzip"
+    }
+  ]
 }

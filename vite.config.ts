@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
+import compression from 'vite-plugin-compression'
 
 // Plugin to modify CSP for development
 const devCSPPlugin = (mode: string) => {
@@ -35,6 +36,11 @@ export default defineConfig(({ mode }) => ({
       brotliSize: true,
       filename: 'dist/stats.html',
     }),
+    // Compression plugins for production
+    ...(mode === 'production' ? [
+      compression({ algorithm: 'gzip' }),
+      compression({ algorithm: 'brotliCompress', ext: '.br' })
+    ] : [])
   ],
   // Define global constants replaced at build time
   // This ensures environment variables are properly injected
@@ -79,54 +85,78 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    sourcemap: true,
+    sourcemap: mode !== 'production',
     chunkSizeWarningLimit: 500,
-    target: 'es2020',
-    minify: true,
+    target: 'es2022', // Updated for better performance
+    minify: mode === 'production' ? 'terser' : false,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')
       },
       output: {
         manualChunks(id) {
+          // Core React dependencies - highest priority
+          if (id.includes('react') && !id.includes('react-router') && !id.includes('react-hook')) {
+            return 'react-core'
+          }
+          
+          // React ecosystem - medium priority
+          if (id.includes('react-router-dom') || id.includes('@tanstack/react-query') || id.includes('react-hook-form')) {
+            return 'react-ecosystem'
+          }
+          
+          // UI libraries - separate for better caching
+          if (id.includes('@headlessui/react')) {
+            return 'ui-headless'
+          }
+          if (id.includes('@heroicons/react')) {
+            return 'ui-icons'
+          }
+          
+          // Backend services - separate chunks
+          if (id.includes('@supabase')) {
+            return 'supabase'
+          }
+          if (id.includes('@stripe') || id.includes('stripe')) {
+            return 'stripe'
+          }
+          if (id.includes('@sentry')) {
+            return 'monitoring'
+          }
+          
+          // State management
+          if (id.includes('zustand') || id.includes('immer')) {
+            return 'state'
+          }
+          
+          // Utilities - group by type for better compression
+          if (id.includes('axios') || id.includes('ky')) {
+            return 'http'
+          }
+          if (id.includes('zod') || id.includes('@hookform/resolvers') || id.includes('validator')) {
+            return 'validation'
+          }
+          if (id.includes('lodash') || id.includes('uuid') || id.includes('date-fns')) {
+            return 'utils'
+          }
+          if (id.includes('fuse') || id.includes('search')) {
+            return 'search'
+          }
+          
+          // Performance monitoring
+          if (id.includes('web-vitals') || id.includes('performance')) {
+            return 'perf-monitor'
+          }
+          
+          // Large vendor libraries get their own chunks
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-core'
-            }
-            if (id.includes('react-router-dom') || id.includes('@tanstack/react-query') || id.includes('react-hook-form')) {
-              return 'react-ecosystem'
-            }
-            if (id.includes('@headlessui/react')) {
-              return 'ui-headless'
-            }
-            if (id.includes('@heroicons/react')) {
-              return 'ui-icons'
-            }
-            if (id.includes('@supabase')) {
-              return 'supabase'
-            }
-            if (id.includes('@stripe') || id.includes('stripe')) {
-              return 'stripe'
-            }
-            if (id.includes('zustand')) {
-              return 'state'
-            }
-            if (id.includes('axios')) {
-              return 'http'
-            }
-            if (id.includes('zod') || id.includes('@hookform/resolvers')) {
-              return 'validation'
-            }
-            if (id.includes('lodash') || id.includes('uuid')) {
-              return 'utils'
-            }
-            if (id.includes('@sentry')) {
-              return 'monitoring'
-            }
             return 'vendor'
           }
         },
-        chunkFileNames: 'assets/js/[name]-[hash].js',
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk'
+          return `assets/js/${chunkInfo.name || facadeModuleId}-[hash].js`
+        },
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
