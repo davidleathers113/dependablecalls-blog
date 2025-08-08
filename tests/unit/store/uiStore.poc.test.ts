@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useUIStore, useActiveModal, useNotifications } from '@/store/uiStore'
 
 describe('UI Store POC - Unified Mutator Chain', () => {
@@ -109,10 +109,10 @@ describe('UI Store POC - Unified Mutator Chain', () => {
 
       expect(result.current).toHaveLength(1)
 
-      // Wait for auto-close
-      await new Promise((resolve) => setTimeout(resolve, 150))
-
-      expect(result.current).toHaveLength(0)
+      // Wait for auto-close using waitFor to handle async state updates
+      await waitFor(() => {
+        expect(result.current).toHaveLength(0)
+      }, { timeout: 200 })
     })
   })
 
