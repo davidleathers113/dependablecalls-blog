@@ -55,16 +55,12 @@ export class CommentService {
     if (error) throw handleSupabaseError(error)
 
     // Type guard to ensure data is properly typed
-    const validatedData: BlogComment[] = (data || []).map(item => {
+    const validatedData: BlogComment[] = (data || []).map((item) => {
       // Ensure the item has the required BlogComment structure
       const comment: BlogComment = {
-        ...item as BlogCommentRow,
-        user: item.user ? {
-          id: item.user.id,
-          email: undefined,
-          username: item.user.display_name || undefined,
-          avatar_url: item.user.avatar_url || undefined,
-        } : undefined,
+        ...(item as BlogCommentRow),
+        // No user relationship exists - blog_comments uses author_email/author_name
+        user: undefined,
         replies: item.replies || undefined,
       }
       return comment
@@ -92,7 +88,7 @@ export class CommentService {
         ...data,
         status: 'pending', // All new comments start as pending
       })
-      .select('*, user:user_profiles(id, display_name, avatar_url)')
+      .select('*')
       .single()
 
     const { data: comment, error } = result
@@ -104,13 +100,9 @@ export class CommentService {
 
     // Type assertion with validation
     const validatedComment: BlogComment = {
-      ...comment as BlogCommentRow,
-      user: comment.user ? {
-        id: comment.user.id,
-        email: undefined,
-        username: comment.user.display_name || undefined,
-        avatar_url: comment.user.avatar_url || undefined,
-      } : undefined,
+      ...(comment as BlogCommentRow),
+      // No user relationship exists - blog_comments uses author_email/author_name
+      user: undefined,
     }
 
     return validatedComment
@@ -126,7 +118,7 @@ export class CommentService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', data.id)
-      .select('*, user:user_profiles(id, display_name, avatar_url)')
+      .select('*')
       .single()
 
     const { data: comment, error } = result
@@ -138,13 +130,9 @@ export class CommentService {
 
     // Type assertion with validation
     const validatedComment: BlogComment = {
-      ...comment as BlogCommentRow,
-      user: comment.user ? {
-        id: comment.user.id,
-        email: undefined,
-        username: comment.user.display_name || undefined,
-        avatar_url: comment.user.avatar_url || undefined,
-      } : undefined,
+      ...(comment as BlogCommentRow),
+      // No user relationship exists - blog_comments uses author_email/author_name
+      user: undefined,
     }
 
     return validatedComment

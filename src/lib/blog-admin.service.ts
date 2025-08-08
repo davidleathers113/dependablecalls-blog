@@ -1,16 +1,16 @@
 import { from, rpc } from '../lib/supabase-optimized'
-import type { 
-  BlogPost, 
+import type {
+  BlogPost,
   BlogComment,
   PostStatus,
   CommentStatus,
   BlogStatistics,
-  BlogSEOMetadata
+  BlogSEOMetadata,
 } from '../types/blog'
 import { handleSupabaseError, type BatchOperationResult } from '../types/errors'
 
 // Type definitions for blog admin RPC functions
-type BlogAdminRPCFunctions = 
+type BlogAdminRPCFunctions =
   | 'get_admin_blog_statistics'
   | 'get_blog_analytics'
   | 'analyze_content_quality'
@@ -90,10 +90,7 @@ interface UserActivityData {
 }
 
 // Type-safe RPC wrapper for blog admin functions
-const blogRPC = (
-  functionName: BlogAdminRPCFunctions,
-  args?: Record<string, unknown>
-) => {
+const blogRPC = (functionName: BlogAdminRPCFunctions, args?: Record<string, unknown>) => {
   return rpc(functionName as never, args as never) as ReturnType<typeof rpc>
 }
 
@@ -179,13 +176,15 @@ export class BlogAdminService {
    * @returns Extended blog statistics for admin dashboard
    * @throws {BlogError} When RPC call fails
    */
-  static async getAdminStatistics(): Promise<BlogStatistics & {
-    pendingComments: number
-    flaggedPosts: number
-    activeAuthors: number
-    totalCategories: number
-    totalTags: number
-  }> {
+  static async getAdminStatistics(): Promise<
+    BlogStatistics & {
+      pendingComments: number
+      flaggedPosts: number
+      activeAuthors: number
+      totalCategories: number
+      totalTags: number
+    }
+  > {
     const { data, error } = await blogRPC('get_admin_blog_statistics')
 
     if (error) throw handleSupabaseError(error)
@@ -203,7 +202,7 @@ export class BlogAdminService {
       flaggedPosts: stats?.flagged_posts || 0,
       activeAuthors: stats?.active_authors || 0,
       totalCategories: stats?.total_categories || 0,
-      totalTags: stats?.total_tags || 0
+      totalTags: stats?.total_tags || 0,
     }
   }
 
@@ -220,7 +219,7 @@ export class BlogAdminService {
       const statusMap: Record<string, PostStatus> = {
         approve: 'published',
         reject: 'draft',
-        archive: 'archived'
+        archive: 'archived',
       }
 
       const { data, error } = await from('blog_posts')
@@ -229,7 +228,7 @@ export class BlogAdminService {
           moderated_at: new Date().toISOString(),
           moderated_by: moderatorId,
           moderation_reason: reason,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', contentId)
         .select('*')
@@ -242,7 +241,7 @@ export class BlogAdminService {
       const statusMap: Record<string, CommentStatus> = {
         approve: 'approved',
         reject: 'deleted',
-        flag: 'spam'
+        flag: 'spam',
       }
 
       const { data, error } = await from('blog_comments')
@@ -251,10 +250,10 @@ export class BlogAdminService {
           moderated_at: new Date().toISOString(),
           moderated_by: moderatorId,
           moderation_reason: reason,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', contentId)
-        .select('*, user:users(id, email, username, avatar_url)')
+        .select('*')
         .single()
 
       if (error) throw handleSupabaseError(error)
@@ -275,14 +274,14 @@ export class BlogAdminService {
       failed: [],
       total: authorIds.length,
       successCount: 0,
-      failureCount: 0
+      failureCount: 0,
     }
 
     // Use a single query for better performance
     const { data, error } = await from('blog_authors')
       .update({
         ...updates,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .in('id', authorIds)
       .select('id')
@@ -295,7 +294,7 @@ export class BlogAdminService {
             const { error: updateError } = await from('blog_authors')
               .update({
                 ...updates,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
               })
               .eq('id', authorId)
 
@@ -308,7 +307,7 @@ export class BlogAdminService {
               operation: 'update',
               itemId: authorId,
               index,
-              error: handleSupabaseError(error)
+              error: handleSupabaseError(error),
             })
             results.failureCount++
           }
@@ -326,7 +325,7 @@ export class BlogAdminService {
             operation: 'update',
             itemId: id,
             index,
-            error: handleSupabaseError(new Error('Author not found'))
+            error: handleSupabaseError(new Error('Author not found')),
           })
           results.failureCount++
         }
@@ -352,7 +351,7 @@ export class BlogAdminService {
       group_by: groupBy,
       author_id_filter: filters?.authorId || null,
       category_id_filter: filters?.categoryId || null,
-      post_id_filter: filters?.postId || null
+      post_id_filter: filters?.postId || null,
     })
 
     if (error) throw handleSupabaseError(error)
@@ -366,7 +365,7 @@ export class BlogAdminService {
       avgEngagementTime: analytics?.avg_engagement_time || 0,
       bounceRate: analytics?.bounce_rate || 0,
       topPages: analytics?.top_pages || [],
-      timeSeriesData: analytics?.time_series_data || []
+      timeSeriesData: analytics?.time_series_data || [],
     }
   }
 
@@ -383,7 +382,7 @@ export class BlogAdminService {
       failed: [],
       total: updates.length,
       successCount: 0,
-      failureCount: 0
+      failureCount: 0,
     }
 
     await Promise.all(
@@ -401,7 +400,7 @@ export class BlogAdminService {
               canonical_url: metadata.canonicalUrl,
               no_index: metadata.noIndex || false,
               no_follow: metadata.noFollow || false,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             })
             .eq('id', postId)
 
@@ -414,7 +413,7 @@ export class BlogAdminService {
             operation: 'update',
             itemId: update.postId,
             index,
-            error: handleSupabaseError(error)
+            error: handleSupabaseError(error),
           })
           results.failureCount++
         }
@@ -442,7 +441,7 @@ export class BlogAdminService {
     const results = {
       posts: [] as BlogPost[],
       comments: [] as BlogComment[],
-      total: 0
+      total: 0,
     }
 
     if (type === 'posts' || type === 'all') {
@@ -460,7 +459,7 @@ export class BlogAdminService {
 
     if (type === 'comments' || type === 'all') {
       const { data: comments, error: commentsError } = await from('blog_comments')
-        .select('*, user:users(id, email, username, avatar_url), post:blog_posts(id, title, slug)')
+        .select('*, post:blog_posts(id, title, slug)')
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(type === 'comments' ? limit : Math.floor(limit / 2))
@@ -482,7 +481,7 @@ export class BlogAdminService {
    */
   static async generateContentQualityReport(postId: string): Promise<ContentQualityReport> {
     const { data, error } = await blogRPC('analyze_content_quality', {
-      post_id_param: postId
+      post_id_param: postId,
     })
 
     if (error) throw handleSupabaseError(error)
@@ -493,7 +492,7 @@ export class BlogAdminService {
       postId,
       readabilityScore: analysis?.readability_score || 0,
       seoScore: analysis?.seo_score || 0,
-      issues: analysis?.issues || []
+      issues: analysis?.issues || [],
     }
   }
 
@@ -521,7 +520,7 @@ export class BlogAdminService {
     return {
       overallHealth: report?.overall_health || 0,
       issues: report?.issues || [],
-      recommendations: report?.recommendations || []
+      recommendations: report?.recommendations || [],
     }
   }
 
@@ -532,7 +531,10 @@ export class BlogAdminService {
    * @returns User activity summary
    * @throws {BlogError} When query fails
    */
-  static async getUserActivitySummary(userId: string, days = 30): Promise<{
+  static async getUserActivitySummary(
+    userId: string,
+    days = 30
+  ): Promise<{
     totalComments: number
     approvedComments: number
     rejectedComments: number
@@ -548,7 +550,7 @@ export class BlogAdminService {
   }> {
     const { data, error } = await blogRPC('get_user_activity_summary', {
       user_id_param: userId,
-      days_param: days
+      days_param: days,
     })
 
     if (error) throw handleSupabaseError(error)
@@ -561,7 +563,7 @@ export class BlogAdminService {
       rejectedComments: summary?.rejected_comments || 0,
       avgCommentsPerDay: summary?.avg_comments_per_day || 0,
       flaggedContent: summary?.flagged_content || 0,
-      recentActivity: summary?.recent_activity || []
+      recentActivity: summary?.recent_activity || [],
     }
   }
 }
