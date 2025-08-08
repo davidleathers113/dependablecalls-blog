@@ -43,6 +43,9 @@ export interface AuthState {
   loading: boolean
   isAuthenticated: boolean
   _hasHydrated: boolean
+  // Demo mode functionality
+  isDemoMode: boolean
+  demoUserType: UserRole | null
   // User preferences (non-sensitive)
   preferences: {
     theme?: 'light' | 'dark'
@@ -54,6 +57,9 @@ export interface AuthState {
   setSession: (session: Session | null) => void
   setUserType: (userType: UserRole | null) => void
   setPreferences: (preferences: Partial<AuthState['preferences']>) => void
+  // Demo mode methods
+  enterDemoMode: (userType: UserRole) => void
+  exitDemoMode: () => void
   signIn: (email: string, password: string) => Promise<void>
   signInWithMagicLink: (email: string) => Promise<void>
   signUp: (
@@ -67,12 +73,14 @@ export interface AuthState {
 }
 
 // Initial state with explicit types
-const initialState: Pick<AuthState, 'user' | 'session' | 'userType' | 'loading' | '_hasHydrated' | 'preferences'> = {
+const initialState: Pick<AuthState, 'user' | 'session' | 'userType' | 'loading' | '_hasHydrated' | 'preferences' | 'isDemoMode' | 'demoUserType'> = {
   user: null as User | null,
   session: null as Session | null,
   userType: null as UserRole | null,
   loading: true,
   _hasHydrated: false,
+  isDemoMode: false,
+  demoUserType: null as UserRole | null,
   preferences: {} as AuthState['preferences'],
 }
 
@@ -107,6 +115,64 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
   setPreferences: (preferences: Partial<AuthState['preferences']>) => {
     set((state: AuthState) => {
       state.preferences = { ...state.preferences, ...preferences }
+    })
+  },
+
+  // Demo mode methods
+  enterDemoMode: (userType: UserRole) => {
+    set((state: AuthState) => {
+      state.isDemoMode = true
+      state.demoUserType = userType
+      state.user = {
+        id: 'demo-user',
+        email: `demo-${userType}@example.com`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        email_confirmed_at: new Date().toISOString(),
+        phone: undefined,
+        confirmed_at: new Date().toISOString(),
+        recovery_sent_at: undefined,
+        new_email: undefined,
+        invited_at: undefined,
+        action_link: undefined,
+        aud: 'authenticated',
+        role: 'authenticated',
+        app_metadata: {
+          provider: 'demo',
+          providers: ['demo']
+        },
+        user_metadata: {
+          user_type: userType,
+          full_name: `Demo ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
+          first_name: 'Demo',
+          last_name: userType.charAt(0).toUpperCase() + userType.slice(1)
+        },
+        identities: [],
+        factors: []
+      } as User
+      state.session = {
+        access_token: 'demo-token',
+        refresh_token: 'demo-refresh',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'Bearer',
+        user: state.user
+      } as Session
+      state.userType = userType
+      state.loading = false
+      state.isAuthenticated = true
+    })
+  },
+
+  exitDemoMode: () => {
+    set((state: AuthState) => {
+      state.isDemoMode = false
+      state.demoUserType = null
+      state.user = null
+      state.session = null
+      state.userType = null
+      state.isAuthenticated = false
     })
   },
 
@@ -179,6 +245,22 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
   },
 
   signOut: async () => {
+    // Check if in demo mode first
+    const state = _get()
+    
+    if (state.isDemoMode) {
+      // For demo mode, just clear state locally
+      set((state: AuthState) => {
+        state.user = null
+        state.session = null
+        state.userType = null
+        state.isAuthenticated = false
+        state.isDemoMode = false
+        state.demoUserType = null
+      })
+      return
+    }
+
     // Call server-side logout to clear httpOnly cookies
     try {
       await safeFetch('/.netlify/functions/auth-logout', {
@@ -196,6 +278,8 @@ const createAuthStoreState: StandardStateCreator<AuthState> = (set, _get) => ({
       state.session = null
       state.userType = null
       state.isAuthenticated = false
+      state.isDemoMode = false
+      state.demoUserType = null
     })
   },
 
