@@ -26,7 +26,6 @@ export class CommentService {
     let query = from('blog_comments').select(
       `
       *,
-      user:user_profiles(id, display_name, avatar_url),
       replies:blog_comments!parent_id(count)
     `,
       { count: 'exact' }

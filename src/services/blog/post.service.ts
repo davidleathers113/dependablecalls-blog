@@ -507,7 +507,7 @@ export class PostService {
     // Load comments if requested
     if (includeComments) {
       const { data: commentsData, error: commentsError } = await from('blog_comments')
-        .select('*, user:user_profiles(id, display_name, avatar_url)')
+        .select('*')
         .eq('post_id', data.id)
         .eq('status', 'approved')
         .is('parent_id', null)
