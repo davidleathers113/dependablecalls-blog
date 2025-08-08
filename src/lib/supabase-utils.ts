@@ -28,6 +28,18 @@ export function handleSupabaseError(error: unknown): BlogError {
   if (error && typeof error === 'object' && 'code' in error) {
     const pgError = error as PostgrestError
     
+    // Log PostgREST errors with detailed information for debugging
+    if (pgError.code || pgError.message || pgError.details) {
+      console.error('PostgREST Error Details:', {
+        code: pgError.code,
+        message: pgError.message,
+        details: pgError.details,
+        hint: pgError.hint,
+        timestamp: new Date().toISOString(),
+        context: 'Supabase query operation'
+      })
+    }
+    
     // Handle specific PostgreSQL error codes
     switch (pgError.code) {
       case '23505': // unique_violation
@@ -48,7 +60,18 @@ export function handleSupabaseError(error: unknown): BlogError {
         return BlogErrorFactory.database('column_access', pgError, 'unknown')
       case 'PGRST116': // not found
         return BlogErrorFactory.notFound('Resource', 'unknown')
+      case 'PGRST103': // insufficient privilege
+        return BlogErrorFactory.database('permission', pgError, 'unknown')
       default:
+        // For 400 Bad Request errors, provide more specific context
+        if (pgError.message && pgError.message.includes('relation') || pgError.message?.includes('constraint')) {
+          console.error('PostgREST Relationship Error - likely missing foreign key constraint or incorrect relation syntax:', {
+            originalError: pgError,
+            suggestedFix: 'Check foreign key constraint names and PostgREST relationship syntax (use !constraint_name for ambiguous joins)',
+            timestamp: new Date().toISOString()
+          })
+          return BlogErrorFactory.database('relationship', pgError, 'unknown')
+        }
         return BlogErrorFactory.database('query', pgError)
     }
   }

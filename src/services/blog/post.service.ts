@@ -507,7 +507,7 @@ export class PostService {
     // Load comments if requested
     if (includeComments) {
       const { data: commentsData, error: commentsError } = await from('blog_comments')
-        .select('*, user:users(id, email, username, avatar_url)')
+        .select('*, user:user_profiles(id, display_name, avatar_url)')
         .eq('post_id', data.id)
         .eq('status', 'approved')
         .is('parent_id', null)
@@ -874,19 +874,11 @@ export class PostService {
   }
 
   /**
-   * Get similar posts using vector search
+   * Get similar posts using category-based similarity (embedding removed due to PostgREST compatibility)
    */
   static async getSimilarPosts(postId: string, limit = 5): Promise<BlogPost[]> {
-    // First get the post's embedding
-    const { data: post, error: postError } = await from('blog_posts')
-      .select('embedding')
-      .eq('id', postId)
-      .single()
-
-    if (postError || !post?.embedding) return []
-
-    // Manual similarity search since RPC is not available
-    // For now, return posts from the same categories
+    // Use category-based similarity instead of embedding to avoid PostgREST 400 errors
+    // Return posts from the same categories
     const { data: categoryData, error: categoryError } = await from('blog_post_categories')
       .select('category_id')
       .eq('post_id', postId)

@@ -26,8 +26,8 @@ export class CommentService {
     let query = from('blog_comments').select(
       `
       *,
-      user:users(id, email, username, avatar_url),
-      replies:blog_comments(count)
+      user:user_profiles(id, display_name, avatar_url),
+      replies:blog_comments!parent_id(count)
     `,
       { count: 'exact' }
     )
@@ -62,8 +62,8 @@ export class CommentService {
         ...item as BlogCommentRow,
         user: item.user ? {
           id: item.user.id,
-          email: item.user.email,
-          username: item.user.username || undefined,
+          email: undefined,
+          username: item.user.display_name || undefined,
           avatar_url: item.user.avatar_url || undefined,
         } : undefined,
         replies: item.replies || undefined,
@@ -93,7 +93,7 @@ export class CommentService {
         ...data,
         status: 'pending', // All new comments start as pending
       })
-      .select('*, user:users(id, email, username, avatar_url)')
+      .select('*, user:user_profiles(id, display_name, avatar_url)')
       .single()
 
     const { data: comment, error } = result
@@ -108,8 +108,8 @@ export class CommentService {
       ...comment as BlogCommentRow,
       user: comment.user ? {
         id: comment.user.id,
-        email: comment.user.email,
-        username: comment.user.username || undefined,
+        email: undefined,
+        username: comment.user.display_name || undefined,
         avatar_url: comment.user.avatar_url || undefined,
       } : undefined,
     }
@@ -127,7 +127,7 @@ export class CommentService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', data.id)
-      .select('*, user:users(id, email, username, avatar_url)')
+      .select('*, user:user_profiles(id, display_name, avatar_url)')
       .single()
 
     const { data: comment, error } = result
@@ -142,8 +142,8 @@ export class CommentService {
       ...comment as BlogCommentRow,
       user: comment.user ? {
         id: comment.user.id,
-        email: comment.user.email,
-        username: comment.user.username || undefined,
+        email: undefined,
+        username: comment.user.display_name || undefined,
         avatar_url: comment.user.avatar_url || undefined,
       } : undefined,
     }
