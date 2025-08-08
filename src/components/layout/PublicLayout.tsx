@@ -349,6 +349,11 @@ export default function PublicLayout() {
                     Compliance
                   </Link>
                 </li>
+                <li>
+                  <Link to="/cookies" className="text-gray-400 hover:text-white py-2 px-1 -mx-1 inline-block min-h-[44px]">
+                    Cookie Policy
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

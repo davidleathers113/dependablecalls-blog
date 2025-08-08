@@ -1,6 +1,8 @@
+import React from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useNavigation } from '../../store/slices/navigationSlice'
+import { useSearchActions, useSearchModal } from '../../store/searchStore'
 import {
   HomeIcon,
   ChartBarIcon,
@@ -15,6 +17,9 @@ import ErrorBoundary from '../common/ErrorBoundary'
 import { AppLayoutSidebarFallbackUI, AppLayoutContentFallbackUI } from '../common/FallbackUI'
 import AccessibleIcon from '../common/AccessibleIcon'
 import { Logo } from '../common/Logo'
+import { SearchBar } from '../search/SearchBar'
+import { GlobalSearchModal } from '../search/GlobalSearchModal'
+import { DemoModeIndicator } from '../demo/DemoModeIndicator'
 
 // Dynamic navigation based on user type
 const getNavigation = (userType: string | null) => {
@@ -70,7 +75,10 @@ function classNames(...classes: string[]) {
 export default function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, userType, signOut } = useAuthStore()
+  const { user, userType, signOut, isDemoMode, demoUserType } = useAuthStore()
+  
+  // Use demo user type if in demo mode
+  const currentUserType = isDemoMode ? demoUserType : userType
   
   // Use the navigation state machine
   const {
@@ -85,13 +93,31 @@ export default function AppLayout() {
     closeUserDropdown
   } = useNavigation()
 
+  // Search state management
+  const isSearchModalOpen = useSearchModal()
+  const { setQuery: setSearchQuery, setModalOpen: setSearchModalOpen } = useSearchActions()
+
   // Get navigation items based on user type
-  const navigation = getNavigation(userType)
+  const navigation = getNavigation(currentUserType)
 
   const handleSignOut = async () => {
     await signOut()
     navigate('/')
   }
+
+  // Keyboard shortcuts for search
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Cmd+K or Ctrl+K to open search
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault()
+        setSearchModalOpen(true)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [setSearchModalOpen])
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -248,7 +274,19 @@ export default function AppLayout() {
           </button>
 
           <div className="flex-1 px-4 flex justify-between">
-            <div className="flex-1 flex">{/* Search can go here */}</div>
+            <div className="flex-1 flex items-center max-w-lg">
+              <SearchBar
+                placeholder="Search campaigns, calls, settings..."
+                size="md"
+                variant="default"
+                showSuggestions={true}
+                className="w-full"
+                onSearch={(query) => {
+                  setSearchQuery(query)
+                  setSearchModalOpen(true)
+                }}
+              />
+            </div>
 
             <div className="ml-4 flex items-center md:ml-6">
               {/* User menu */}
@@ -297,6 +335,17 @@ export default function AppLayout() {
 
         {/* Page content */}
         <main id="main-content" className="flex-1">
+          {/* Demo mode indicator */}
+          {isDemoMode && (
+            <div className="bg-white border-b border-gray-200">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="py-3">
+                  <DemoModeIndicator compact />
+                </div>
+              </div>
+            </div>
+          )}
+          
           <ErrorBoundary
             context="AppLayout - Main Content"
             fallback={<AppLayoutContentFallbackUI />}
@@ -305,6 +354,12 @@ export default function AppLayout() {
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+      />
     </div>
   )
 }

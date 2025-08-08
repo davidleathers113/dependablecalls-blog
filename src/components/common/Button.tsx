@@ -93,6 +93,18 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       </>
     )
 
+    // When using asChild, we need to handle the props more carefully
+    // to avoid passing button-specific props to non-button elements
+    if (asChild) {
+      // Filter out button-specific props when using asChild
+      const { type: _type, ...slotProps } = props
+      return (
+        <Comp ref={ref} className={classes} {...slotProps}>
+          {content}
+        </Comp>
+      )
+    }
+
     return (
       <Comp ref={ref} className={classes} disabled={isDisabled} {...props}>
         {content}

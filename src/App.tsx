@@ -4,12 +4,21 @@ import { queryClient } from './lib/queryClient'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ErrorBoundary as CustomErrorBoundary } from './components/common/ErrorBoundary'
 import { UnauthorizedError } from './components/common/FallbackUI'
-import React, { useEffect, Suspense } from 'react'
+import React, { useEffect, Suspense, startTransition } from 'react'
 import { useAuthStore } from './store/authStore'
 import { captureError } from './lib/monitoring'
 import { QueryErrorFallback } from './components/ui/QueryErrorFallback'
 import { CSPProvider } from './lib/CSPProvider'
+import { ServiceWorkerProvider, UpdatePrompt, OfflineIndicator } from './components/performance/ServiceWorkerProvider'
+import { performanceMonitor, useCriticalPreload } from './components/performance'
 // // import { useReducedMotion } from './hooks/useReducedMotion' // Removed for build
+
+// Navigator interface with connection property for network information
+interface NavigatorWithConnection extends Navigator {
+  connection?: {
+    effectiveType?: string
+  }
+}
 
 // Layouts - Keep these eager as they're used on every route
 import PublicLayout from './components/layout/PublicLayout'
@@ -54,6 +63,17 @@ const TermsPage = React.lazy(() =>
 const CompliancePage = React.lazy(() => 
   import(/* webpackChunkName: "compliance" */ './pages/legal/CompliancePage')
 )
+const CookiePolicyPage = React.lazy(() => 
+  import(/* webpackChunkName: "cookie-policy" */ './pages/legal/CookiePolicyPage')
+)
+
+// Alternative legal pages with user-friendly URLs
+const PrivacyPolicyPage = React.lazy(() => 
+  import(/* webpackChunkName: "privacy-policy" */ './pages/legal/PrivacyPolicyPage')
+)
+const TermsOfServicePage = React.lazy(() => 
+  import(/* webpackChunkName: "terms-of-service" */ './pages/legal/TermsOfServicePage')
+)
 
 // Blog Pages
 const BlogPage = React.lazy(() => 
@@ -69,7 +89,15 @@ const BlogAuthorPage = React.lazy(() =>
   import(/* webpackChunkName: "blog-author" */ './pages/public/BlogAuthorPage')
 )
 
-// Demo Pages (Development Only)
+// Demo Pages
+const DemoSelectorPage = React.lazy(() => 
+  import(/* webpackChunkName: "demo-selector" */ './pages/demo/DemoSelector')
+)
+const DemoDashboardPage = React.lazy(() => 
+  import(/* webpackChunkName: "demo-dashboard" */ './pages/demo/DemoDashboard')
+)
+
+// Development Demo Pages
 const ErrorDemoPage = import.meta.env.DEV ? React.lazy(() => 
   import(/* webpackChunkName: "error-demo" */ './pages/ErrorDemo')
 ) : null
@@ -130,64 +158,100 @@ const QualityStandardsPage = React.lazy(() =>
   import(/* webpackChunkName: "settings-quality" */ './pages/settings/QualityStandardsPage')
 )
 
-// Loading component for lazy-loaded routes
-function PageLoader() {
+// Optimized loading component with skeleton animation
+const PageLoader = React.memo(() => {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-gray-600">Loading...</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center max-w-md mx-auto px-4">
+        <div className="relative">
+          {/* Main spinner */}
+          <div className="inline-flex items-center justify-center w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          
+          {/* Pulse animation overlay */}
+          <div className="absolute inset-0 inline-flex items-center justify-center w-16 h-16 border-4 border-blue-200 rounded-full animate-pulse"></div>
+        </div>
+        
+        <div className="mt-6 space-y-3">
+          <p className="text-gray-700 font-medium">Loading...</p>
+          
+          {/* Skeleton text lines */}
+          <div className="space-y-2">
+            <div className="h-2 bg-gray-200 rounded animate-pulse mx-auto w-32"></div>
+            <div className="h-2 bg-gray-200 rounded animate-pulse mx-auto w-24"></div>
+          </div>
+        </div>
       </div>
     </div>
   )
-}
+})
 
-// Protected Route Component
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuthStore()
+PageLoader.displayName = 'PageLoader'
+
+// Optimized Protected Route Component with performance tracking
+const ProtectedRoute = React.memo(({ children }: { children: React.ReactNode }) => {
+  const { user, loading, isDemoMode } = useAuthStore()
+  const renderStart = React.useRef(performance.now())
+
+  // Track authentication check performance
+  React.useEffect(() => {
+    if (!loading) {
+      const authCheckTime = performance.now() - renderStart.current
+      performanceMonitor.trackComponentRender('AuthCheck', authCheckTime)
+    }
+  }, [loading])
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
-  if (!user) {
+  // Allow access if user is authenticated OR in demo mode
+  if (!user && !isDemoMode) {
     return <Navigate to="/login" replace />
   }
 
   return (
     <CustomErrorBoundary
-      context="ProtectedRoute - Authentication"
+      context={isDemoMode ? "DemoProtectedRoute" : "ProtectedRoute - Authentication"}
       fallback={<UnauthorizedError onGoHome={() => (window.location.href = '/')} />}
       onError={(error, errorInfo) => {
         // Log authentication-related errors
         captureError(error, {
-          errorBoundary: 'protected-route',
+          errorBoundary: isDemoMode ? 'demo-protected-route' : 'protected-route',
           componentStack: errorInfo.componentStack,
-          context: 'authentication',
-          user: user?.id || 'unknown',
+          context: isDemoMode ? 'demo-authentication' : 'authentication',
+          user: user?.id || (isDemoMode ? 'demo-user' : 'unknown'),
         })
       }}
     >
       {children}
     </CustomErrorBoundary>
   )
-}
+})
+
+ProtectedRoute.displayName = 'ProtectedRoute'
 
 function App() {
   const { checkSession } = useAuthStore()
+  
+  // Preload critical resources
+  useCriticalPreload([
+    { href: '/assets/fonts/inter-var.woff2', options: { as: 'font', crossorigin: 'anonymous' } },
+    { href: '/assets/images/logo.svg', options: { as: 'image' } }
+  ])
 
+  // Initialize session check with performance tracking
   useEffect(() => {
-    checkSession()
+    const sessionStart = performance.now()
+    
+    startTransition(() => {
+      checkSession().finally(() => {
+        const sessionTime = performance.now() - sessionStart
+        performanceMonitor.trackComponentRender('SessionCheck', sessionTime)
+      })
+    })
   }, [checkSession])
 
-  // Add resource error tracking to identify 404s and other loading issues
+  // Enhanced resource error tracking with performance impact analysis
   useEffect(() => {
     const handleResourceError = (event: Event) => {
       if (event.target instanceof HTMLImageElement || 
@@ -199,47 +263,96 @@ function App() {
           target instanceof HTMLScriptElement ? target.src :
           target instanceof HTMLLinkElement ? target.href : 'unknown'
         
-        console.error('Resource loading error:', {
+        const errorDetails = {
           type: target.tagName.toLowerCase(),
           url: resourceUrl,
-          message: 'Failed to load resource'
-        })
+          message: 'Failed to load resource',
+          timestamp: Date.now(),
+          userAgent: navigator.userAgent,
+          connectionType: (navigator as NavigatorWithConnection).connection?.effectiveType || 'unknown'
+        }
+        
+        console.error('Resource loading error:', errorDetails)
 
+        // Track performance impact
+        performanceMonitor.trackComponentRender(`ResourceError-${errorDetails.type}`, 0)
+        
         // Also capture in monitoring if available
         captureError(new Error(`Failed to load ${target.tagName.toLowerCase()}: ${resourceUrl}`), {
           errorBoundary: 'resource-loading',
           context: 'resource-error',
           resourceType: target.tagName.toLowerCase(),
-          resourceUrl
+          resourceUrl,
+          ...errorDetails
         })
       }
     }
 
+    // Performance monitoring for navigation timing
+    const logNavigationTiming = () => {
+      if ('performance' in window && window.performance.navigation) {
+        const navTiming = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+        if (navTiming) {
+          console.log('Navigation Performance:', {
+            dns: navTiming.domainLookupEnd - navTiming.domainLookupStart,
+            connect: navTiming.connectEnd - navTiming.connectStart,
+            request: navTiming.responseStart - navTiming.requestStart,
+            response: navTiming.responseEnd - navTiming.responseStart,
+            domParsing: navTiming.domContentLoadedEventStart - navTiming.responseEnd,
+            domReady: navTiming.domContentLoadedEventEnd - navTiming.domContentLoadedEventStart,
+            loadComplete: navTiming.loadEventEnd - navTiming.loadEventStart
+          })
+        }
+      }
+    }
+
     window.addEventListener('error', handleResourceError, true)
+    window.addEventListener('load', logNavigationTiming, { once: true })
 
     return () => {
       window.removeEventListener('error', handleResourceError, true)
+      window.removeEventListener('load', logNavigationTiming)
+    }
+  }, [])
+  
+  // Memory usage monitoring in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const logMemoryUsage = () => {
+        const memStats = performanceMonitor.getMemoryStats()
+        if (memStats && memStats.usagePercent > 70) {
+          console.warn('High memory usage detected:', memStats)
+        }
+      }
+      
+      const interval = setInterval(logMemoryUsage, 30000) // Check every 30s
+      return () => clearInterval(interval)
     }
   }, [])
 
   return (
-    <CSPProvider>
-      <div className="min-h-screen flex flex-col">
-        <QueryClientProvider client={queryClient}>
-          <QueryErrorResetBoundary>
-            {({ reset }) => (
-              <ErrorBoundary
-                FallbackComponent={QueryErrorFallback}
-                onError={(error, errorInfo) => {
-                  // Capture React Query related errors
-                  captureError(error, {
-                    errorBoundary: 'query-level',
-                    componentStack: errorInfo.componentStack,
-                    context: 'react-query-boundary',
-                  })
-                }}
-                onReset={reset}
-              >
+    <ServiceWorkerProvider enableUpdatePrompt={true}>
+      <CSPProvider>
+        <div className="min-h-screen flex flex-col">
+          {/* Performance indicators */}
+          <UpdatePrompt />
+          <OfflineIndicator />
+          
+          <QueryClientProvider client={queryClient}>
+            <QueryErrorResetBoundary>
+              {({ reset }) => (
+                <ErrorBoundary
+                  FallbackComponent={QueryErrorFallback}
+                  onError={(error, errorInfo) => {
+                    // Capture React Query related errors
+                    captureError(error, {
+                      errorBoundary: 'query-level',
+                      componentStack: errorInfo.componentStack,
+                      context: 'react-query-boundary',
+                    })
+                  }}
+                  onReset={reset}
+                >
               <Router>
                 <Routes>
                   {/* Public routes */}
@@ -332,6 +445,39 @@ function App() {
                         </Suspense>
                       }
                     />
+                    <Route
+                      path="cookies"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <CookiePolicyPage />
+                        </Suspense>
+                      }
+                    />
+                    {/* Alternative routes for legal pages (user-friendly URLs) */}
+                    <Route
+                      path="privacy-policy"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <PrivacyPolicyPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="terms-of-service"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <TermsOfServicePage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="cookie-policy"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <CookiePolicyPage />
+                        </Suspense>
+                      }
+                    />
                     {/* Blog Routes */}
                     <Route
                       path="blog"
@@ -365,6 +511,24 @@ function App() {
                         </Suspense>
                       }
                     />
+                    {/* Demo routes */}
+                    <Route
+                      path="demo"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <DemoSelectorPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="demo/:userType"
+                      element={
+                        <Suspense fallback={<PageLoader />}>
+                          <DemoDashboardPage />
+                        </Suspense>
+                      }
+                    />
+
                     {/* Development-only demo routes */}
                     {import.meta.env.DEV && ErrorDemoPage && (
                       <Route
@@ -529,7 +693,15 @@ function App() {
       </QueryClientProvider>
     </div>
     </CSPProvider>
+    </ServiceWorkerProvider>
   )
 }
 
-export default App
+// Performance report in development
+if (process.env.NODE_ENV === 'development') {
+  window.addEventListener('beforeunload', () => {
+    console.log(performanceMonitor.generateReport())
+  })
+}
+
+export default React.memo(App)
